@@ -141,10 +141,6 @@ const adminLinks: SidebarLink[] = [
     icon: BarChart2,
     subLinks: [
       { path: '/analysis', label: 'Overview', icon: BarChart3 },
-      { path: '/analysis/descriptive', label: 'Descriptive', icon: Activity },
-      { path: '/analysis/predictive', label: 'Predictive', icon: TrendingUp },
-      { path: '/analysis/prescriptive', label: 'Prescriptive', icon: Sparkles },
-      { path: '/analysis/surveillance-health', label: 'Surveillance & Health', icon: Stethoscope },
       { path: '/admin/census-analytics', label: 'Census Analytics', icon: FileSpreadsheet },
     ],
   },

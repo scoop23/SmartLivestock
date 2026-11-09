@@ -305,7 +305,7 @@ export default function PrescriptiveAnalyticsView() {
               size="sm"
               className="border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 shadow-2xs cursor-pointer"
             >
-              <Link href="/analysis/prescriptive">
+              <Link href="/analysis?tab=prescriptive">
                 <Lightbulb className="size-3.5 mr-1.5 text-amber-600" />
                 Rule Intelligence
               </Link>

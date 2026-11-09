@@ -140,10 +140,10 @@ interface PrescriptiveResponse {
   recommendations: RecommendationItem[];
 }
 
-function PrescriptiveLandingContent() {
+export function PrescriptiveAnalyticsContent({ selectedDomainProp }: { selectedDomainProp?: string }) {
   const { user } = useAuth();
   const searchParams = useSearchParams();
-  const domainParam = searchParams?.get('domain');
+  const domainParam = selectedDomainProp || searchParams?.get('domain') || null;
 
   const initialCat = useMemo<RecommendationCategory>(() => {
     if (!domainParam) return 'ALL';
@@ -187,18 +187,7 @@ function PrescriptiveLandingContent() {
   };
 
   return (
-    <>
-      <PageHeader
-        title="Prescriptive Intelligence"
-        subtitle="Use recorded evidence and available forecasts to plan staff follow-up and municipal activities."
-        variant="admin"
-        maxWidthClass="w-full"
-        icon={<Lightbulb className="size-5 text-amber-800" />}
-      />
-
-      <div className="p-3 sm:p-4 md:p-6 w-full space-y-6 pb-20 sm:pb-8">
-        <AnalyticsNav currentSection="prescriptive" />
-
+    <div className="w-full space-y-6">
         {/* ----------------------------------------------------------------- */}
         {/* A. COMMAND BANNER (Futuristic Warm Amber Header)                  */}
         {/* ----------------------------------------------------------------- */}
@@ -208,28 +197,10 @@ function PrescriptiveLandingContent() {
           <div className="pointer-events-none absolute -left-16 -bottom-16 size-72 rounded-full bg-orange-500/10 blur-3xl" />
 
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="flex items-center gap-1.5 text-xs font-mono font-bold uppercase tracking-wider text-amber-900">
-                  <Workflow className="size-3.5 text-amber-700 animate-pulse" />
-                  Municipal Decision Support Engine
-                </span>
-                <span className="text-slate-300">•</span>
-                <span className="text-xs text-slate-600 font-medium">Padre Garcia Batangas</span>
-                <span className="text-slate-300">•</span>
-                <Badge variant="outline" className="bg-amber-100/60 text-amber-900 border-amber-300 text-[10px] font-mono font-bold">
-                  Advisory Protocol
-                </Badge>
-              </div>
-              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 flex items-center gap-2">
-                Prescriptive Intelligence
-                <Badge className="bg-amber-100 text-amber-900 border-amber-300 text-[11px] font-mono font-bold">
-                  v2.4 Rules
-                </Badge>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900">
+                Prescriptive
               </h1>
-              <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
-                Evidence-based administrative guidance derived from verified records. All triggers are advisory recommendations and never silently alter official registers.
-              </p>
             </div>
 
             {/* Header Action Buttons */}
@@ -713,15 +684,27 @@ function PrescriptiveLandingContent() {
             </Link>
           </Button>
         </div>
-      </div>
-    </>
+    </div>
   );
 }
 
 export default function PrescriptiveAnalyticsLandingPage() {
   return (
-    <Suspense fallback={<div className="h-96 w-full animate-pulse rounded-2xl bg-slate-100" />}>
-      <PrescriptiveLandingContent />
-    </Suspense>
+    <>
+      <PageHeader
+        title="Prescriptive"
+        subtitle="Use recorded evidence and available forecasts to plan staff follow-up and municipal activities."
+        variant="admin"
+        maxWidthClass="w-full"
+        icon={<Lightbulb className="size-5 text-amber-800" />}
+      />
+
+      <div className="p-3 sm:p-4 md:p-6 w-full space-y-6 pb-20 sm:pb-8">
+        <AnalyticsNav currentSection="prescriptive" />
+        <Suspense fallback={<div className="h-96 w-full animate-pulse rounded-2xl bg-slate-100" />}>
+          <PrescriptiveAnalyticsContent />
+        </Suspense>
+      </div>
+    </>
   );
 }

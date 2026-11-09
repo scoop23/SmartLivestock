@@ -656,10 +656,10 @@ const clinicalStatusLabel: Record<string, string> = {
   CLOSED: "Closed",
 };
 
-export default function SurveillanceAnalytics() {
+export default function SurveillanceAnalytics({ selectedDomainProp }: { selectedDomainProp?: string }) {
   const { user } = useAuth();
   const searchParams = useSearchParams();
-  const domainParam = searchParams?.get("domain");
+  const domainParam = selectedDomainProp || searchParams?.get("domain");
 
   const initialFocus = useMemo<"all" | "disease" | "mortality" | "associations">(() => {
     if (!domainParam) return "all";
@@ -858,24 +858,13 @@ export default function SurveillanceAnalytics() {
       {/* ----------------------------------------------------------------- */}
       <div className="relative overflow-hidden rounded-2xl border border-emerald-200/80 bg-gradient-to-r from-emerald-100 via-teal-50 to-emerald-50 p-3.5 sm:p-4 shadow-2xs">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div className="flex items-start gap-3">
-            <div className="size-10 sm:size-11 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0 mt-0.5">
+          <div className="flex items-center gap-3">
+            <div className="size-10 sm:size-11 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
               <Plus className="size-5.5 stroke-[3]" />
             </div>
-            <div className="space-y-0.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-full">
-                  <span className="size-1.5 rounded-full bg-emerald-600 animate-pulse" />
-                  Padre Garcia Animal Health
-                </span>
-              </div>
-              <h1 className="text-lg sm:text-xl font-extrabold tracking-tight text-slate-900">
-                Disease Reports &amp; Deaths
-              </h1>
-              <p className="text-xs text-slate-600 max-w-2xl leading-relaxed">
-                Approved disease reports, death trends, weekly changes, and related animal records across Padre Garcia.
-              </p>
-            </div>
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900">
+              Surveillance
+            </h1>
           </div>
 
           {/* Header Action Buttons & Date Badge */}

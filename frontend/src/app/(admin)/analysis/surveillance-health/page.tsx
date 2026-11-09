@@ -10,7 +10,7 @@ export default function SurveillanceHealthPage() {
   return (
     <>
       <PageHeader
-        title="Disease Reports & Deaths"
+        title="Surveillance"
         subtitle="View approved disease reports, death trends, and animal health notes in Padre Garcia."
         variant="admin"
         maxWidthClass="w-full"

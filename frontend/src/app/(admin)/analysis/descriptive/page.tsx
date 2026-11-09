@@ -34,7 +34,7 @@ import {
   Zap,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   BarChart,
   Bar,
@@ -140,10 +140,16 @@ function MissionControlTooltip({ active, payload, label, unit }: MissionControlT
   );
 }
 
-export default function DescriptiveAnalyticsLandingPage() {
+export function DescriptiveAnalyticsContent({ selectedDomainProp }: { selectedDomainProp?: 'sales' | 'population' | 'slaughter' | 'vaccination' }) {
   const { user } = useAuth();
-  const [selectedDomain, setSelectedDomain] = useState<'sales' | 'population' | 'slaughter' | 'vaccination'>('sales');
+  const [selectedDomain, setSelectedDomain] = useState<'sales' | 'population' | 'slaughter' | 'vaccination'>(selectedDomainProp ?? 'sales');
   const [showTableView, setShowTableView] = useState(false);
+
+  useEffect(() => {
+    if (selectedDomainProp) {
+      setSelectedDomain(selectedDomainProp);
+    }
+  }, [selectedDomainProp]);
 
   const query = useQuery<DescriptiveResponse>({
     queryKey: ['descriptive-landing', user?.email, user?.accessScope, user?.assignedBarangayId],
@@ -171,30 +177,12 @@ export default function DescriptiveAnalyticsLandingPage() {
       : [];
   }, [data]);
 
-  const periodStartFormatted = data?.period?.start
-    ? new Date(`${data.period.start}T00:00:00`).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
-    : '';
-  const periodEndFormatted = data?.period?.end
-    ? new Date(`${data.period.end}T00:00:00`).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
-    : '';
-
   const salesTrend = data?.sales.trend || [];
   const cattlePriceTrend = data?.sales.cattle_price.trend || [];
   const hasCattlePriceObservations = cattlePriceTrend.some((point) => point.average_price_per_head !== null);
 
   return (
-    <>
-      <PageHeader
-        title="Descriptive Intelligence"
-        subtitle="Understand livestock populations, approved slaughter activity, health coverage, and barangay distributions from official Padre Garcia records"
-        variant="admin"
-        maxWidthClass="w-full"
-        icon={<BarChart3 className="size-5 text-emerald-800" />}
-      />
-
-      <div className="p-3 sm:p-4 md:p-6 w-full space-y-6 pb-20 sm:pb-8">
-        <AnalyticsNav currentSection="descriptive" />
-
+    <div className="w-full space-y-6">
         {/* ----------------------------------------------------------------- */}
         {/* A. COMMAND BANNER (Futuristic Light Emerald Header)               */}
         {/* ----------------------------------------------------------------- */}
@@ -204,33 +192,10 @@ export default function DescriptiveAnalyticsLandingPage() {
           <div className="pointer-events-none absolute -left-16 -bottom-16 size-72 rounded-full bg-teal-500/10 blur-3xl" />
 
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="flex items-center gap-1.5 text-xs font-mono font-bold uppercase tracking-wider text-emerald-800">
-                  <Activity className="size-3.5 text-emerald-600 animate-pulse" />
-                  Municipal Telemetry Engine
-                </span>
-                <span className="text-slate-300">•</span>
-                <span className="text-xs text-slate-600 font-medium">Padre Garcia Batangas</span>
-                {periodEndFormatted && (
-                  <>
-                    <span className="text-slate-300">•</span>
-                    <span className="text-xs font-mono text-slate-500 flex items-center gap-1">
-                      <Clock className="size-3 text-slate-400" />
-                      Window: {periodStartFormatted} – {periodEndFormatted}
-                    </span>
-                  </>
-                )}
-              </div>
-              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 flex items-center gap-2">
-                Descriptive Intelligence
-                <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[11px] font-mono font-bold">
-                  v2.4 Core
-                </Badge>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900">
+                Descriptive
               </h1>
-              <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
-                Approved census snapshots, reviewed slaughter activity, health coverage, and livestock auction sales and prices. Simple by default, detailed on demand.
-              </p>
             </div>
 
             {/* Header Action Buttons */}
@@ -968,6 +933,24 @@ export default function DescriptiveAnalyticsLandingPage() {
             </Link>
           </Button>
         </div>
+    </div>
+  );
+}
+
+export default function DescriptiveAnalyticsLandingPage() {
+  return (
+    <>
+      <PageHeader
+        title="Descriptive"
+        subtitle="Understand livestock populations, approved slaughter activity, health coverage, and barangay distributions from official Padre Garcia records"
+        variant="admin"
+        maxWidthClass="w-full"
+        icon={<BarChart3 className="size-5 text-emerald-800" />}
+      />
+
+      <div className="p-3 sm:p-4 md:p-6 w-full space-y-6 pb-20 sm:pb-8">
+        <AnalyticsNav currentSection="descriptive" />
+        <DescriptiveAnalyticsContent />
       </div>
     </>
   );

@@ -10,7 +10,7 @@ export default function PredictiveAnalyticsLandingPage() {
   return (
     <>
       <PageHeader
-        title="Forecasts & Trends"
+        title="Predictive"
         subtitle="Review population forecasts and estimates for animal health, deaths, slaughter, livestock sales, and cattle prices in Padre Garcia."
         variant="admin"
         maxWidthClass="w-full"

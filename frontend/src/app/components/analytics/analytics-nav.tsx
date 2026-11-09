@@ -4,10 +4,6 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useMemo } from "react";
 import {
-  BarChart3,
-  TrendingUp,
-  Lightbulb,
-  ShieldAlert,
   LayoutGrid,
   ArrowLeft,
 } from "lucide-react";
@@ -24,13 +20,40 @@ function AnalyticsNavContent({ currentSection, className = "" }: AnalyticsNavPro
 
   const isOverview = currentSection === "overview" || pathname === "/analysis";
   const overviewHref = useMemo(() => {
+    const params = new URLSearchParams();
     if (domainParam) {
-      return `/analysis?domain=${encodeURIComponent(domainParam)}`;
+      params.set("domain", domainParam);
     }
-    return "/analysis";
-  }, [domainParam]);
-
-  const domainQuery = domainParam ? `?domain=${encodeURIComponent(domainParam)}` : "";
+    if (
+      currentSection === "decision" ||
+      currentSection === "prescriptive" ||
+      pathname === "/analysis/decision-support" ||
+      pathname === "/analysis/prescriptive"
+    ) {
+      params.set("tab", "prescriptive");
+    } else if (
+      currentSection === "forecasts" ||
+      currentSection === "predictive" ||
+      pathname === "/analysis/evaluated-forecasts" ||
+      pathname === "/analysis/predictive"
+    ) {
+      params.set("tab", "predictive");
+    } else if (
+      currentSection === "surveillance" ||
+      pathname === "/analysis/surveillance-health"
+    ) {
+      params.set("tab", "surveillance");
+    } else if (
+      currentSection === "records" ||
+      currentSection === "descriptive" ||
+      pathname === "/analysis/municipal-records" ||
+      pathname === "/analysis/descriptive"
+    ) {
+      params.set("tab", "descriptive");
+    }
+    const qs = params.toString();
+    return qs ? `/analysis?${qs}` : "/analysis";
+  }, [domainParam, currentSection, pathname]);
 
   const primaryTabs = [
     {
@@ -40,56 +63,8 @@ function AnalyticsNavContent({ currentSection, className = "" }: AnalyticsNavPro
       shortLabel: isOverview ? "Overview" : "Back to Overview",
       icon: isOverview ? LayoutGrid : ArrowLeft,
       isActive: isOverview,
-    },
-    {
-      id: "descriptive",
-      href: `/analysis/descriptive${domainQuery}`,
-      label: "Descriptive Analytics",
-      shortLabel: "Descriptive",
-      icon: BarChart3,
-      isActive:
-        currentSection === "descriptive" ||
-        currentSection === "records" ||
-        pathname === "/analysis/descriptive" ||
-        pathname === "/analysis/municipal-records",
-    },
-    {
-      id: "predictive",
-      href: `/analysis/predictive${domainQuery}`,
-      label: "Predictive Analytics",
-      shortLabel: "Predictive",
-      badge: "FORECASTS",
-      badgeColor: "bg-emerald-100 text-emerald-800 border-emerald-200",
-      icon: TrendingUp,
-      isActive:
-        currentSection === "predictive" ||
-        currentSection === "forecasts" ||
-        pathname === "/analysis/predictive" ||
-        pathname === "/analysis/evaluated-forecasts",
-    },
-    {
-      id: "prescriptive",
-      href: `/analysis/prescriptive${domainQuery}`,
-      label: "Prescriptive Analytics",
-      shortLabel: "Prescriptive",
-      badge: "DECISIONS",
-      badgeColor: "bg-indigo-100 text-indigo-800 border-indigo-200",
-      icon: Lightbulb,
-      isActive:
-        currentSection === "prescriptive" ||
-        currentSection === "decision" ||
-        pathname === "/analysis/prescriptive" ||
-        pathname === "/analysis/decision-support",
-    },
-    {
-      id: "surveillance",
-      href: `/analysis/surveillance-health${domainQuery}`,
-      label: "Surveillance & Health",
-      shortLabel: "Surveillance & Health",
-      icon: ShieldAlert,
-      isActive:
-        currentSection === "surveillance" ||
-        pathname === "/analysis/surveillance-health",
+      badge: undefined as string | undefined,
+      badgeColor: undefined as string | undefined,
     },
   ];
 

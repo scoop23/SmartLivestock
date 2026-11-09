@@ -17,7 +17,6 @@ import {
   RefreshCw,
   Search,
   ShieldAlert,
-  Sparkles,
   TrendingUp,
   Users,
 } from 'lucide-react';
@@ -33,11 +32,13 @@ import { PageHeader } from '@/app/components/page-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/auth-context';
 import api from '@/lib/axios';
+import { DescriptiveAnalyticsContent } from './descriptive/page';
+import { FuturisticPredictiveDashboard, PredictiveLoadingScreen } from '@/app/components/analytics/futuristic-predictive-dashboard';
+import { PrescriptiveAnalyticsContent } from './prescriptive/page';
+import SurveillanceAnalytics from '@/app/components/analytics/surveillance-analytics';
 import {
   Area,
   AreaChart,
-  Bar,
-  BarChart,
   CartesianGrid,
   Cell,
   Pie,
@@ -249,6 +250,7 @@ function AnalysisOverviewContent() {
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const domainFromUrl = searchParams?.get('domain');
+  const tabFromUrl = searchParams?.get('tab');
 
   const initialDomain = useMemo<DomainType>(() => {
     if (!domainFromUrl) return 'inventory';
@@ -261,6 +263,15 @@ function AnalysisOverviewContent() {
     return 'inventory';
   }, [domainFromUrl]);
 
+  const initialTab = useMemo<AnalyticsTab>(() => {
+    if (!tabFromUrl) return 'descriptive';
+    const t = tabFromUrl.toLowerCase();
+    if (t === 'descriptive' || t === 'predictive' || t === 'prescriptive' || t === 'surveillance') {
+      return t as AnalyticsTab;
+    }
+    return 'descriptive';
+  }, [tabFromUrl]);
+
   const [selectedDomain, setSelectedDomain] = useState<DomainType>(initialDomain);
 
   useEffect(() => {
@@ -268,7 +279,13 @@ function AnalysisOverviewContent() {
       setSelectedDomain(initialDomain);
     }
   }, [initialDomain]);
-  const [activeTab, setActiveTab] = useState<AnalyticsTab>('descriptive');
+  const [activeTab, setActiveTab] = useState<AnalyticsTab>(initialTab);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
   const [selectedDateRange, setSelectedDateRange] = useState<'12m' | '6m' | 'ytd'>('12m');
   const [dateDropdownOpen, setDateDropdownOpen] = useState(false);
   const [othersDialogOpen, setOthersDialogOpen] = useState(false);
@@ -469,110 +486,6 @@ function AnalysisOverviewContent() {
       { label: 'Nov', value: 3124 },
     ];
   }, [dashboardQuery.data]);
-
-  const selectedDomainKpis = useMemo(() => {
-    const descriptive = dashboardQuery.data?.descriptive;
-    const disease = descriptive?.disease;
-    const mortality = descriptive?.mortality;
-    const sales = descriptive?.sales;
-    const slaughter = descriptive?.slaughter;
-    const inspection = descriptive?.inspection;
-    const formatCount = (value?: number) => (value ?? 0).toLocaleString('en-PH');
-    const formatPeso = (value?: number | null) =>
-      value == null ? 'Not recorded' : `₱${value.toLocaleString('en-PH')}`;
-
-    switch (selectedDomain) {
-      case 'disease':
-        return [
-          { label: 'Disease reports', value: formatCount(disease?.cases), note: 'Reported cases' },
-          { label: 'Animals affected', value: formatCount(disease?.affected_heads), note: 'Heads listed in reports' },
-          { label: 'Deaths recorded', value: formatCount(mortality?.deaths), note: 'Reported mortality' },
-          { label: 'Mortality records', value: formatCount(mortality?.records), note: 'Recorded declarations' },
-        ];
-      case 'auction':
-        return [
-          { label: 'Completed transfers', value: formatCount(sales?.completed_transfers ?? sales?.sales), note: 'Approved sale records' },
-          { label: 'Animals sold', value: formatCount(sales?.animals), note: 'Heads in completed transfers' },
-          { label: 'Recorded sales value', value: formatPeso(sales?.recorded_value), note: 'Only recorded prices' },
-          { label: 'Average price', value: formatPeso(sales?.average_price), note: 'Per recorded sale' },
-        ];
-      case 'slaughter':
-        return [
-          { label: 'Slaughter records', value: formatCount(slaughter?.records), note: 'Recorded events' },
-          { label: 'Slaughtered heads', value: formatCount(slaughter?.total_heads), note: 'Recorded animals' },
-          { label: 'Carcass weight', value: `${formatCount(slaughter?.total_carcass_weight_kg)} kg`, note: 'Recorded total' },
-          { label: 'Approved clearances', value: formatCount(inspection?.approved_clearances), note: 'Inspection records' },
-        ];
-      case 'barangay':
-        return [
-          { label: 'Livestock heads', value: formatCount(descriptive?.population?.total_heads), note: 'Approved inventory' },
-          { label: 'Barangays with livestock', value: formatCount(barangays.filter((row) => row.heads > 0).length), note: 'With recorded heads' },
-          { label: 'Barangays covered', value: formatCount(descriptive?.population?.barangay_count), note: 'In the municipal data' },
-          { label: 'Registered farmers', value: formatCount(totalRegisteredFarmers), note: 'Across barangays' },
-        ];
-      default:
-        return [];
-    }
-  }, [dashboardQuery.data, selectedDomain, barangays, totalRegisteredFarmers]);
-
-  const selectedDomainTrend = useMemo(() => {
-    const descriptive = dashboardQuery.data?.descriptive;
-    if (selectedDomain === 'disease') {
-      const diseaseTrend = descriptive?.disease?.trend ?? [];
-      const deathsByMonth = new Map((descriptive?.mortality?.trend ?? []).map((item) => [item.month, item.deaths]));
-      const months = Array.from(new Set([
-        ...diseaseTrend.map((item) => item.month),
-        ...(descriptive?.mortality?.trend ?? []).map((item) => item.month),
-      ])).sort();
-      return {
-        title: 'Disease and Mortality by Month',
-        primaryLabel: 'Disease cases',
-        secondaryLabel: 'Deaths',
-        data: months.map((month) => ({
-          label: month,
-          primary: diseaseTrend.find((item) => item.month === month)?.cases ?? null,
-          secondary: deathsByMonth.get(month) ?? null,
-        })),
-      };
-    }
-    if (selectedDomain === 'auction') {
-      return {
-        title: 'Completed Sales by Month',
-        primaryLabel: 'Transactions',
-        secondaryLabel: 'Animals sold',
-        data: (descriptive?.sales?.trend ?? []).map((item) => ({
-          label: item.label || item.month,
-          primary: item.transactions,
-          secondary: item.animals,
-        })),
-      };
-    }
-    if (selectedDomain === 'slaughter') {
-      return {
-        title: 'Slaughter Activity by Month',
-        primaryLabel: 'Heads',
-        secondaryLabel: 'Carcass kg',
-        data: (descriptive?.slaughter?.monthly_trend ?? []).map((item) => ({
-          label: item.label || item.month,
-          primary: item.heads,
-          secondary: item.carcass_weight_kg,
-        })),
-      };
-    }
-    if (selectedDomain === 'barangay') {
-      return {
-        title: 'Livestock Heads by Barangay',
-        primaryLabel: 'Heads',
-        secondaryLabel: null,
-        data: [...barangays]
-          .filter((item) => item.barangay && item.heads > 0)
-          .sort((a, b) => b.heads - a.heads)
-          .slice(0, 10)
-          .map((item) => ({ label: item.barangay!, primary: item.heads, secondary: null })),
-      };
-    }
-    return { title: '', primaryLabel: '', secondaryLabel: null, data: [] };
-  }, [dashboardQuery.data, selectedDomain, barangays]);
 
   /* ------------------------------------------------------------------------ */
   /* Predictive & Prescriptive Overview Calculations (Retained Section)       */
@@ -915,531 +828,333 @@ function AnalysisOverviewContent() {
         {/* 4. Tab Content Rendering                                          */}
         {/* ----------------------------------------------------------------- */}
 
-        {activeTab === 'descriptive' && selectedDomain !== 'inventory' && (
-          <div className="space-y-4">
-            <section aria-label={`${domainConfig[selectedDomain].title} key indicators`} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {selectedDomainKpis.map((metric) => (
-                <div key={metric.label} className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-2xs">
-                  <div className="text-xs font-semibold text-slate-500">{metric.label}</div>
-                  <div className="mt-1 text-2xl font-black tracking-tight text-slate-900">{metric.value}</div>
-                  <div className="mt-1 text-[11px] text-slate-400 font-medium">{metric.note}</div>
-                </div>
-              ))}
-            </section>
-
-            <section aria-label={`${domainConfig[selectedDomain].title} chart`} className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-2xs">
-                <div className="mb-4">
-                  <h3 className="text-sm font-bold text-slate-900">{selectedDomainTrend.title}</h3>
-                  <p className="text-[11px] text-slate-500">Based on records returned for this reporting period.</p>
-                </div>
-                {selectedDomainTrend.data.length > 0 ? (
-                  <div className="h-72 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={selectedDomainTrend.data} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                        <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#64748B' }} tickLine={false} interval={0} angle={selectedDomain === 'barangay' ? -25 : 0} textAnchor={selectedDomain === 'barangay' ? 'end' : 'middle'} height={selectedDomain === 'barangay' ? 58 : 32} />
-                        <YAxis yAxisId="primary" tick={{ fontSize: 10, fill: '#64748B' }} tickLine={false} />
-                        {selectedDomainTrend.secondaryLabel && (
-                          <YAxis yAxisId="secondary" orientation="right" tick={{ fontSize: 10, fill: '#64748B' }} tickLine={false} />
-                        )}
-                        <Tooltip />
-                        <Bar yAxisId="primary" dataKey="primary" name={selectedDomainTrend.primaryLabel} fill="#059669" radius={[5, 5, 0, 0]} />
-                        {selectedDomainTrend.secondaryLabel && (
-                          <Bar yAxisId="secondary" dataKey="secondary" name={selectedDomainTrend.secondaryLabel} fill="#38BDF8" radius={[5, 5, 0, 0]} />
-                        )}
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                ) : (
-                  <div className="flex h-72 items-center justify-center rounded-xl border border-dashed border-slate-200 text-sm text-slate-500">
-                    No records are available for this category and period.
-                  </div>
-                )}
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs">
-                <h3 className="text-sm font-bold text-slate-900">About these figures</h3>
-                <p className="mt-2 text-xs leading-relaxed text-slate-600">
-                  {selectedDomain === 'disease'
-                    ? 'Disease reports and mortality declarations are shown as separate measures. A reported case does not by itself confirm an outbreak.'
-                    : selectedDomain === 'auction'
-                      ? 'Sales totals use completed transfer records. Monetary totals include only transfers with a recorded value.'
-                      : selectedDomain === 'slaughter'
-                        ? 'Slaughter totals use recorded slaughter events and their reported head counts and carcass weights.'
-                        : 'Barangay totals summarize livestock heads in the available inventory data for each barangay.'}
-                </p>
-              </div>
-            </section>
-          </div>
-        )}
-
-        {/* A. DESCRIPTIVE ANALYTICS TAB CONTENT (Default view matching mockup) */}
-        {activeTab === 'descriptive' && selectedDomain === 'inventory' && (
-          <div className="space-y-4">
-            {/* 4 KPI Metric Cards Row */}
-            <section aria-label="Key Performance Indicators" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Card 1: Total Livestock */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-2xs flex items-center gap-3.5">
-                <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 shadow-2xs">
-                  <CowIcon className="size-5.5" />
-                </div>
-                <div>
-                  <div className="text-xs font-semibold text-slate-500">Total Livestock</div>
-                  <div className="text-2xl font-black tracking-tight text-slate-900 mt-0.5">
-                    {totalLivestockHeads.toLocaleString('en-PH')}{' '}
-                    <span className="text-sm font-bold text-slate-700">heads</span>
-                  </div>
-                  <div className="text-[11px] text-slate-400 font-medium">(All species)</div>
-                </div>
-              </div>
-
-              {/* Card 2: Change vs Previous Period */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-2xs flex items-center gap-3.5">
-                <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 shadow-2xs">
-                  <DoubleUpIcon className="size-5.5" />
-                </div>
-                <div>
-                  <div className="text-xs font-semibold text-slate-500">Change vs. Previous Period</div>
-                  <div className="text-2xl font-black tracking-tight text-emerald-700 mt-0.5">+4.8%</div>
-                  <div className="text-[11px] text-slate-400 font-medium">Population growth</div>
-                </div>
-              </div>
-
-              {/* Card 3: Registered Farmers */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-2xs flex items-center gap-3.5">
-                <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-700 shadow-2xs">
-                  <Users className="size-5.5" />
-                </div>
-                <div>
-                  <div className="text-xs font-semibold text-slate-500">Registered Farmers</div>
-                  <div className="text-2xl font-black tracking-tight text-slate-900 mt-0.5">
-                    {totalRegisteredFarmers.toLocaleString('en-PH')}
-                  </div>
-                  <div className="text-[11px] text-slate-400 font-medium">Active farm holders</div>
-                </div>
-              </div>
-
-              {/* Card 4: Covered Barangays */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-2xs flex items-center gap-3.5">
-                <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-sky-50 text-sky-700 shadow-2xs">
-                  <MapPin className="size-5.5" />
-                </div>
-                <div>
-                  <div className="text-xs font-semibold text-slate-500">Covered Barangays</div>
-                  <div className="text-2xl font-black tracking-tight text-slate-900 mt-0.5">
-                    {coveredBarangays} <span className="text-lg font-bold text-slate-400">/ {totalBarangays}</span>
-                  </div>
-                  <div className="text-[11px] text-slate-400 font-medium">100% municipal coverage</div>
-                </div>
-              </div>
-            </section>
-
-            {/* 3 Visualizations in 3-Column Grid */}
-            <section aria-label="Visual Analytics" className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              {/* Chart 1: Livestock Population Trend */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-2xs flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="flex size-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-800">
-                      <BarChart3 className="size-4" />
-                    </span>
+        {activeTab === 'descriptive' && (
+          <div className="space-y-6">
+            {selectedDomain === 'inventory' && (
+              <div className="space-y-4">
+                {/* 4 KPI Metric Cards Row */}
+                <section aria-label="Key Performance Indicators" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Card 1: Total Livestock */}
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-2xs flex items-center gap-3.5">
+                    <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 shadow-2xs">
+                      <CowIcon className="size-5.5" />
+                    </div>
                     <div>
-                      <h3 className="text-sm font-bold text-slate-900">Livestock Population Trend</h3>
-                      <p className="text-[11px] text-slate-500">Total registered livestock (all species)</p>
+                      <div className="text-xs font-semibold text-slate-500">Total Livestock</div>
+                      <div className="text-2xl font-black tracking-tight text-slate-900 mt-0.5">
+                        {totalLivestockHeads.toLocaleString('en-PH')}{' '}
+                        <span className="text-sm font-bold text-slate-700">heads</span>
+                      </div>
+                      <div className="text-[11px] text-slate-400 font-medium">(All species)</div>
                     </div>
                   </div>
 
-                  <div className="relative mt-4 h-56 w-full">
-                    {/* Badge at top right showing total */}
-                    <div className="absolute right-0 top-0 z-10 rounded-md bg-emerald-800 px-2 py-0.5 text-xs font-extrabold text-white shadow-2xs">
-                      {totalLivestockHeads.toLocaleString('en-PH')}
+                  {/* Card 2: Change vs Previous Period */}
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-2xs flex items-center gap-3.5">
+                    <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 shadow-2xs">
+                      <DoubleUpIcon className="size-5.5" />
                     </div>
-
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={populationTrend} margin={{ top: 20, right: 12, left: -16, bottom: 0 }}>
-                        <defs>
-                          <linearGradient id="population-gradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#10b981" stopOpacity={0.25} />
-                            <stop offset="100%" stopColor="#10b981" stopOpacity={0.0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                        <XAxis
-                          dataKey="label"
-                          stroke="#94a3b8"
-                          tick={{ fill: '#64748b', fontSize: 10 }}
-                          axisLine={{ stroke: '#e2e8f0' }}
-                          tickLine={false}
-                        />
-                        <YAxis
-                          stroke="#94a3b8"
-                          domain={[2600, 3400]}
-                          tick={{ fill: '#64748b', fontSize: 10 }}
-                          axisLine={{ stroke: '#e2e8f0' }}
-                          tickLine={false}
-                          tickFormatter={(v) => Number(v).toLocaleString('en-PH')}
-                        />
-                        <Tooltip
-                          contentStyle={{
-                            borderRadius: 12,
-                            borderColor: '#a7f3d0',
-                            fontSize: '11px',
-                            fontWeight: 600,
-                            boxShadow: '0 8px 24px rgba(15,23,42,0.08)',
-                          }}
-                          formatter={(value) => [`${Number(value).toLocaleString('en-PH')} heads`, 'Heads']}
-                        />
-                        <Area
-                          type="monotone"
-                          dataKey="value"
-                          stroke="#059669"
-                          strokeWidth={2.5}
-                          fill="url(#population-gradient)"
-                          dot={{ r: 4, fill: '#059669', stroke: '#ffffff', strokeWidth: 2 }}
-                          activeDot={{ r: 6, fill: '#10b981', stroke: '#047857', strokeWidth: 2 }}
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-              </div>
-
-              {/* Chart 2: Livestock by Species (Donut Chart) */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-2xs flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="flex size-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-800">
-                      <CowIcon className="size-4" />
-                    </span>
                     <div>
-                      <h3 className="text-sm font-bold text-slate-900">Livestock by Species</h3>
-                      <p className="text-[11px] text-slate-500">Distribution of total livestock</p>
+                      <div className="text-xs font-semibold text-slate-500">Change vs. Previous Period</div>
+                      <div className="text-2xl font-black tracking-tight text-emerald-700 mt-0.5">+4.8%</div>
+                      <div className="text-[11px] text-slate-400 font-medium">Population growth</div>
                     </div>
                   </div>
 
-                  <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-                    {/* Donut Chart with Center Text */}
-                    <div className="relative h-48 w-48 shrink-0">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={speciesData}
-                            dataKey="heads"
-                            nameKey="species"
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={52}
-                            outerRadius={76}
-                            paddingAngle={3}
-                            stroke="none"
-                          >
-                            {speciesData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                          </Pie>
-                          <Tooltip
-                            contentStyle={{
-                              borderRadius: 12,
-                              borderColor: '#a7f3d0',
-                              fontSize: '11px',
-                              fontWeight: 600,
-                            }}
-                            formatter={(v) => [`${Number(v).toLocaleString('en-PH')} heads`, 'Heads']}
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-                      <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
-                        <span className="block text-lg font-black text-slate-900 leading-none">
-                          {totalLivestockHeads.toLocaleString('en-PH')}
+                  {/* Card 3: Registered Farmers */}
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-2xs flex items-center gap-3.5">
+                    <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-700 shadow-2xs">
+                      <Users className="size-5.5" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold text-slate-500">Registered Farmers</div>
+                      <div className="text-2xl font-black tracking-tight text-slate-900 mt-0.5">
+                        {totalRegisteredFarmers.toLocaleString('en-PH')}
+                      </div>
+                      <div className="text-[11px] text-slate-400 font-medium">Active farm holders</div>
+                    </div>
+                  </div>
+
+                  {/* Card 4: Covered Barangays */}
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-2xs flex items-center gap-3.5">
+                    <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-sky-50 text-sky-700 shadow-2xs">
+                      <MapPin className="size-5.5" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold text-slate-500">Covered Barangays</div>
+                      <div className="text-2xl font-black tracking-tight text-slate-900 mt-0.5">
+                        {coveredBarangays} <span className="text-lg font-bold text-slate-400">/ {totalBarangays}</span>
+                      </div>
+                      <div className="text-[11px] text-slate-400 font-medium">100% municipal coverage</div>
+                    </div>
+                  </div>
+                </section>
+
+                {/* 3 Visualizations in 3-Column Grid */}
+                <section aria-label="Visual Analytics" className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  {/* Chart 1: Livestock Population Trend */}
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-2xs flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="flex size-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-800">
+                          <BarChart3 className="size-4" />
                         </span>
-                        <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">heads</span>
+                        <div>
+                          <h3 className="text-sm font-bold text-slate-900">Livestock Population Trend</h3>
+                          <p className="text-[11px] text-slate-500">Total registered livestock (all species)</p>
+                        </div>
+                      </div>
+
+                      <div className="relative mt-4 h-56 w-full">
+                        {/* Badge at top right showing total */}
+                        <div className="absolute right-0 top-0 z-10 rounded-md bg-emerald-800 px-2 py-0.5 text-xs font-extrabold text-white shadow-2xs">
+                          {totalLivestockHeads.toLocaleString('en-PH')}
+                        </div>
+
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={populationTrend} margin={{ top: 20, right: 12, left: -16, bottom: 0 }}>
+                            <defs>
+                              <linearGradient id="population-gradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#10b981" stopOpacity={0.25} />
+                                <stop offset="100%" stopColor="#10b981" stopOpacity={0.0} />
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                            <XAxis
+                              dataKey="label"
+                              stroke="#94a3b8"
+                              tick={{ fill: '#64748b', fontSize: 10 }}
+                              axisLine={{ stroke: '#e2e8f0' }}
+                              tickLine={false}
+                            />
+                            <YAxis
+                              stroke="#94a3b8"
+                              domain={[2600, 3400]}
+                              tick={{ fill: '#64748b', fontSize: 10 }}
+                              axisLine={{ stroke: '#e2e8f0' }}
+                              tickLine={false}
+                              tickFormatter={(v) => Number(v).toLocaleString('en-PH')}
+                            />
+                            <Tooltip
+                              contentStyle={{
+                                borderRadius: 12,
+                                borderColor: '#a7f3d0',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                boxShadow: '0 8px 24px rgba(15,23,42,0.08)',
+                              }}
+                              formatter={(value) => [`${Number(value).toLocaleString('en-PH')} heads`, 'Heads']}
+                            />
+                            <Area
+                              type="monotone"
+                              dataKey="value"
+                              stroke="#059669"
+                              strokeWidth={2.5}
+                              fill="url(#population-gradient)"
+                              dot={{ r: 4, fill: '#059669', stroke: '#ffffff', strokeWidth: 2 }}
+                              activeDot={{ r: 6, fill: '#10b981', stroke: '#047857', strokeWidth: 2 }}
+                            />
+                          </AreaChart>
+                        </ResponsiveContainer>
                       </div>
                     </div>
+                  </div>
 
-                    {/* Legend Rows */}
-                    <div className="w-full space-y-2.5">
-                      {speciesData.map((item) => (
-                        <div key={item.species} className="flex items-center justify-between text-xs">
-                          <div className="flex items-center gap-2">
-                            <span className="size-2.5 rounded-sm shrink-0" style={{ backgroundColor: item.color }} />
-                            <span className="font-semibold text-slate-700">{item.species}</span>
-                          </div>
-                          <div className="font-mono text-slate-900 font-bold text-right">
-                            {item.heads.toLocaleString('en-PH')}{' '}
-                            <span className="text-slate-400 font-normal text-[11px]">({item.percentage}%)</span>
+                  {/* Chart 2: Livestock by Species (Donut Chart) */}
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-2xs flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="flex size-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-800">
+                          <CowIcon className="size-4" />
+                        </span>
+                        <div>
+                          <h3 className="text-sm font-bold text-slate-900">Livestock by Species</h3>
+                          <p className="text-[11px] text-slate-500">Distribution of total livestock</p>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                        {/* Donut Chart with Center Text */}
+                        <div className="relative h-48 w-48 shrink-0">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={speciesData}
+                                dataKey="heads"
+                                nameKey="species"
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={52}
+                                outerRadius={76}
+                                paddingAngle={3}
+                                stroke="none"
+                              >
+                                {speciesData.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={entry.color} />
+                                ))}
+                              </Pie>
+                              <Tooltip
+                                contentStyle={{
+                                  borderRadius: 12,
+                                  borderColor: '#a7f3d0',
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                }}
+                                formatter={(v) => [`${Number(v).toLocaleString('en-PH')} heads`, 'Heads']}
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                          <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
+                            <span className="block text-lg font-black text-slate-900 leading-none">
+                              {totalLivestockHeads.toLocaleString('en-PH')}
+                            </span>
+                            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">heads</span>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
 
-              {/* Chart 3: Livestock by Barangay (Top 5 Horizontal Bars) */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-2xs flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="flex size-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-800">
-                        <MapPin className="size-4" />
-                      </span>
-                      <div>
-                        <h3 className="text-sm font-bold text-slate-900">Livestock by Barangay (Top 5)</h3>
-                        <p className="text-[11px] text-slate-500">Total registered livestock per barangay</p>
+                        {/* Legend Rows */}
+                        <div className="w-full space-y-2.5">
+                          {speciesData.map((item) => (
+                            <div key={item.species} className="flex items-center justify-between text-xs">
+                              <div className="flex items-center gap-2">
+                                <span className="size-2.5 rounded-sm shrink-0" style={{ backgroundColor: item.color }} />
+                                <span className="font-semibold text-slate-700">{item.species}</span>
+                              </div>
+                              <div className="font-mono text-slate-900 font-bold text-right">
+                                {item.heads.toLocaleString('en-PH')}{' '}
+                                <span className="text-slate-400 font-normal text-[11px]">({item.percentage}%)</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
-
-                    {otherBarangaysList.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setOthersDialogOpen(true)}
-                        className="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 hover:underline cursor-pointer flex items-center gap-1 shrink-0"
-                      >
-                        <span>View all ({allBarangaysList.length})</span>
-                      </button>
-                    )}
                   </div>
 
-                  <div className="mt-4 space-y-2.5">
-                    {topBarangaysDisplay.map((item) => {
-                      if (item.isOthers) {
-                        return (
-                          <div key={item.barangay} className="pt-0.5">
-                            <button
-                              type="button"
-                              onClick={() => setOthersDialogOpen(true)}
-                              className="group/others flex w-full items-center gap-3 rounded-xl p-1.5 -mx-1.5 text-left transition-all hover:bg-emerald-50/80 cursor-pointer border border-transparent hover:border-emerald-200"
-                              title={`Click to view breakdown of all ${otherBarangaysList.length} other barangays`}
-                            >
-                              <span className="w-24 text-xs font-bold text-emerald-800 truncate group-hover/others:text-emerald-950 flex items-center gap-1">
-                                <span>{item.barangay}</span>
-                                <span className="text-[10px] text-emerald-600 font-extrabold group-hover/others:translate-x-0.5 transition-transform font-mono">↗</span>
-                              </span>
+                  {/* Chart 3: Livestock by Barangay (Top 5 Horizontal Bars) */}
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-2xs flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="flex size-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-800">
+                            <MapPin className="size-4" />
+                          </span>
+                          <div>
+                            <h3 className="text-sm font-bold text-slate-900">Livestock by Barangay (Top 5)</h3>
+                            <p className="text-[11px] text-slate-500">Total registered livestock per barangay</p>
+                          </div>
+                        </div>
+
+                        {otherBarangaysList.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setOthersDialogOpen(true)}
+                            className="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 hover:underline cursor-pointer flex items-center gap-1 shrink-0"
+                          >
+                            <span>View all ({allBarangaysList.length})</span>
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="mt-4 space-y-2.5">
+                        {topBarangaysDisplay.map((item) => {
+                          if (item.isOthers) {
+                            return (
+                              <div key={item.barangay} className="pt-0.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setOthersDialogOpen(true)}
+                                  className="group/others flex w-full items-center gap-3 rounded-xl p-1.5 -mx-1.5 text-left transition-all hover:bg-emerald-50/80 cursor-pointer border border-transparent hover:border-emerald-200"
+                                  title={`Click to view breakdown of all ${otherBarangaysList.length} other barangays`}
+                                >
+                                  <span className="w-24 text-xs font-bold text-emerald-800 truncate group-hover/others:text-emerald-950 flex items-center gap-1">
+                                    <span>{item.barangay}</span>
+                                    <span className="text-[10px] text-emerald-600 font-extrabold group-hover/others:translate-x-0.5 transition-transform font-mono">↗</span>
+                                  </span>
+                                  <div className="flex-1 bg-slate-100 rounded-full h-3.5 overflow-hidden">
+                                    <div
+                                      className="h-full rounded-full transition-all duration-500 group-hover/others:brightness-95"
+                                      style={{
+                                        width: `${Math.min(100, Math.max(14, (item.heads / maxBarangayHeads) * 100))}%`,
+                                        backgroundColor: item.color,
+                                      }}
+                                    />
+                                  </div>
+                                  <span className="w-12 text-right font-mono text-xs font-bold text-slate-900 group-hover/others:text-emerald-950">
+                                    {item.heads.toLocaleString('en-PH')}
+                                  </span>
+                                </button>
+                                <div className="flex items-center justify-between text-[10px] text-emerald-700 font-medium px-1 mt-0.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => setOthersDialogOpen(true)}
+                                    className="hover:underline flex items-center gap-1 cursor-pointer font-bold text-emerald-800"
+                                  >
+                                    <span>Click row to view all {otherBarangaysList.length} other barangays</span>
+                                  </button>
+                                  <span className="text-slate-400 font-mono">
+                                    {totalLivestockHeads > 0 ? `${((othersTotalHeads / totalLivestockHeads) * 100).toFixed(1)}%` : ''}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div key={item.barangay} className="flex items-center gap-3 p-0.5">
+                              <span className="w-24 text-xs font-semibold text-slate-700 truncate">{item.barangay}</span>
                               <div className="flex-1 bg-slate-100 rounded-full h-3.5 overflow-hidden">
                                 <div
-                                  className="h-full rounded-full transition-all duration-500 group-hover/others:brightness-95"
+                                  className="h-full rounded-full transition-all duration-500"
                                   style={{
                                     width: `${Math.min(100, Math.max(14, (item.heads / maxBarangayHeads) * 100))}%`,
                                     backgroundColor: item.color,
                                   }}
                                 />
                               </div>
-                              <span className="w-12 text-right font-mono text-xs font-bold text-slate-900 group-hover/others:text-emerald-950">
+                              <span className="w-12 text-right font-mono text-xs font-bold text-slate-900">
                                 {item.heads.toLocaleString('en-PH')}
                               </span>
-                            </button>
-                            <div className="flex items-center justify-between text-[10px] text-emerald-700 font-medium px-1 mt-0.5">
-                              <button
-                                type="button"
-                                onClick={() => setOthersDialogOpen(true)}
-                                className="hover:underline flex items-center gap-1 cursor-pointer font-bold text-emerald-800"
-                              >
-                                <span>Click row to view all {otherBarangaysList.length} other barangays</span>
-                              </button>
-                              <span className="text-slate-400 font-mono">
-                                {totalLivestockHeads > 0 ? `${((othersTotalHeads / totalLivestockHeads) * 100).toFixed(1)}%` : ''}
-                              </span>
                             </div>
-                          </div>
-                        );
-                      }
-
-                      return (
-                        <div key={item.barangay} className="flex items-center gap-3 p-0.5">
-                          <span className="w-24 text-xs font-semibold text-slate-700 truncate">{item.barangay}</span>
-                          <div className="flex-1 bg-slate-100 rounded-full h-3.5 overflow-hidden">
-                            <div
-                              className="h-full rounded-full transition-all duration-500"
-                              style={{
-                                width: `${Math.min(100, Math.max(14, (item.heads / maxBarangayHeads) * 100))}%`,
-                                backgroundColor: item.color,
-                              }}
-                            />
-                          </div>
-                          <span className="w-12 text-right font-mono text-xs font-bold text-slate-900">
-                            {item.heads.toLocaleString('en-PH')}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            </section>
-          </div>
-        )}
-
-        {/* B. PREDICTIVE TAB CONTENT */}
-        {activeTab === 'predictive' && (
-          <div className="rounded-2xl border border-sky-200 bg-white p-6 shadow-2xs space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-sky-100 pb-4">
-              <div className="flex items-center gap-3">
-                <span className="flex size-10 items-center justify-center rounded-xl bg-sky-50 text-sky-700 shadow-2xs">
-                  <TrendingUp className="size-5" />
-                </span>
-                <div>
-                  <h3 className="text-base font-extrabold text-slate-900">
-                    Predictive Intelligence — {domainConfig[selectedDomain].title}
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Statistical forecasts, trend trajectories, and automated verification against historical records.
-                  </p>
-                </div>
-              </div>
-
-              <Link
-                href={`/analysis/predictive?domain=${selectedDomain}`}
-                className="inline-flex items-center gap-2 rounded-xl bg-sky-700 hover:bg-sky-800 px-4 py-2 text-xs font-bold text-white shadow-2xs transition"
-              >
-                <span>Open Full Forecasts</span>
-                <ArrowRight className="size-3.5" />
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Forecast Readiness</div>
-                <div className="text-2xl font-black text-slate-900 mt-1">
-                  {availableForecastCount} / {forecastTopics.length || 5} Available
-                </div>
-                <div className="text-xs text-slate-500 mt-1">Verified with 6-month historical baselines</div>
-              </div>
-
-              <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Backtested Accuracy</div>
-                <div className="text-2xl font-black text-emerald-700 mt-1">
-                  {checkedForecastCount} Validated
-                </div>
-                <div className="text-xs text-slate-500 mt-1">Evaluated against Padre Garcia municipal actuals</div>
-              </div>
-
-              <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Active Modeling Horizon</div>
-                <div className="text-2xl font-black text-sky-800 mt-1">6 Months</div>
-                <div className="text-xs text-slate-500 mt-1">Next quarterly census alignment</div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* C. PRESCRIPTIVE TAB CONTENT */}
-        {activeTab === 'prescriptive' && (
-          <div className="rounded-2xl border border-amber-200 bg-white p-6 shadow-2xs space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-amber-100 pb-4">
-              <div className="flex items-center gap-3">
-                <span className="flex size-10 items-center justify-center rounded-xl bg-amber-50 text-amber-700 shadow-2xs">
-                  <Lightbulb className="size-5" />
-                </span>
-                <div>
-                  <h3 className="text-base font-extrabold text-slate-900">
-                    Prescriptive Decision Support — {domainConfig[selectedDomain].title}
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Rule-based operational guidance, proactive vaccination schedules, and resource planning recommendations.
-                  </p>
-                </div>
-              </div>
-
-              <Link
-                href={`/analysis/prescriptive?domain=${selectedDomain}`}
-                className="inline-flex items-center gap-2 rounded-xl bg-amber-700 hover:bg-amber-800 px-4 py-2 text-xs font-bold text-white shadow-2xs transition"
-              >
-                <span>Open Decision Matrix</span>
-                <ArrowRight className="size-3.5" />
-              </Link>
-            </div>
-
-            <div className="space-y-3">
-              {suggestedActions.length > 0 ? (
-                suggestedActions.slice(0, 3).map((action, idx) => (
-                  <div key={idx} className="rounded-xl border border-amber-200/80 bg-amber-50/40 p-4">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-bold text-slate-900">{action.title}</span>
-                      <span
-                        className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
-                          action.severity === 'HIGH'
-                            ? 'bg-rose-100 text-rose-800 border border-rose-200'
-                            : 'bg-amber-100 text-amber-800 border border-amber-200'
-                        }`}
-                      >
-                        {action.severity} PRIORITY
-                      </span>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">{action.recommendation}</p>
                   </div>
-                ))
-              ) : (
-                <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-xs text-slate-500">
-                  No active advisory actions for this domain. All indicators are within standard operational limits.
-                </div>
-              )}
-            </div>
+                </section>
+              </div>
+            )}
+
+            <DescriptiveAnalyticsContent
+              selectedDomainProp={
+                selectedDomain === 'auction'
+                  ? 'sales'
+                  : selectedDomain === 'slaughter'
+                  ? 'slaughter'
+                  : selectedDomain === 'disease'
+                  ? 'vaccination'
+                  : 'population'
+              }
+            />
           </div>
         )}
 
-        {/* D. SURVEILLANCE AND HEALTH TAB CONTENT */}
+        {activeTab === 'predictive' && (
+          <Suspense fallback={<PredictiveLoadingScreen />}>
+            <FuturisticPredictiveDashboard selectedDomainProp={selectedDomain} />
+          </Suspense>
+        )}
+
+        {activeTab === 'prescriptive' && (
+          <Suspense fallback={<div className="h-96 w-full animate-pulse rounded-2xl bg-slate-100" />}>
+            <PrescriptiveAnalyticsContent selectedDomainProp={selectedDomain} />
+          </Suspense>
+        )}
+
         {activeTab === 'surveillance' && (
-          <div className="rounded-2xl border border-emerald-300 bg-white p-6 shadow-2xs space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-emerald-100 pb-4">
-              <div className="flex items-center gap-3">
-                <span className="flex size-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800 shadow-2xs">
-                  <ShieldAlert className="size-5" />
-                </span>
-                <div>
-                  <h3 className="text-base font-extrabold text-slate-900">
-                    Disease Surveillance & Health Telemetry — {domainConfig[selectedDomain].title}
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Clinical disease reports, approved mortality records, and risk ratios vs historical baseline.
-                  </p>
-                </div>
-              </div>
-
-              <Link
-                href={`/analysis/surveillance-health?domain=${selectedDomain}`}
-                className="inline-flex items-center gap-2 rounded-xl bg-emerald-800 hover:bg-emerald-900 px-4 py-2 text-xs font-bold text-white shadow-2xs transition"
-              >
-                <span>Open Surveillance & Health</span>
-                <ArrowRight className="size-3.5" />
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Reported Disease Cases</div>
-                <div className="text-2xl font-black text-slate-900 mt-1">
-                  {dashboardQuery.data?.descriptive?.disease?.cases ?? 14}{' '}
-                  <span className="text-sm font-bold text-slate-600">cases</span>
-                </div>
-                <div className="text-xs text-slate-500 mt-1">
-                  {dashboardQuery.data?.descriptive?.disease?.affected_heads ?? 42} animals listed
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Mortality Velocity</div>
-                <div className="text-2xl font-black text-rose-700 mt-1">
-                  {dashboardQuery.data?.descriptive?.mortality?.deaths ?? 12}{' '}
-                  <span className="text-sm font-bold text-slate-600">deaths</span>
-                </div>
-                <div className="text-xs text-slate-500 mt-1">
-                  Risk Level:{' '}
-                  <span className="font-bold text-emerald-700">
-                    {dashboardQuery.data?.descriptive?.mortality?.risk_indicator?.level ?? 'LOW'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Surveillance Ratio</div>
-                <div className="text-2xl font-black text-emerald-800 mt-1">
-                  {dashboardQuery.data?.descriptive?.mortality?.risk_indicator?.ratio_vs_baseline ?? 0.82}x
-                </div>
-                <div className="text-xs text-slate-500 mt-1">Relative to 12-month expected baseline</div>
-              </div>
-            </div>
-          </div>
+          <Suspense fallback={<div className="h-96 w-full animate-pulse rounded-2xl bg-slate-100" />}>
+            <SurveillanceAnalytics selectedDomainProp={selectedDomain} />
+          </Suspense>
         )}
 
         {/* ----------------------------------------------------------------- */}
@@ -1514,12 +1229,13 @@ function AnalysisOverviewContent() {
                 )}
               </div>
 
-              <Link
-                href={`/analysis/predictive?domain=${selectedDomain}`}
-                className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-sky-800 hover:text-sky-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-700"
+              <button
+                type="button"
+                onClick={() => setActiveTab('predictive')}
+                className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-sky-800 hover:text-sky-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-700 cursor-pointer"
               >
                 Open forecasts <ArrowRight className="size-3.5" aria-hidden="true" />
-              </Link>
+              </button>
             </article>
 
             {/* Prescriptive Card: Suggested Next Steps */}
@@ -1574,16 +1290,16 @@ function AnalysisOverviewContent() {
                 )}
               </div>
 
-              <Link
-                href={`/analysis/prescriptive?domain=${selectedDomain}`}
-                className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-amber-800 hover:text-amber-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-700"
+              <button
+                type="button"
+                onClick={() => setActiveTab('prescriptive')}
+                className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-amber-800 hover:text-amber-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-700 cursor-pointer"
               >
                 Open suggested actions <ArrowRight className="size-3.5" aria-hidden="true" />
-              </Link>
+              </button>
             </article>
           </div>
         </section>
-
 
         {/* Other Barangays Breakdown Dialog */}
         <Dialog open={othersDialogOpen} onOpenChange={setOthersDialogOpen}>

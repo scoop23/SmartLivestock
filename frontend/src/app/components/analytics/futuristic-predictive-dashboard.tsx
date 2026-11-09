@@ -398,12 +398,12 @@ export function PredictiveLoadingScreen() {
   );
 }
 
-export function FuturisticPredictiveDashboard() {
+export function FuturisticPredictiveDashboard({ selectedDomainProp }: { selectedDomainProp?: string }) {
   const searchParams = useSearchParams();
   const { user } = useAuth();
-  const domainParam = searchParams?.get("domain");
+  const domainParam = selectedDomainProp || searchParams?.get("domain");
   const targetParam = searchParams?.get("target");
-  const targetFromParam = targetParam || getTargetFromDomain(domainParam);
+  const targetFromParam = targetParam || getTargetFromDomain(domainParam ?? null);
 
   const [selectedTargetId, setSelectedTargetId] = useState<string>(targetFromParam);
 
@@ -626,30 +626,10 @@ export function FuturisticPredictiveDashboard() {
         <div className="pointer-events-none absolute -left-16 -bottom-16 size-72 rounded-full bg-teal-500/10 blur-3xl" />
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="flex items-center gap-1.5 text-xs font-mono font-bold uppercase tracking-wider text-emerald-800">
-                <Zap className="size-3.5 text-emerald-600 animate-pulse" />
-                Padre Garcia Livestock Trends
-              </span>
-              <span className="text-slate-300">•</span>
-              <span className="text-xs text-slate-600 font-medium">Padre Garcia Batangas</span>
-              {lastEvaluatedFormatted && (
-                <>
-                  <span className="text-slate-300">•</span>
-                  <span className="text-xs font-mono text-slate-500 flex items-center gap-1">
-                    <Clock className="size-3 text-slate-400" />
-                    Updated: {lastEvaluatedFormatted}
-                  </span>
-                </>
-              )}
-            </div>
-            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 flex items-center gap-2">
-              Forecasts & Trends
+          <div>
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900">
+              Predictive
             </h1>
-            <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
-              See estimates based on past records. Check how they matched earlier records before using them to guide decisions.
-            </p>
           </div>
 
           {/* Horizon Selector and Refresh Button */}
@@ -714,15 +694,30 @@ export function FuturisticPredictiveDashboard() {
                 return (
                   <div
                     key="cattle_price"
-                    className={`relative flex flex-col justify-between rounded-2xl p-4 transition-all duration-200 border ${
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => {
+                      setPopulationSelected(false);
+                      setSelectedTargetId("registered_cattle_price");
+                      setTimelinePage(0);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setPopulationSelected(false);
+                        setSelectedTargetId("registered_cattle_price");
+                        setTimelinePage(0);
+                      }
+                    }}
+                    className={`group relative flex flex-col justify-between rounded-2xl p-4 text-left transition-all duration-200 border cursor-pointer ${
                       isSelected
                         ? "border-2 border-emerald-600 bg-emerald-50/70 shadow-sm"
-                        : "border border-slate-200 bg-white shadow-2xs"
+                        : "border border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60 shadow-2xs"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <div className={`flex size-9 items-center justify-center rounded-xl ${
-                        isSelected ? "bg-emerald-600 text-white shadow-2xs" : "bg-slate-100 text-slate-600"
+                      <div className={`flex size-9 items-center justify-center rounded-xl transition-colors ${
+                        isSelected ? "bg-emerald-600 text-white shadow-2xs" : "bg-slate-100 text-slate-600 group-hover:bg-slate-200"
                       }`}>
                         <Scale className="size-4.5" />
                       </div>
@@ -758,14 +753,16 @@ export function FuturisticPredictiveDashboard() {
 
                     <div className="mt-3 flex rounded-lg border border-slate-200 bg-white p-1" role="group" aria-label="Livestock price source">
                       {[card, externalCattlePriceCard].map((sourceCard) => {
-                        const isSourceSelected = sourceCard.id === activeTargetId;
+                        const isSourceSelected = !populationSelected && sourceCard.id === activeTargetId;
                         const sourceLabel = sourceCard.id === "registered_cattle_price" ? "Registered" : "External";
                         return (
                           <button
                             key={sourceCard.id}
                             type="button"
                             aria-pressed={isSourceSelected}
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPopulationSelected(false);
                               setSelectedTargetId(sourceCard.id);
                               setTimelinePage(0);
                             }}
