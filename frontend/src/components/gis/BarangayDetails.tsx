@@ -402,7 +402,7 @@ export function BarangayDetails({
               <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700 block mb-1">
                 Reported Illness Symptoms:
               </span>
-              <ul className="text-xs text-rose-900 space-y-0.5 list-disc list-inside">
+              <ul tabIndex={0} aria-label="Reported illness symptoms" className="max-h-48 overflow-y-auto overscroll-contain pr-1 text-xs text-rose-900 space-y-0.5 list-disc list-inside [scrollbar-gutter:stable] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 rounded">
                 {data.recent_diseases.map((d, i) => (
                   <li key={i} className="truncate">{d}</li>
                 ))}

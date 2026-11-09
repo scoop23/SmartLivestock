@@ -401,7 +401,7 @@ export function MunicipalOverview({
           </div>
 
           {summary.alert_barangays.length > 0 ? (
-            <div className="space-y-1.5 pt-1">
+            <div tabIndex={0} role="region" aria-label="Disease surveillance alerts" className="max-h-72 overflow-y-auto overscroll-contain space-y-1.5 pt-1 pr-1 [scrollbar-gutter:stable] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 rounded-lg">
               {summary.alert_barangays.map((a, i) => (
                 <button
                   key={i}
