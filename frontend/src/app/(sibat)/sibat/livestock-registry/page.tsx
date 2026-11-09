@@ -7,6 +7,12 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -30,9 +36,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   Baby,
+  Check,
+  ChevronDown,
   ClipboardList,
   Eye,
   FileSpreadsheet,
+  History,
   Icon,
   Layers,
   LayoutGrid,
@@ -465,6 +474,19 @@ function SibatLivestockRegistryContent() {
     router.replace(`/sibat/livestock-registry?${newParams.toString()}`, { scroll: false });
   };
 
+  const handleHistoryToggle = (history: boolean) => {
+    if (history === showHistory) return;
+    firstRecordRef.current = null;
+    setPage(1);
+    const newParams = new URLSearchParams(searchParams.toString());
+    if (history) {
+      newParams.set("history", "true");
+    } else {
+      newParams.delete("history");
+    }
+    router.replace(`/sibat/livestock-registry?${newParams.toString()}`, { scroll: false });
+  };
+
   // Filter pipeline
   const filteredRecords = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -668,32 +690,124 @@ function SibatLivestockRegistryContent() {
 
       {/* ── TOP NAVIGATION & UNIFIED RECORD TABS ── */}
       <div className="w-full px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 space-y-3 sm:space-y-4">
-        <Button variant="outline" asChild>
-          <Link href={showHistory ? "/sibat/livestock-registry" : "/sibat/livestock-registry?history=true"}>
-            {showHistory ? "Current animals" : "Animal history"}
-          </Link>
-        </Button>
-        {/* Navigation Breadcrumb / Back Link */}
-        <div className="flex items-center justify-between">
+        {/* Navigation Breadcrumb / Back Link & Population Dropdown */}
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
           <Link
             href="/sibat"
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors"
+            className="group inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors"
           >
-            <ArrowLeft className="size-3.5" /> Back to Dashboard
+            <ArrowLeft className="size-3.5 transition-transform duration-200 group-hover:-translate-x-0.5" /> Back to Dashboard
           </Link>
 
-          {batchId && activeTab !== "herds" && (
-            <Button
-              asChild
-              size="sm"
-              variant="outline"
-              className="h-8 rounded-xl text-xs font-bold border-slate-200"
-            >
-              <Link href={`/sibat/batches?batchId=${encodeURIComponent(batchId)}&from=registry`}>
-                <Layers className="size-3.5 mr-1" /> View Herd #{batchId}
-              </Link>
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {batchId && activeTab !== "herds" && (
+              <Button
+                asChild
+                size="sm"
+                variant="outline"
+                className="h-9 rounded-xl text-xs font-bold border-slate-200 hover:bg-slate-50 transition-all"
+              >
+                <Link href={`/sibat/batches?batchId=${encodeURIComponent(batchId)}&from=registry`}>
+                  <Layers className="size-3.5 mr-1" /> View Herd #{batchId}
+                </Link>
+              </Button>
+            )}
+
+            {/* Current Animals / Animal History Dropdown Toggle */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={cn(
+                    "group relative h-9 gap-2 rounded-xl border px-3 text-xs font-bold shadow-2xs transition-all duration-200 hover:shadow-xs active:scale-[0.98] cursor-pointer",
+                    showHistory
+                      ? "border-amber-200/90 bg-amber-50/70 text-amber-950 hover:bg-amber-100/80 hover:border-amber-300"
+                      : "border-slate-200 bg-white text-slate-800 hover:border-slate-300 hover:bg-slate-50"
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    {showHistory ? (
+                      <History className="size-3.5 text-amber-600 transition-transform duration-300 group-hover:-rotate-45" />
+                    ) : (
+                      <span className="relative flex size-2">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                        <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+                      </span>
+                    )}
+                    <span className="font-extrabold tracking-tight">
+                      {showHistory ? "Animal History" : "Current Animals"}
+                    </span>
+                  </div>
+                  <ChevronDown className="size-3.5 text-slate-400 transition-transform duration-300 group-data-[state=open]:rotate-180 group-hover:text-slate-600" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="w-56 rounded-2xl border border-slate-200/90 bg-white p-1.5 shadow-xl transition-all data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 duration-200"
+              >
+                <div className="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Registry Population
+                </div>
+                <DropdownMenuItem
+                  onClick={() => handleHistoryToggle(false)}
+                  className={cn(
+                    "group flex cursor-pointer items-center justify-between rounded-xl px-2.5 py-2 text-xs font-bold transition-all duration-150",
+                    !showHistory
+                      ? "bg-emerald-50/80 text-emerald-950 font-black"
+                      : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                  )}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="relative flex size-2 shrink-0">
+                      {!showHistory && (
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                      )}
+                      <span
+                        className={cn(
+                          "relative inline-flex size-2 rounded-full",
+                          !showHistory ? "bg-emerald-500" : "bg-slate-300"
+                        )}
+                      />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="leading-snug">Current Animals</p>
+                      <p className="text-[10px] font-medium text-slate-500">Active livestock</p>
+                    </div>
+                  </div>
+                  {!showHistory && (
+                    <Check className="size-3.5 text-emerald-600 shrink-0 animate-in zoom-in-50 duration-200" />
+                  )}
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  onClick={() => handleHistoryToggle(true)}
+                  className={cn(
+                    "group flex cursor-pointer items-center justify-between rounded-xl px-2.5 py-2 text-xs font-bold transition-all duration-150",
+                    showHistory
+                      ? "bg-amber-50/80 text-amber-950 font-black"
+                      : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                  )}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <History
+                      className={cn(
+                        "size-3.5 shrink-0 transition-transform duration-200 group-hover:-rotate-45",
+                        showHistory ? "text-amber-600" : "text-slate-400"
+                      )}
+                    />
+                    <div className="min-w-0">
+                      <p className="leading-snug">Animal History</p>
+                      <p className="text-[10px] font-medium text-slate-500">Sold, deceased, moved</p>
+                    </div>
+                  </div>
+                  {showHistory && (
+                    <Check className="size-3.5 text-amber-600 shrink-0 animate-in zoom-in-50 duration-200" />
+                  )}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         <div className="w-full rounded-2xl border border-slate-200/90 bg-white p-1 sm:p-1.5 shadow-2xs overflow-hidden">
@@ -1124,7 +1238,11 @@ function SibatLivestockRegistryContent() {
           <RegistryRecordsSkeleton viewMode={viewMode} />
         ) : filteredRecords.length > 0 ? (
           /* Main Records List: Table View or Cards View */
-          <div ref={recordsListRef} className="space-y-4">
+          <div
+            key={`${showHistory ? "history" : "current"}-${activeTab}-${page}-${viewMode}-${barangay}-${farmer}-${species}-${status}`}
+            ref={recordsListRef}
+            className="space-y-4 animate-in fade-in-50 slide-in-from-bottom-2 duration-300 fill-mode-both"
+          >
             {viewMode === "table" ? (
               /* TABLE VIEW */
               <Card className="rounded-2xl border border-slate-200/90 bg-white shadow-xs overflow-hidden">
@@ -1168,7 +1286,8 @@ function SibatLivestockRegistryContent() {
                             }
                           }}
                           data-review-record-id={r.id}
-                          className={`cursor-pointer border-b border-slate-100 scroll-mt-24 transition-colors ${r.id === focusRecordKey ? "bg-emerald-50 ring-2 ring-inset ring-emerald-400" : "hover:bg-slate-50/80"}`}
+                          style={{ animationDelay: `${Math.min(idx * 25, 250)}ms` }}
+                          className={`cursor-pointer border-b border-slate-100 scroll-mt-24 transition-all duration-200 animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-both ${r.id === focusRecordKey ? "bg-emerald-50 ring-2 ring-inset ring-emerald-400" : "hover:bg-slate-50/80"}`}
                           onClick={() => {
                             setFocusedRecordId((prev) => (prev === r.id ? null : r.id));
                           }}
@@ -1323,7 +1442,8 @@ function SibatLivestockRegistryContent() {
                       }
                     }}
                     data-review-record-id={r.id}
-                    className={`rounded-2xl border p-4 shadow-2xs space-y-2.5 scroll-mt-24 transition-all ${r.id === focusRecordKey ? "border-emerald-500 bg-emerald-50/70 ring-2 ring-emerald-300" : "border-slate-200/90 bg-white hover:border-slate-300"}`}
+                    style={{ animationDelay: `${Math.min(idx * 35, 300)}ms` }}
+                    className={`rounded-2xl border p-4 shadow-2xs space-y-2.5 scroll-mt-24 transition-all duration-200 animate-in fade-in-0 slide-in-from-bottom-1.5 fill-mode-both hover:shadow-xs hover:-translate-y-0.5 ${r.id === focusRecordKey ? "border-emerald-500 bg-emerald-50/70 ring-2 ring-emerald-300" : "border-slate-200/90 bg-white hover:border-slate-300"}`}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 flex-wrap">
@@ -1436,7 +1556,7 @@ function SibatLivestockRegistryContent() {
           </div>
         ) : (
           /* Empty State */
-          <Card className="rounded-2xl border border-dashed border-slate-200 bg-white p-10 text-center shadow-2xs">
+          <Card className="rounded-2xl border border-dashed border-slate-200 bg-white p-10 text-center shadow-2xs animate-in fade-in-50 zoom-in-95 duration-200">
             <div className="mx-auto size-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mb-3">
               <Search className="size-6" />
             </div>

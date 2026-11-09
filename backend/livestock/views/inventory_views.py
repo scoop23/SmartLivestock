@@ -64,18 +64,33 @@ def inventory_list_create(request):
             inventory = serializer.save()
             farmer_name = user.get_full_name() or user.username
             animal_name = inventory.tag_number or inventory.breed or inventory.livestock_type.name #type: ignore
-            notify_role(
-                barangay_id=inventory.farmer.barangay_id,
-                role_name="SIBAT",
-                include_cbat=True,
-                notification_type=Notification.NotificationType.SIBAT,
-                priority=Notification.Priority.MEDIUM,
-                title="New Livestock Entry Awaiting Verification",
-                message=f"{farmer_name} registered {animal_name}. Review the entry and schedule field verification.",
-                link=f"/sibat?tab=inventory&reviewType=INVENTORY&reviewId={inventory.pk}",
-                related_entity_type="livestock_inventory",
-                related_entity_id=inventory.id,
-            )
+            if inventory.purchase_transfer_id:
+                notify_role(
+                    role_name="MAO",
+                    notification_type=Notification.NotificationType.GENERAL,
+                    priority=Notification.Priority.MEDIUM,
+                    title="Purchased Livestock Awaiting MAO Approval",
+                    message=(
+                        f"{farmer_name} registered purchased livestock {animal_name} "
+                        f"(linked to approved transfer). Ready for MAO approval and COLC issuance."
+                    ),
+                    link=f"/livestock-records?tab=individual&recordId={inventory.pk}",
+                    related_entity_type="livestock_inventory",
+                    related_entity_id=inventory.id,
+                )
+            else:
+                notify_role(
+                    barangay_id=inventory.farmer.barangay_id,
+                    role_name="SIBAT",
+                    include_cbat=True,
+                    notification_type=Notification.NotificationType.SIBAT,
+                    priority=Notification.Priority.MEDIUM,
+                    title="New Livestock Entry Awaiting Verification",
+                    message=f"{farmer_name} registered {animal_name}. Review the entry and schedule field verification.",
+                    link=f"/sibat?tab=inventory&reviewType=INVENTORY&reviewId={inventory.pk}",
+                    related_entity_type="livestock_inventory",
+                    related_entity_id=inventory.id,
+                )
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     # GET: Enforce strict farmer data isolation
@@ -280,30 +295,47 @@ def inventory_detail(request, pk):
         was_returned = inventory.status == LivestockInventory.StatusType.SUBJECT_TO_REVISION
         inventory = serializer.save()
         if was_returned:
-            inventory.status = LivestockInventory.StatusType.PENDING #type: ignore
+            is_linked_purchase = bool(inventory.purchase_transfer_id)
+            inventory.status = (
+                LivestockInventory.StatusType.VERIFIED
+                if is_linked_purchase
+                else LivestockInventory.StatusType.PENDING
+            )  # type: ignore
             inventory.reviewed_by = None #type: ignore
             inventory.reviewed_at = None #type: ignore
             inventory.save(update_fields=["status", "reviewed_by", "reviewed_at"]) 
             farmer_name = user.get_full_name() or user.username
             animal_name = inventory.tag_number or inventory.breed or inventory.livestock_type.name #type: ignore
-            notify_role(
-                barangay_id=inventory.farmer.barangay_id,
-                role_name="SIBAT",
-                include_cbat=True,
-                notification_type=Notification.NotificationType.SIBAT,
-                priority=Notification.Priority.MEDIUM,
-                title="Livestock Entry Resubmitted",
-                message=f"{farmer_name} corrected and resubmitted {animal_name} for field verification.",
-                link=f"/sibat?tab=inventory&reviewType=INVENTORY&reviewId={inventory.pk}",
-                related_entity_type="livestock_inventory",
-                related_entity_id=inventory.pk,
-            )
+            if is_linked_purchase:
+                notify_role(
+                    role_name="MAO",
+                    notification_type=Notification.NotificationType.GENERAL,
+                    priority=Notification.Priority.MEDIUM,
+                    title="Purchased Livestock Entry Resubmitted",
+                    message=f"{farmer_name} corrected and resubmitted purchased livestock {animal_name} for MAO approval.",
+                    link=f"/livestock-records?tab=individual&recordId={inventory.pk}",
+                    related_entity_type="livestock_inventory",
+                    related_entity_id=inventory.pk,
+                )
+            else:
+                notify_role(
+                    barangay_id=inventory.farmer.barangay_id,
+                    role_name="SIBAT",
+                    include_cbat=True,
+                    notification_type=Notification.NotificationType.SIBAT,
+                    priority=Notification.Priority.MEDIUM,
+                    title="Livestock Entry Resubmitted",
+                    message=f"{farmer_name} corrected and resubmitted {animal_name} for field verification.",
+                    link=f"/sibat?tab=inventory&reviewType=INVENTORY&reviewId={inventory.pk}",
+                    related_entity_type="livestock_inventory",
+                    related_entity_id=inventory.pk,
+                )
             notify_role(
                 role_name="ADMIN",
                 notification_type=Notification.NotificationType.GENERAL,
                 priority=Notification.Priority.MEDIUM,
                 title="Livestock Entry Resubmitted",
-                message=f"{farmer_name} corrected and resubmitted {animal_name} for field verification.",
+                message=f"{farmer_name} corrected and resubmitted {animal_name} for review.",
                 link=f"/livestock-records?tab=individual&recordId={inventory.pk}",
                 related_entity_type="livestock_inventory",
                 related_entity_id=inventory.pk,

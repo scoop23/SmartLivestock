@@ -122,6 +122,7 @@ function MultiLivestockDialog({
 
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLocalSelected(selectedIds);
       setQuery("");
     }
@@ -342,6 +343,7 @@ export default function ProductionSalesTab({
   const showMarketTabs = species.trim().toLowerCase() === "cattle" && !autoOpenIntent;
   const [salesView, setSalesView] = useState<"sales" | "market">(requestedMarket ? "market" : "sales");
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSalesView(requestedMarket ? "market" : "sales");
     if (!requestedMarket) return;
     const frame = window.requestAnimationFrame(() => {
@@ -372,6 +374,14 @@ export default function ProductionSalesTab({
   const [intentNotes, setIntentNotes] = useState("");
   const [intentDocument, setIntentDocument] = useState<File | null>(null);
   const [intentCertificate, setIntentCertificate] = useState("");
+
+  const todayStr = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }, []);
 
   const selectedAnimals = useMemo(() => {
     return intentInventories.filter((item) => selectedAnimalIds.includes(item.id));
@@ -427,7 +437,10 @@ export default function ProductionSalesTab({
 
   const [salesPage, setSalesPage] = useState(1);
   const [salesPageSize, setSalesPageSize] = useState(8);
-  useEffect(() => { setSalesPage(1); }, [species]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSalesPage(1);
+  }, [species]);
   const salesTotalPages = Math.max(1, Math.ceil(sales.length / salesPageSize));
   const safeSalesPage = Math.min(salesPage, salesTotalPages);
   const paginatedSales = sales.slice((safeSalesPage - 1) * salesPageSize, safeSalesPage * salesPageSize);
@@ -499,6 +512,11 @@ export default function ProductionSalesTab({
     e.preventDefault();
     if (selectedAnimalIds.length === 0) {
       toast.error("Please select at least one animal.");
+      return;
+    }
+
+    if (targetDate && targetDate < todayStr) {
+      toast.error("Target date cannot be in the past. Please select today or a future date.");
       return;
     }
 
@@ -908,22 +926,31 @@ export default function ProductionSalesTab({
             {/* Target Date Section */}
             <div data-tour="intent-record-date" className="space-y-1.5">
               <Label htmlFor="intent-target-date" className="text-sm font-bold text-slate-900">
-                Target date (optional) *
+                Target date (optional)
               </Label>
               <div className="relative">
                 <Calendar className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-800" />
                 <Input
                   id="intent-target-date"
                   type="date"
+                  min={todayStr}
                   value={targetDate}
-                  onChange={(e) => setTargetDate(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val && val < todayStr) {
+                      toast.error("Target date cannot be in the past. Please select today or a future date.");
+                      setTargetDate("");
+                      return;
+                    }
+                    setTargetDate(val);
+                  }}
                   className="pl-10 h-11 rounded-xl border-slate-200 bg-slate-50/60 hover:bg-white focus:bg-white text-slate-900 text-sm font-medium"
                   placeholder="mm/dd/yyyy"
                 />
               </div>
               <p className="text-xs text-slate-500 flex items-center gap-1.5 pt-0.5">
                 <Calendar className="size-3.5 text-slate-500 shrink-0" />
-                This is the date you plan to bring the animal to the auction.
+                This is the date you plan to bring the animal to the auction (today or future dates only).
               </p>
             </div>
 
