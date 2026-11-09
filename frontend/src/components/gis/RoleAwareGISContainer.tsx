@@ -961,7 +961,7 @@ export function RoleAwareGISContainer({
           />
           {supportsMovementFocus && activeLayer === 'movement' && (
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <Button size="sm" variant="outline" className="h-8 rounded-xl bg-white/95 text-xs" onClick={() => {
+              <Button size="sm" className="h-9 rounded-xl border-emerald-800 bg-emerald-700 px-4 text-xs font-semibold text-white shadow-md hover:bg-emerald-800 focus-visible:border-emerald-500 focus-visible:ring-emerald-500/50" onClick={() => {
                 setSelectedBarangay(null);
                 setSelectedMovement(null);
                 setMovementDisplayMode(movementDisplayMode === 'density' || selectedBarangay ? 'both' : 'density');
