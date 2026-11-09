@@ -3,6 +3,7 @@
 Examples (development PostgreSQL only):
     python manage.py seed_forecast_quality_demo --scenario ideal
     python manage.py seed_forecast_quality_demo --scenario ideal --clean
+    python manage.py seed_forecast_quality_demo --scenario ideal --carabao-only
     python manage.py seed_forecast_quality_demo --scenario poor
     python manage.py seed_forecast_quality_demo --scenario poor --clean
 
@@ -146,6 +147,7 @@ class Command(BaseCommand):
         parser.add_argument("--scenario", choices=("ideal", "poor"), required=True)
         parser.add_argument("--clean", action="store_true", help="Remove only the selected scenario's owned records.")
         parser.add_argument("--dry-run", action="store_true", help="Preview cleanup counts without changing records; requires --clean.")
+        parser.add_argument("--carabao-only", action="store_true", help="Append only marked carabao price-profile sales to the selected scenario; preserves existing cattle records.")
         parser.add_argument("--prices-only", action="store_true", help="Ideal only: create a focused 104-week cattle-profile demo for Registered and External prices, instead of the full market/production scenario.")
         parser.add_argument("--farmer-email", action="append", help="Use this Farmer account as a scenario owner; repeat for multiple demo farmers.")
         parser.add_argument("--farmer-count", type=int, help="Ideal only: optionally limit the number of active, approved farmers (default: all).")
@@ -154,6 +156,8 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         scenario = options["scenario"]
+        if options["carabao_only"] and (options["clean"] or options["prices_only"]):
+            raise CommandError("--carabao-only appends sales only and cannot be combined with --clean or --prices-only. Use --clean alone to clean the full selected scenario.")
         if options["dry_run"] and not options["clean"]:
             raise CommandError("--dry-run currently previews cleanup only; also pass --clean.")
         if options["farmer_count"] is not None and options["farmer_count"] < 1:
@@ -183,7 +187,7 @@ class Command(BaseCommand):
                 "The other forecast-quality scenario is already present. Clean that scenario first; "
                 "the forecast APIs aggregate records and cannot display both scenarios separately."
             )
-        if self._scenario_exists(marker):
+        if self._scenario_exists(marker, species="Carabao" if options["carabao_only"] else None):
             raise CommandError(
                 f"The {scenario} scenario already exists. Run this command with --scenario {scenario}{' --prices-only' if options['prices_only'] else ''} --clean before reseeding."
             )
@@ -214,7 +218,7 @@ class Command(BaseCommand):
             LivestockType.objects.filter(name__icontains="cattle").first()
             or LivestockType.objects.filter(name__icontains="cow").first()
         )
-        if not cattle_type:
+        if not cattle_type and not options["carabao_only"]:
             raise CommandError("A Cattle/Cow LivestockType is required for synthetic slaughter events.")
         farmer_emails = options["farmer_email"] or []
         if isinstance(farmer_emails, str):
@@ -260,15 +264,21 @@ class Command(BaseCommand):
             ))
 
         with transaction.atomic():
-            if options["prices_only"]:
+            if options["carabao_only"]:
+                carabao_type, _ = LivestockType.objects.get_or_create(name="Carabao")
+                created = self._seed_price_profiles(
+                    marker, mao_user, sellers, carabao_type, auction_user,
+                    species_code="CAR", weeks=AUCTION_WEEKS if scenario == "ideal" else 2,
+                )
+            elif options["prices_only"]:
                 created = self._seed_price_profiles(marker, mao_user, sellers, cattle_type, auction_user)
             elif scenario == "ideal":
                 created = self._seed_ideal(marker, mao_user, sellers, cattle_type, auction_user)
             else:
                 created = self._seed_poor(marker, mao_user, sellers, cattle_type, auction_user)
-            if scenario == "ideal":
+            if scenario == "ideal" and not options["carabao_only"]:
                 call_command("seed_forecast_movement_demo", stdout=self.stdout)
-            if not options["prices_only"]:
+            if not options["prices_only"] and not options["carabao_only"]:
                 call_command(
                     "seed_forecast_population_demo",
                     scenario=scenario,
@@ -281,16 +291,18 @@ class Command(BaseCommand):
             f"{created['milk']} milk session rows, {created['farmer_meat']} farmer meat events, "
             f"{created['slaughter']} slaughter events, and {created['sales']} approved/pending ownership transfer events."
         ))
-        if options["prices_only"]:
+        if options["carabao_only"]:
+            self.stdout.write("Added synthetic approved Carabao sales in both Registered and External sources. Registered animals are Sold. Existing cattle and farm-production records were preserved. Example profile: Murrah Buffalo, Male, exact age 36 months, exact weight 450 kg. The poor scenario intentionally has only two weeks of history.")
+        elif options["prices_only"]:
             self.stdout.write("Created 104 consecutive recorded weeks for both price sources. Price by Animal Profile can use these labeled samples automatically in local development when its source has no real approved sales. Example: Brahman, Male, 2 to under 4 years, 350 to under 500 kg. Prices and backtest scores are constructed demo results only.")
         elif scenario == "ideal":
             self.stdout.write(
-                "The ideal scenario includes 104 complete recorded weeks for livestock sales and cattle price profiles "
-                "(all 7 breeds, both sexes, and seasonal weekly volume variation) along with 36 months of dairy milk "
+                "The ideal scenario includes 104 complete recorded weeks for livestock sales and cattle/carabao price profiles "
+                "(7 cattle breeds, 4 carabao breeds, both sexes, and seasonal weekly volume variation) along with 36 months of dairy milk "
                 "production logs and slaughter meat inspection yields."
             )
         self.stdout.write(
-            "Synthetic cattle transfer prices are generated from recorded weight, age, sex, and breed. "
+            "Synthetic livestock transfer prices are generated from recorded weight, age, sex, and breed. "
             "These relationships demonstrate changing animal mixes; they are not fitted market "
             "rates or a real price recommendation."
         )
@@ -299,11 +311,19 @@ class Command(BaseCommand):
         )
 
     @staticmethod
-    def _scenario_exists(marker):
+    def _scenario_exists(marker, species=None):
         markers = [marker]
         if marker in (SEED_MARKER_FORECAST_QUALITY_IDEAL, SEED_MARKER_CATTLE_PRICE_DEMO):
             markers = [SEED_MARKER_FORECAST_QUALITY_IDEAL, SEED_MARKER_CATTLE_PRICE_DEMO]
         for m in markers:
+            if species is not None:
+                if (LivestockOwnershipTransfer.objects.filter(review_remarks__contains=m).filter(
+                    Q(livestock__livestock_type__name__iexact=species) | Q(external_livestock_type__iexact=species)
+                ).exists() or LivestockInventory.objects.filter(
+                    livestock_type__name__iexact=species, review_remarks__contains=m
+                ).exists()):
+                    return True
+                continue
             if (
                 ProductionRecord.objects.filter(notes__contains=m).exists()
                 or SlaughterRecord.objects.filter(review_remarks__contains=m).exists()
@@ -467,7 +487,9 @@ class Command(BaseCommand):
             )
             animal._demo_created_at = aware_at(day, 7)
             animal_rows.append(animal)
-            labels = sample_sale_labels(f"{marker}:registered:{serial}", day)
+            species_code = "CAR" if cattle_type.name.casefold() == "carabao" else "CAT"
+            identity_marker = marker if species_code == "CAT" else f"{marker}:{species_code}"
+            labels = sample_sale_labels(f"{identity_marker}:registered:{serial}", day, species_code)
             transfer = LivestockOwnershipTransfer(
                 livestock=animal, previous_owner=seller,
                 owner_type=LivestockOwnershipTransfer.OwnerType.EXTERNAL_INDIVIDUAL,
@@ -513,7 +535,8 @@ class Command(BaseCommand):
             price = profile["purchase_price"] if profile and include_price else None
             if not profile and include_price and species["price_range"]:
                 price = Decimal(rng.randrange(*species["price_range"], 500))
-            labels = sample_sale_labels(f"{marker}:external:{serial}", day, species["code"], owner_type)
+            identity_marker = marker if species["code"] == "CAT" else f"{marker}:{species['code']}"
+            labels = sample_sale_labels(f"{identity_marker}:external:{serial}", day, species["code"], owner_type)
             transfer = LivestockOwnershipTransfer(
                 livestock=None,
                 previous_owner=None,
@@ -577,7 +600,7 @@ class Command(BaseCommand):
             rows.append(row)
         return rows
 
-    def _seed_price_profiles(self, marker, user, sellers, cattle_type, auction_user):
+    def _seed_price_profiles(self, marker, user, sellers, cattle_type, auction_user, *, species_code="CAT", weeks=AUCTION_WEEKS):
         """Small, balanced teaching dataset with realistic weekly volume variation.
 
         Both sources contain all registration breed choices, both sexes, and
@@ -588,18 +611,22 @@ class Command(BaseCommand):
         learnable AR(1) example so the Ridge + ARIMA pipeline can be demonstrated
         without weakening its gates.
         """
-        breeds = ("Brahman", "Holstein-Friesian", "Jersey", "Black Angus", "Simmental",
-                  "Philippine Native (Batangas)", "Crossbred Dairy")
-        combinations = ((24, 300), (36, 400), (36, 550), (84, 700))
+        if species_code == "CAR":
+            breeds = ("Philippine Carabao (Native)", "Murrah Buffalo", "Bulgarian Murrah", "Crossbred Dairy Carabao")
+            combinations = ((24, 350), (36, 450), (36, 550), (84, 700))
+        else:
+            breeds = ("Brahman", "Holstein-Friesian", "Jersey", "Black Angus", "Simmental",
+                      "Philippine Native (Batangas)", "Crossbred Dairy")
+            combinations = ((24, 300), (36, 400), (36, 550), (84, 700))
         current_week = timezone.localdate() - timedelta(days=timezone.localdate().weekday())
-        first_week = current_week - timedelta(weeks=AUCTION_WEEKS)
-        price_rng = Random(9)
-        rng = Random(17)
-        vol_rng = Random(42)
+        first_week = current_week - timedelta(weeks=weeks)
+        price_rng = Random(19 if species_code == "CAR" else 9)
+        rng = Random(27 if species_code == "CAR" else 17)
+        vol_rng = Random(52 if species_code == "CAR" else 42)
         self._demo_animal_serial = 0
         self._demo_market_animal_serial = 0
         self._demo_market_lot_serial = 0
-        cattle_market = next(s for s in MARKET_WEEKLY_HEAD_AVERAGES if s["code"] == "CAT")
+        cattle_market = next(s for s in MARKET_WEEKLY_HEAD_AVERAGES if s["code"] == species_code)
 
         base_profiles = [
             (breed_index, breed, sex, age, weight)
@@ -609,7 +636,7 @@ class Command(BaseCommand):
         ]
 
         count = 0
-        for week_index in range(AUCTION_WEEKS):
+        for week_index in range(weeks):
             day = first_week + timedelta(weeks=week_index, days=4)
             adjustment = 12_000 * ((-0.97) ** week_index)
             animals, transfers = [], []
@@ -649,7 +676,7 @@ class Command(BaseCommand):
                     cattle_type=cattle_type, day=day, heads=1, price=None,
                     price_from_traits=True, profiles=[profile],
                     status=LivestockOwnershipTransfer.Status.APPROVED,
-                    review_time=aware_at(day, 17), note="constructed cattle-profile teaching data",
+                    review_time=aware_at(day, 17), note=f"constructed {cattle_type.name}-profile teaching data",
                 )
                 animals.extend(registered_animals)
                 transfers.extend(registered)
@@ -668,7 +695,7 @@ class Command(BaseCommand):
                     marker=marker, auction_user=auction_user, reviewer=user,
                     species=cattle_market, seller_origin=SYNTHETIC_MARKET_ORIGINS[0],
                     buyer_origin=SYNTHETIC_MARKET_ORIGINS[1], day=day, heads=1,
-                    certificate_number=f"DEMO-PRICE-{week_index:03d}-EXT-{ext_idx:03d}-{breed_index}-{sex}-{age}",
+                    certificate_number=f"DEMO-PRICE-{species_code}-{week_index:03d}-EXT-{ext_idx:03d}-{breed_index}-{sex}-{age}",
                     rng=rng, profiles=[external_profile],
                 ))
 
@@ -737,8 +764,13 @@ class Command(BaseCommand):
         self._create_rows(SlaughterRecord, slaughter_rows)
         self._create_rows(LivestockInventory, dairy_animals)
 
-        # Unified: Seed realistic registered and external cattle sales with price profiles
+        # Seed separate, explicitly synthetic cattle and carabao profile histories.
         sales_result = self._seed_price_profiles(marker, user, sellers, cattle_type, auction_user)
+        carabao_type, _ = LivestockType.objects.get_or_create(name="Carabao")
+        carabao_result = self._seed_price_profiles(
+            marker, user, sellers, carabao_type, auction_user, species_code="CAR",
+        )
+        sales_result["sales"] += carabao_result["sales"]
 
         return {
             "milk": len(production_rows),
@@ -867,5 +899,9 @@ class Command(BaseCommand):
             ))
         self._create_rows(LivestockInventory, dairy_animals + sale_animals)
         self._create_rows(LivestockOwnershipTransfer, sale_rows)
+        carabao_type, _ = LivestockType.objects.get_or_create(name="Carabao")
+        carabao_result = self._seed_price_profiles(
+            marker, user, sellers, carabao_type, auction_user, species_code="CAR", weeks=2,
+        )
         return {"milk": len(production_rows), "farmer_meat": len(meat_rows),
-                "slaughter": len(slaughter_rows), "sales": len(sale_rows)}
+                "slaughter": len(slaughter_rows), "sales": len(sale_rows) + carabao_result["sales"]}
