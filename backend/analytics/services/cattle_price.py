@@ -120,13 +120,22 @@ def _training_readiness(sales, blocked_weeks):
         if sale.day < origin:
             groups[week_of(sale.day)].append(sale)
     weeks, count = 0, 0
+    consecutive_quiet = 0
     week = origin - timedelta(weeks=1)
     while weeks < 104:
         group = groups.get(week, [])
-        if not group or week in blocked_weeks or any(s.available is None or s.available >= origin for s in group):
+        if week in blocked_weeks or any(s.available is None or s.available >= origin for s in group):
             break
-        weeks += 1
-        count += len(group)
+        if not group:
+            consecutive_quiet += 1
+            if consecutive_quiet > 2:
+                break
+            if weeks > 0:
+                weeks += 1
+        else:
+            consecutive_quiet = 0
+            weeks += 1
+            count += len(group)
         week -= timedelta(weeks=1)
     return {"recent_complete_weeks": weeks, "recent_complete_sales": count}
 

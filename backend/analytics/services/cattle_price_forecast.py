@@ -82,18 +82,26 @@ def fit_before(sales, blocked_weeks, origin, steps):
     # A missing or partly measured week is unknown. Do not turn it into zero,
     # and do not bridge gaps by treating nonadjacent weeks as adjacent ARIMA data.
     weeks = []
+    consecutive_quiet = 0
     week = origin - timedelta(weeks=1)
     while len(weeks) < 104:
         group = groups.get(week, [])
-        if (not group or week in blocked_weeks
-                or any(s.available is None or s.available >= origin for s in group)):
+        if week in blocked_weeks or any(s.available is None or s.available >= origin for s in group):
             break
+        if not group:
+            consecutive_quiet += 1
+            if consecutive_quiet > 2:
+                break
+        else:
+            consecutive_quiet = 0
         weeks.append(week)
         week -= timedelta(weeks=1)
+    while weeks and not groups.get(weeks[-1]):
+        weeks.pop()
     weeks.reverse()
     if len(weeks) < MIN_WEEKS:
         raise ValueError(f"Need {MIN_WEEKS} consecutive recent weeks of priced sales with complete traits and submission/approval dates.")
-    training = [s for week in weeks for s in groups[week]]
+    training = [s for week in weeks for s in groups.get(week, [])]
     if len(training) < MIN_SALES:
         raise ValueError(f"Need at least {MIN_SALES} complete approved sales in the recent training history.")
 
@@ -106,7 +114,13 @@ def fit_before(sales, blocked_weeks, origin, steps):
     residuals = defaultdict(list)
     for sale, trait_price in zip(training, trait_prices):
         residuals[week_of(sale.day)].append(sale.price - trait_price)
-    series = np.array([np.mean(residuals[week]) for week in weeks], dtype=float)
+    series_vals = []
+    last_residual = 0.0
+    for week in weeks:
+        if residuals.get(week):
+            last_residual = float(np.mean(residuals[week]))
+        series_vals.append(last_residual)
+    series = np.array(series_vals, dtype=float)
     # A fixed, small ARIMA order avoids searching many models on the same tiny
     # validation set. Seasonal effects require separate evidence and are omitted.
     with warnings.catch_warnings():
