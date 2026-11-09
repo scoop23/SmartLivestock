@@ -320,11 +320,21 @@ def review_ownership_transfer(request, pk):
             raise ValidationError({"new_owner": "External buyer details are incomplete or conflict with a Farmer account."})
 
         if transfer.livestock_id:
-            # Keep the registered animal row in the seller's history as SOLD.
+            # Keep the registered animal row in the seller's history as SOLD and clear its active COLC.
             animal.operational_status = LivestockInventory.OperationalStatus.SOLD
             animal.operational_status_changed_at = timezone.now()
             animal.batch = None
-            animal.save(update_fields=["operational_status", "operational_status_changed_at", "batch"])
+            animal.ownership_certificate_number = ""
+            animal.ownership_certificate_recorded_by = None
+            animal.ownership_certificate_recorded_at = None
+            animal.save(update_fields=[
+                "operational_status",
+                "operational_status_changed_at",
+                "batch",
+                "ownership_certificate_number",
+                "ownership_certificate_recorded_by",
+                "ownership_certificate_recorded_at",
+            ])
 
     transfer.status = target
     transfer.reviewed_by = request.user

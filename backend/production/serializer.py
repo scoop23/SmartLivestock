@@ -1050,12 +1050,29 @@ class AnimalDispositionSerializer(serializers.ModelSerializer):
         user = self.context["request"].user
         validated_data["created_by"] = user
         from django.db import transaction
+        from django.utils import timezone
+        from smartlivestock.seed_tags import generate_unique_colc_number
         with transaction.atomic():
             animal = validated_data["livestock"]
-            type(animal).objects.select_for_update().get(pk=animal.pk)
+            locked_animal = type(animal).objects.select_for_update().get(pk=animal.pk)
             if validated_data.get("intent") == "FOR_SALE" and AnimalDisposition.objects.filter(livestock=animal, intent="FOR_SALE").exclude(registration_status="COMPLETED").exists():
                 animal_label = animal.tag_number or f"#{animal.pk}"
                 raise ValidationError({"livestock": f"Animal {animal_label} already has an active sale preregistration. Correct the existing submission."})
+            if locked_animal.status == "APPROVED" and not locked_animal.ownership_certificate_number:
+                ref_date = timezone.localdate(locked_animal.reviewed_at) if locked_animal.reviewed_at else timezone.localdate()
+                locked_animal.ownership_certificate_number = generate_unique_colc_number(
+                    inventory=locked_animal,
+                    reference_date=ref_date,
+                )
+                locked_animal.ownership_certificate_recorded_by = locked_animal.reviewed_by or user
+                locked_animal.ownership_certificate_recorded_at = locked_animal.reviewed_at or timezone.now()
+                locked_animal.save(update_fields=[
+                    "ownership_certificate_number",
+                    "ownership_certificate_recorded_by",
+                    "ownership_certificate_recorded_at",
+                ])
+            if not validated_data.get("original_certificate_number") and locked_animal.ownership_certificate_number:
+                validated_data["original_certificate_number"] = locked_animal.ownership_certificate_number
             return AnimalDisposition.objects.create(**validated_data)
 
 

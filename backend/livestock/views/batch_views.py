@@ -56,7 +56,7 @@ def _validate_roster_tags(animals_data, user):
         except ValidationError as error:
             raise ValidationError({"animals": f"Row {index + 1}: {error.detail['tag_number'][0]}"}) from error
 
-        certificate = str(animal.get("ownership_certificate_number") or "").strip()
+        certificate = "" if role_name(user) == "FARMER" else str(animal.get("ownership_certificate_number") or "").strip()
         animal["ownership_certificate_number"] = certificate
         if certificate:
             if len(certificate) > 100:

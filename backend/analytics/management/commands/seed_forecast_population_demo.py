@@ -29,7 +29,7 @@ from livestock.models import (
     RegisteredPopulationChange,
 )
 from smartlivestock.seed_safety import assert_safe_seed_database
-from smartlivestock.seed_tags import next_seed_livestock_tag
+from smartlivestock.seed_tags import next_seed_colc_number, next_seed_livestock_tag
 from users.models import User
 
 
@@ -300,6 +300,9 @@ class Command(BaseCommand):
                         sex="FEMALE" if offset % 2 == 0 else "MALE",
                         weight=base_weight,
                         tag_number=next_seed_livestock_tag(self, seller.user),
+                        ownership_certificate_number=next_seed_colc_number(self, base_day),
+                        ownership_certificate_recorded_by=mao_user,
+                        ownership_certificate_recorded_at=base_time,
                         status=LivestockInventory.StatusType.APPROVED,
                         operational_status=LivestockInventory.OperationalStatus.ACTIVE,
                         operational_status_changed_at=None,
@@ -374,6 +377,7 @@ class Command(BaseCommand):
                         if add_kind == "births"
                         else add_day - timedelta(days=360 + (item_idx % 6) * 60)
                     )
+                    is_sold = op_status == LivestockInventory.OperationalStatus.SOLD
                     animal = LivestockInventory(
                         farmer=seller,
                         livestock_type=species,
@@ -384,6 +388,9 @@ class Command(BaseCommand):
                         sex="FEMALE" if item_idx % 2 == 0 else "MALE",
                         weight=base_weight + Decimal(str((item_idx % 5) * 4)),
                         tag_number=next_seed_livestock_tag(self, seller.user),
+                        ownership_certificate_number="" if is_sold else next_seed_colc_number(self, add_day),
+                        ownership_certificate_recorded_by=None if is_sold else mao_user,
+                        ownership_certificate_recorded_at=None if is_sold else add_time,
                         status=LivestockInventory.StatusType.APPROVED,
                         operational_status=op_status,
                         operational_status_changed_at=rem_time,

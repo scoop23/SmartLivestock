@@ -1,5 +1,7 @@
-"""Allocate normal owner-name ear tags for registered seed animals."""
+"""Allocate normal owner-name ear tags and COLC numbers for registered seed animals."""
 import re
+
+from django.utils import timezone
 
 from livestock.models import LivestockInventory
 from livestock.serializer import livestock_tag_prefix_for_user
@@ -24,3 +26,60 @@ def next_seed_livestock_tag(command, user):
         )
     sequences[prefix] += 1
     return f"{prefix}-{sequences[prefix]:03d}"
+
+
+def generate_unique_colc_number(inventory=None, reference_date=None) -> str:
+    """Generate a unique COLC number (COLC-YYYY-XXXXXX) for an approved animal."""
+    year = reference_date.year if reference_date is not None else timezone.localdate().year
+    prefix = f"COLC-{year}"
+    if inventory is not None and getattr(inventory, "pk", None):
+        candidate = f"{prefix}-{inventory.pk:06d}"
+        if not LivestockInventory.objects.filter(
+            ownership_certificate_number__iexact=candidate
+        ).exclude(pk=inventory.pk).exists():
+            return candidate
+
+    pattern = re.compile(rf"^{re.escape(prefix)}-(\d+)$", re.IGNORECASE)
+    existing = LivestockInventory.objects.filter(
+        ownership_certificate_number__istartswith=f"{prefix}-",
+    ).values_list("ownership_certificate_number", flat=True)
+    max_seq = max(
+        (int(m.group(1)) for cert in existing if (m := pattern.fullmatch(cert.strip()))),
+        default=0,
+    )
+    seq = max_seq + 1
+    while True:
+        candidate = f"{prefix}-{seq:06d}"
+        if not LivestockInventory.objects.filter(ownership_certificate_number__iexact=candidate).exists():
+            return candidate
+        seq += 1
+
+
+def next_seed_colc_number(command, reference_date=None) -> str:
+    """Allocate unique sequential COLC numbers across unsaved bulk seed rows and existing DB rows."""
+    year = reference_date.year if reference_date is not None else timezone.localdate().year
+    prefix = f"COLC-{year}"
+    if not hasattr(command, "_seed_colc_sequences"):
+        command._seed_colc_sequences = {}
+    if not hasattr(command, "_seed_colc_existing"):
+        command._seed_colc_existing = {}
+    sequences = command._seed_colc_sequences
+    existing_map = command._seed_colc_existing
+    if prefix not in sequences:
+        pattern = re.compile(rf"^{re.escape(prefix)}-(\d+)$", re.IGNORECASE)
+        certs = list(
+            LivestockInventory.objects.filter(
+                ownership_certificate_number__istartswith=f"{prefix}-",
+            ).values_list("ownership_certificate_number", flat=True)
+        )
+        existing_map[prefix] = {c.strip().upper() for c in certs if c}
+        sequences[prefix] = max(
+            (int(match.group(1)) for cert in certs if (match := pattern.fullmatch(cert.strip()))),
+            default=0,
+        )
+    while True:
+        sequences[prefix] += 1
+        candidate = f"{prefix}-{sequences[prefix]:06d}"
+        if candidate.upper() not in existing_map[prefix]:
+            existing_map[prefix].add(candidate.upper())
+            return candidate

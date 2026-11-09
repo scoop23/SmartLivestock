@@ -61,6 +61,9 @@ class DiseaseCaseSerializer(serializers.ModelSerializer):
     batch_code = serializers.CharField(
         source="batch.batch_code", read_only=True
     )
+    ownership_certificate_number = serializers.CharField(
+        source="livestock.ownership_certificate_number", read_only=True, default=""
+    )
     reviewed_by_name = serializers.SerializerMethodField()
     reviewed_by_role = serializers.CharField(source="reviewed_by.role.role_name", read_only=True, allow_null=True)
     photo_url = serializers.SerializerMethodField()
@@ -77,6 +80,7 @@ class DiseaseCaseSerializer(serializers.ModelSerializer):
             "barangay_name",
             "livestock_type_name",
             "tag_number",
+            "ownership_certificate_number",
             "breed",
             "name",
             "affected_count",
@@ -348,6 +352,9 @@ class MortalityRecordSerializer(serializers.ModelSerializer):
     batch_code = serializers.CharField(
         source="batch.batch_code", read_only=True
     )
+    ownership_certificate_number = serializers.CharField(
+        source="livestock.ownership_certificate_number", read_only=True, default=""
+    )
     source_disease_name = serializers.CharField(
         source="source_disease_case.name", read_only=True
     )
@@ -392,6 +399,7 @@ class MortalityRecordSerializer(serializers.ModelSerializer):
             "barangay_name",
             "livestock_type_name",
             "tag_number",
+            "ownership_certificate_number",
             "breed",
             "livestocks",
             "affected_animals",
@@ -450,6 +458,7 @@ class MortalityRecordSerializer(serializers.ModelSerializer):
                 "tag_number": animal.tag_number,
                 "breed": animal.breed,
                 "livestock_type_name": animal.livestock_type.name if animal.livestock_type else "Livestock",
+                "ownership_certificate_number": animal.ownership_certificate_number or None,
             }
             for animal in animals
         ]

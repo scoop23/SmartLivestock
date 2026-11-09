@@ -378,6 +378,14 @@ def review_inventory(request, pk):
         verified = inventory.certificate_verification or {}
         if verified.get("status") != "VERIFIED" or verified.get("certificate_number") != inventory.ownership_certificate_number:
             raise serializers.ValidationError({"certificate_check": "Record the issuing office and register reference after checking the paper certificate with its issuer."})
+    if new_status == LivestockInventory.StatusType.APPROVED and not inventory.ownership_certificate_number:
+        from smartlivestock.seed_tags import generate_unique_colc_number
+        inventory.ownership_certificate_number = generate_unique_colc_number(
+            inventory=inventory,
+            reference_date=timezone.localdate(reviewed_at),
+        )
+        inventory.ownership_certificate_recorded_by = request.user
+        inventory.ownership_certificate_recorded_at = reviewed_at
     inventory.status = new_status
     inventory.reviewed_by = request.user
     inventory.review_remarks = remarks

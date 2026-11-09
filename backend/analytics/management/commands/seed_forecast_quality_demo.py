@@ -35,7 +35,7 @@ from analytics.seed_markers import (
 )
 from livestock.models import Farmer, LivestockInventory, LivestockOwnershipTransfer, LivestockType
 from production.models import ProductionRecord, SlaughterRecord
-from smartlivestock.seed_tags import next_seed_livestock_tag
+from smartlivestock.seed_tags import next_seed_colc_number, next_seed_livestock_tag
 from smartlivestock.seed_safety import assert_safe_seed_database
 from users.models import User
 
@@ -475,17 +475,22 @@ class Command(BaseCommand):
         for index, profile in enumerate(profiles):
             serial = getattr(self, "_demo_animal_serial", 0) + 1
             self._demo_animal_serial = serial
+            colc_number = next_seed_colc_number(self, day)
+            is_sold = status == LivestockOwnershipTransfer.Status.APPROVED
             animal = LivestockInventory(
                 farmer=seller, livestock_type=cattle_type,
                 entry_type=LivestockInventory.EntryType.INDIVIDUAL, quantity=1,
                 birth_date=profile["birth_date"], breed=profile["breed"],
                 sex=profile["sex"], weight=profile["weight_kg"],
                 tag_number=next_seed_livestock_tag(self, seller.user),
+                ownership_certificate_number="" if is_sold else colc_number,
+                ownership_certificate_recorded_by=None if is_sold else (reviewer or user),
+                ownership_certificate_recorded_at=None if is_sold else (review_time or aware_at(day, 7)),
                 status=LivestockInventory.StatusType.APPROVED,
                 operational_status=(LivestockInventory.OperationalStatus.SOLD
-                                    if status == LivestockOwnershipTransfer.Status.APPROVED
+                                    if is_sold
                                     else LivestockInventory.OperationalStatus.ACTIVE),
-                operational_status_changed_at=(review_time if status == LivestockOwnershipTransfer.Status.APPROVED else None),
+                operational_status_changed_at=(review_time if is_sold else None),
                 reviewed_by=reviewer or user, reviewed_at=review_time,
                 review_remarks=f"{marker} Synthetic forecast-quality inventory fixture.",
                 created_by=seller.user,
@@ -501,7 +506,7 @@ class Command(BaseCommand):
                 external_owner_name=labels["external_owner_name"],
                 external_owner_address="Padre Garcia, Batangas",
                 transfer_certificate_number=labels["transfer_certificate_number"],
-                original_certificate_number=labels["original_certificate_number"],
+                original_certificate_number=colc_number,
                 transfer_date=day, municipality="Padre Garcia", province="Batangas",
                 animal_description=f"Synthetic {cattle_type.name} transfer; {note}"[:500],
                 breed_at_transfer=profile["breed"],
@@ -584,6 +589,7 @@ class Command(BaseCommand):
         rows = []
         for animal_index in range(6):
             arrival_day = first_month + timedelta(days=animal_index)
+            reviewed_time = aware_at(arrival_day, 17)
             row = LivestockInventory(
                 farmer=seller,
                 livestock_type=cattle_type,
@@ -591,6 +597,9 @@ class Command(BaseCommand):
                 quantity=1,
                 birth_date=arrival_day - timedelta(days=365 * (3 + animal_index % 4)),
                 tag_number=next_seed_livestock_tag(self, seller.user),
+                ownership_certificate_number=next_seed_colc_number(self, arrival_day),
+                ownership_certificate_recorded_by=reviewer,
+                ownership_certificate_recorded_at=reviewed_time,
                 breed="Synthetic dairy cross",
                 sex="Female",
                 weight=Decimal(str(360 + animal_index * 18)),
@@ -598,7 +607,7 @@ class Command(BaseCommand):
                 operational_status=LivestockInventory.OperationalStatus.ACTIVE,
                 created_by=seller.user,
                 reviewed_by=reviewer,
-                reviewed_at=aware_at(arrival_day, 17),
+                reviewed_at=reviewed_time,
                 review_remarks=f"{marker} Synthetic dairy herd fixture; not a real animal.",
             )
             row._demo_created_at = aware_at(arrival_day, 7)

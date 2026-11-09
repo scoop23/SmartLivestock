@@ -382,6 +382,12 @@ class LivestockInventorySerializer(serializers.Serializer):
         if farmer is None:
             raise serializers.ValidationError("A farmer profile is required.")
 
+        # Official COLC numbers are generated exclusively by Padre Garcia MAO upon approval.
+        # Farmers cannot manually enter or overwrite ownership_certificate_number.
+        if role_name(user) == "FARMER":
+            attrs.pop("ownership_certificate_number", None)
+            attrs.pop("certificate_photo", None)
+
         # Ear tags identify animals across review states, so pending and approved
         # records both reserve the tag instead of allowing a duplicate identity.
         entry_type = attrs.get("entry_type", self.instance.entry_type if self.instance else "INDIVIDUAL")
@@ -399,9 +405,13 @@ class LivestockInventorySerializer(serializers.Serializer):
                 raise serializers.ValidationError({"purchase_transfer_id": "The seller's animal must already be marked sold."})
             if linked.livestock and attrs.get("livestock_type") != linked.livestock.livestock_type:
                 raise serializers.ValidationError({"livestock_type": "The species must match the purchased animal."})
-            if not str(attrs.get("ownership_certificate_number", "")).strip():
-                raise serializers.ValidationError({"ownership_certificate_number": "Enter the renewed certificate number for this purchase."})
-            if linked.livestock and attrs["ownership_certificate_number"].strip().casefold() == linked.livestock.ownership_certificate_number.casefold():
+            entered_cert = str(attrs.get("ownership_certificate_number", "")).strip()
+            seller_prev_cert = (
+                (linked.livestock.ownership_certificate_number if linked.livestock else "")
+                or linked.original_certificate_number
+                or ""
+            ).strip()
+            if entered_cert and seller_prev_cert and entered_cert.casefold() == seller_prev_cert.casefold():
                 raise serializers.ValidationError({"ownership_certificate_number": "Use the renewed certificate, not the seller's previous certificate."})
             attrs["purchase_transfer"] = linked
         if not self.instance or "tag_number" in attrs:

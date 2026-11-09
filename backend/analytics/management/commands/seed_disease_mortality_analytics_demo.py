@@ -15,7 +15,7 @@ from diseases.models import DiseaseCase, DiseaseCaseFollowUp, MortalityRecord
 from diseases.serializer import DiseaseCaseSerializer, MortalityRecordSerializer
 from livestock.models import Barangay, Farmer, LivestockBatch, LivestockInventory, LivestockType
 from livestock.reconciliation import reconcile_approved_mortality
-from smartlivestock.seed_tags import next_seed_livestock_tag
+from smartlivestock.seed_tags import next_seed_colc_number, next_seed_livestock_tag
 from smartlivestock.seed_safety import assert_safe_seed_database
 from smartlivestock.workflows import validate_review_transition
 from users.models import Notification, Role, User
@@ -426,6 +426,7 @@ class Command(BaseCommand):
         return user
 
     def _create_demo_animal(self, *, key, owner, livestock_type, reviewer, batch=None, recorded_on=None):
+        reviewed_time = demo_time(recorded_on, 7) if recorded_on else timezone.now()
         animal = LivestockInventory(
             farmer=owner["farmer"],
             batch=batch,
@@ -433,13 +434,16 @@ class Command(BaseCommand):
             entry_type=LivestockInventory.EntryType.INDIVIDUAL,
             quantity=1,
             tag_number=next_seed_livestock_tag(self, owner["user"]),
+            ownership_certificate_number=next_seed_colc_number(self, recorded_on),
+            ownership_certificate_recorded_by=reviewer,
+            ownership_certificate_recorded_at=reviewed_time,
             breed="Synthetic demo cattle",
             sex="Female",
             status=LivestockInventory.StatusType.APPROVED,
             operational_status=LivestockInventory.OperationalStatus.ACTIVE,
             created_by=owner["user"],
             reviewed_by=reviewer,
-            reviewed_at=demo_time(recorded_on, 7) if recorded_on else timezone.now(),
+            reviewed_at=reviewed_time,
             review_remarks=f"{SEED_MARKER_DISEASE} Synthetic demo inventory only; not a real animal.",
         )
         animal.full_clean()
