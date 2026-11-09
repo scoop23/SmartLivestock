@@ -53,6 +53,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import chromeStyles from './GISMapChrome.module.css';
 import { GISControls } from './GISControls';
 import { GISLegend } from './GISLegend';
 import { GISMap } from './GISMap';
@@ -912,7 +913,7 @@ export function RoleAwareGISContainer({
           )}
 
         {/* 2. Floating Controls */}
-        <div data-tour="farmer-map-controls" className="absolute top-[calc(0.75rem+env(safe-area-inset-top,0px))] left-[calc(4rem+env(safe-area-inset-left,0px))] lg:left-4 lg:top-4 z-[850] max-w-[calc(100vw-4.75rem)] lg:max-w-[calc(100vw-1.5rem)]">
+        <div data-tour="farmer-map-controls" className={`${chromeStyles.chrome} absolute top-[calc(0.75rem+env(safe-area-inset-top,0px))] left-[calc(4rem+env(safe-area-inset-left,0px))] lg:left-4 lg:top-4 z-[850] max-w-[calc(100vw-4.75rem)] lg:max-w-[calc(100vw-1.5rem)]`}>
           <GISControls
             currentLayer={activeLayer}
             onLayerChange={(layer) => {
@@ -980,7 +981,7 @@ export function RoleAwareGISContainer({
         </div>
 
         {/* 3. Floating Bottom-Left Dynamic Legend */}
-        <div data-tour="farmer-map-legend" className="absolute bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] left-[calc(0.75rem+env(safe-area-inset-left,0px))] sm:bottom-4 sm:left-4 z-[850]">
+        <div data-tour="farmer-map-legend" className={`${chromeStyles.chrome} absolute bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] left-[calc(0.75rem+env(safe-area-inset-left,0px))] sm:bottom-4 sm:left-4 z-[850]`}>
           <GISLegend
             layer={activeLayer}
             viewMode={viewMode}

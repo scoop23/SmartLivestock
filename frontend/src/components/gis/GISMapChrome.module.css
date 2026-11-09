@@ -1,0 +1,45 @@
+/* Shared with the GIS sidebar: olive surfaces, cream labels, sage accents. */
+.chrome {
+  color-scheme: dark;
+  color: #f3f1e7;
+}
+
+.chrome :where([class*="bg-white"]) {
+  background: linear-gradient(145deg, rgb(40 43 32 / 97%), rgb(24 29 25 / 97%));
+  border-color: rgb(224 225 192 / 24%);
+  box-shadow: 0 8px 28px rgb(0 0 0 / 25%), inset 0 1px 0 rgb(255 255 255 / 6%);
+}
+
+.chrome :where([class*="bg-slate-50"], [class*="bg-slate-100"], [class*="bg-slate-200"],
+  [class*="bg-emerald-50"], [class*="bg-emerald-100"], [class*="bg-blue-50"]) {
+  background-color: rgb(219 222 187 / 9%);
+}
+
+.chrome :where([class*="border-slate-"], [class*="border-emerald-"], [class*="border-blue-"]) {
+  border-color: rgb(224 225 192 / 22%);
+}
+
+.chrome :where([class*="text-slate-"], [class*="text-gray-"]) { color: #f3f1e7; }
+.chrome :where([class*="text-slate-4"], [class*="text-slate-5"], [class*="text-slate-6"]) { color: #babdaa; }
+.chrome :where([class*="text-emerald-"], [class*="text-green-"]) { color: #b9d49a; }
+.chrome :where([class*="text-blue-"], [class*="text-sky-"]) { color: #a6cddc; }
+
+.chrome :where(button[class*="bg-emerald-700"], button[class*="bg-emerald-800"]) {
+  background-color: #46583b;
+  color: #f3f1e7;
+}
+
+.chrome button[aria-label^="Switch to"][class*="bg-white"] {
+  background: #46583b;
+  color: #f3f1e7;
+  box-shadow: inset 0 0 0 1px rgb(185 212 154 / 45%);
+}
+
+.chrome :where(button, a):hover { filter: brightness(1.15); }
+.chrome :where(button, a, input, select):focus-visible {
+  outline: 2px solid #d6bc68;
+  outline-offset: 3px;
+}
+.chrome :where(input, select) { color: #f3f1e7; background-color: #33382d; }
+.chrome :where(option) { color: #f3f1e7; background-color: #252b23; }
+.chrome :where(*) { scrollbar-width: thin; scrollbar-color: #757a60 transparent; }
