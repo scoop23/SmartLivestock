@@ -188,9 +188,14 @@ class Command(BaseCommand):
                 "the forecast APIs aggregate records and cannot display both scenarios separately."
             )
         if self._scenario_exists(marker, species="Carabao" if options["carabao_only"] else None):
-            raise CommandError(
-                f"The {scenario} scenario already exists. Run this command with --scenario {scenario}{' --prices-only' if options['prices_only'] else ''} --clean before reseeding."
-            )
+            if options["carabao_only"]:
+                raise CommandError(
+                    f"The {scenario} scenario already exists. Run this command with --scenario {scenario} --clean before reseeding."
+                )
+            self.stdout.write(self.style.WARNING(
+                f"Existing '{scenario}' scenario found; replacing owned demo rows so weekly and monthly series include the latest completed period..."
+            ))
+            self._clean(marker, dry_run=False)
 
         mao_users = User.objects.filter(role__role_name="MAO", account_status=User.AccountStatus.APPROVED, is_active=True)
         mao_user = mao_users.filter(email__iexact=options["mao_email"]).first() if options["mao_email"] else mao_users.first()
