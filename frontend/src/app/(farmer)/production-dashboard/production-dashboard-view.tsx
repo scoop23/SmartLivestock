@@ -1300,6 +1300,7 @@ export default function ProductionDashboardView({
         <ProductionSalesTab
           intentInventories={activeIntentInventories}
           autoOpenIntent={(["sales", "intent"].includes(focusedActivity ?? "")) && focusedMode === "record"}
+          onClose={returnToActivityChooser}
         />
       )}
 

@@ -107,7 +107,7 @@ export default function RecordActivityChooser({
       items.push({
         id: "sales",
         title: "Declare sale intent",
-        description: "Tell Auction you plan to sell; Auction records the completed sale and movement.",
+        description: "Declaration for commercial intent records; Auction records the completed sale",
         icon: ShoppingBag,
         species: intentSpecies,
       });

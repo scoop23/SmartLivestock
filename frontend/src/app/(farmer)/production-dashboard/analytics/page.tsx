@@ -40,7 +40,6 @@ import {
   Egg,
   HeartHandshake,
   Layers,
-  LineChart as LineChartIcon,
   Milk,
   Package,
   PhilippinePeso,
@@ -3023,74 +3022,10 @@ export default function ProductionAnalyticsPage() {
               )}
             </div>
           )}
-
-              {/* ── COMMON FOOTER: PREDICTIVE MODELS & ALGORITHMIC OVERVIEW ─────── */}
-              <Card className="rounded-3xl border-slate-200/90 bg-white shadow-holo-card">
-                <CardHeader className="pb-3 border-b border-slate-100">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                    <div>
-                      <CardTitle className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
-                        <LineChartIcon className="size-4.5 text-emerald-600" />
-                        <span>Predictive Models &amp; Algorithmic Pipeline</span>
-                      </CardTitle>
-                      <CardDescription className="text-xs text-slate-500 font-medium">
-                        Overview of predictive methodologies deployed across SmartLivestock
-                      </CardDescription>
-                    </div>
-                    <Badge variant="outline" className="font-mono text-[10px] text-emerald-800 bg-emerald-50 border-emerald-200 w-fit">
-                      ML Pipeline
-                    </Badge>
-                  </div>
-                </CardHeader>
-
-                <CardContent className="p-5">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4 space-y-2">
-                      <div className="flex items-center gap-2 text-emerald-800 font-bold text-xs">
-                        <Dna className="size-4" />
-                        <span>1. Supervised Machine Learning</span>
-                      </div>
-                      <p className="font-display text-sm font-bold text-slate-900">
-                        Random Forest &amp; Ridge Regression
-                      </p>
-                      <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
-                        Uses multi-lag features (t-1, t-2, t-3, t-7), rolling 3-day and 7-day moving averages, animal age, measured weight, and weather parameters to predict yields with chronological time-series cross-validation.
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-sky-100 bg-sky-50/40 p-4 space-y-2">
-                      <div className="flex items-center gap-2 text-sky-800 font-bold text-xs">
-                        <LineChartIcon className="size-4" />
-                        <span>2. Classical Time-Series</span>
-                      </div>
-                      <p className="font-display text-sm font-bold text-slate-900">
-                        ARIMA &amp; Holt-Winters Smoothing
-                      </p>
-                      <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
-                        Discovers recurring seasonal patterns, cyclical calendar trends, and multi-month trajectories for municipal production planning and quarterly census reconciliation.
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-amber-100 bg-amber-50/40 p-4 space-y-2">
-                      <div className="flex items-center gap-2 text-amber-800 font-bold text-xs">
-                        <Scale className="size-4" />
-                        <span>3. Deterministic Biological Models</span>
-                      </div>
-                      <p className="font-display text-sm font-bold text-slate-900">
-                        Pregnancy &amp; Meat Yield Calculations
-                      </p>
-                      <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
-                        Applies standard pregnancy days (Cattle: 283d, Carabao: 310d, Goat: 150d, Swine: 114d) for birth countdowns, and carcass dressing percentages (58% cattle, 74% swine) for clean meat yield.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-            </div>
-          )}
         </div>
-      </div>
-    </>
+      )}
+    </div>
+  </div>
+</>
   );
 }

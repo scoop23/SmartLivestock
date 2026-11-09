@@ -32,10 +32,14 @@ import { useParams, useSearchParams } from "next/navigation";
 import { useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import {
+BadgeCheck,
 BadgeDollarSign,
 Calendar,
 Check,
+CheckCircle2,
 Compass,
+Gavel,
+Info,
 MapPin,
 PhilippinePeso,
 Plus,
@@ -325,9 +329,11 @@ function MultiLivestockDialog({
 export default function ProductionSalesTab({
   intentInventories,
   autoOpenIntent = false,
+  onClose,
 }: {
   intentInventories: LivestockInventoryItem[];
   autoOpenIntent?: boolean;
+  onClose?: () => void;
 }) {
   const route = useParams<{ species?: string }>();
   const species = route.species || "";
@@ -367,14 +373,27 @@ export default function ProductionSalesTab({
   const [intentDocument, setIntentDocument] = useState<File | null>(null);
   const [intentCertificate, setIntentCertificate] = useState("");
 
+  const selectedAnimals = useMemo(() => {
+    return intentInventories.filter((item) => selectedAnimalIds.includes(item.id));
+  }, [intentInventories, selectedAnimalIds]);
+
+  const selectedCertificates = useMemo(() => {
+    return selectedAnimals.map((item) => {
+      if (item.ownershipCertificateNumber && item.ownershipCertificateNumber.trim()) {
+        return item.ownershipCertificateNumber.trim();
+      }
+      const refDate = item.reviewedAt || item.createdAt;
+      const year = refDate ? new Date(refDate).getFullYear() : new Date().getFullYear();
+      return `COLC-${year}-${String(item.id).padStart(6, "0")}`;
+    });
+  }, [selectedAnimals]);
+
   const startIntentTutorial = useCallback(() => {
     const steps: DriveStep[] = [
       { element: '[data-tour="intent-record-livestock"]', popover: { title: "Choose the livestock", description: "Select one or multiple active animals or herds this plan is about.", side: "bottom", align: "center" } },
-      { element: '[data-tour="intent-record-type"]', popover: { title: "Choose your plan", description: "Declare whether the livestock is intended for sale, slaughter, or movement.", side: "bottom", align: "center" } },
-      { element: '[data-tour="intent-record-date"]', popover: { title: "Choose a target date", description: "Add an optional date for the planned sale, slaughter, or movement.", side: "bottom", align: "center" } },
-      { element: '[data-tour="intent-record-destination"]', popover: { title: "Add a destination", description: "Add the intended buyer, market, slaughterhouse, or receiving location when known.", side: "bottom", align: "center" } },
-      { element: '[data-tour="intent-record-notes"]', popover: { title: "Add optional notes", description: "Include scheduling or other context for the reviewer.", side: "top", align: "start" } },
-      { element: '[data-tour="intent-record-save"]', popover: { title: "Save the declaration", description: "This records your plan for review. It does not mark the animal sold or change its inventory status.", side: "top", align: "end" } },
+      { element: '[data-tour="intent-record-date"]', popover: { title: "Target date", description: "Select the date you plan to bring the animal to the auction.", side: "bottom", align: "center" } },
+      { element: '[data-tour="intent-record-certificate"]', popover: { title: "Certificate of Ownership", description: "The assigned Certificate of Ownership from MAO is automatically retrieved.", side: "top", align: "center" } },
+      { element: '[data-tour="intent-record-save"]', popover: { title: "Declare Intent", description: "Submit your declaration to alert auction staff.", side: "top", align: "end" } },
     ];
     startGuidedTutorial({ showProgress: true, animate: true, allowClose: true, nextBtnText: "Next", prevBtnText: "Back", doneBtnText: "Finish", progressText: "{{current}} of {{total}}", steps });
   }, []);
@@ -467,6 +486,7 @@ export default function ProductionSalesTab({
       setIntentCertificate("");
       queryClient.invalidateQueries({ queryKey: ["animal_dispositions"] });
       queryClient.invalidateQueries({ queryKey: ["auction-preregistration-list"] });
+      queryClient.invalidateQueries({ queryKey: ["livestock-inventory"] });
     },
     onError: (error) => {
       const body: unknown = axios.isAxiosError(error) ? error.response?.data : null;
@@ -488,7 +508,7 @@ export default function ProductionSalesTab({
       target_date: targetDate || null,
       target_destination: targetDestination.trim(),
       notes: intentNotes.trim(),
-      original_certificate_number: intentCertificate.trim(),
+      original_certificate_number: selectedAnimalIds.length === 1 ? (selectedCertificates[0] || intentCertificate).trim() : intentCertificate.trim(),
     });
   };
 
@@ -737,7 +757,7 @@ export default function ProductionSalesTab({
               )}
             </div>
           )}
-          <Button variant="outline" onClick={() => setSubmittedRegistration(null)}>Done</Button>
+          <Button variant="outline" onClick={() => { setSubmittedRegistration(null); if (autoOpenIntent) onClose?.(); }}>Done</Button>
         </DialogContent>
       </Dialog>
 
@@ -754,58 +774,90 @@ export default function ProductionSalesTab({
       />
 
       {/* Declare Intent Dialog */}
-      <Dialog open={isIntentOpen} onOpenChange={setIsIntentOpen}>
-        <DialogContent className="sm:max-w-lg p-6 rounded-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader className="flex-row items-start justify-between gap-3">
-            <div className="space-y-1.5">
-            <DialogTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <Compass className="size-5 text-emerald-700" /> Declare Commercial Intent
-            </DialogTitle>
-            <DialogDescription>
-              Tell Auction or your reviewer what you plan to do. You can declare one or multiple animals in a single plan.
-            </DialogDescription>
+      <Dialog
+        open={isIntentOpen}
+        onOpenChange={(open) => {
+          setIsIntentOpen(open);
+          if (!open) onClose?.();
+        }}
+      >
+        <DialogContent
+          showCloseButton={true}
+          className="sm:max-w-xl p-6 sm:p-7 rounded-3xl max-h-[92vh] overflow-y-auto border-slate-200 shadow-xl"
+        >
+          {/* Header */}
+          <div className="flex items-start gap-3.5 pr-8">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-100">
+              <Gavel className="size-6 text-emerald-700" />
             </div>
-            {tutorialsEnabled && (
-              <Button type="button" variant="outline" onClick={startIntentTutorial} className="shrink-0 gap-1.5 rounded-xl">
-                <Sparkles className="size-4" aria-hidden="true" /> Tutorial
-              </Button>
-            )}
-          </DialogHeader>
+            <div className="space-y-1">
+              <DialogTitle className="text-xl font-bold text-slate-900 tracking-tight">
+                Declare Commercial Intent
+              </DialogTitle>
+              <DialogDescription className="text-sm text-slate-500">
+                Let us know your plan to bring this animal to the auction market.
+              </DialogDescription>
+            </div>
+          </div>
 
           <form onSubmit={handleIntentSubmit} className="space-y-4 mt-2">
-            {/* Multi-Livestock Selection Field */}
+            {/* Top Info Banner */}
+            <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/70 p-3 sm:p-3.5 flex items-center gap-2.5 text-emerald-950">
+              <Info className="size-4.5 shrink-0 text-emerald-700" />
+              <p className="text-xs sm:text-sm font-medium leading-snug">
+                You will be able to add the buyer, destination, and supporting documents after declaring your intent.
+              </p>
+            </div>
+
+            {/* Select Livestock Section */}
             <div data-tour="intent-record-livestock" className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label className="text-xs font-bold text-slate-800">
+                <Label className="text-sm font-bold text-slate-900">
                   Select Livestock *
                 </Label>
-                <span className="text-[11px] font-semibold text-slate-500">
-                  {selectedAnimalIds.length} {selectedAnimalIds.length === 1 ? "animal" : "animals"} selected
-                </span>
+                {selectedAnimalIds.length > 0 && (
+                  <span className="text-[11px] font-semibold text-slate-500">
+                    {selectedAnimalIds.length} {selectedAnimalIds.length === 1 ? "animal" : "animals"} selected
+                  </span>
+                )}
               </div>
 
               {selectedAnimalIds.length === 0 ? (
-                <Button
-                  type="button"
-                  variant="outline"
+                <div
+                  role="button"
+                  tabIndex={0}
                   onClick={() => setIsAnimalSelectorOpen(true)}
-                  className="w-full justify-between h-auto py-3 px-3.5 rounded-xl border-dashed border-slate-300 bg-slate-50/70 hover:bg-white hover:border-emerald-500 transition-all text-left"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setIsAnimalSelectorOpen(true);
+                    }
+                  }}
+                  className="group flex cursor-pointer items-center justify-between p-3.5 rounded-2xl border border-slate-200 bg-slate-50/70 hover:bg-emerald-50/50 hover:border-emerald-300 transition-colors"
                 >
-                  <div className="flex items-center gap-2.5">
-                    <span className="flex size-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
-                      <Plus className="size-4" />
+                  <div className="flex items-center gap-3">
+                    <span className="flex size-11 items-center justify-center rounded-xl bg-emerald-100/70 text-emerald-800 border border-emerald-200 group-hover:bg-emerald-200/80 group-hover:scale-105 transition-all">
+                      <Plus className="size-5" />
                     </span>
                     <div>
-                      <p className="text-xs font-bold text-slate-900">Choose livestock</p>
-                      <p className="text-[11px] text-slate-500">Select one or multiple animals for this declaration</p>
+                      <p className="text-sm font-bold text-slate-900 group-hover:text-emerald-950">Choose livestock</p>
+                      <p className="text-xs text-slate-500">Select one or multiple animals for this declaration</p>
                     </div>
                   </div>
-                  <Badge variant="outline" className="text-[10px] text-slate-500">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsAnimalSelectorOpen(true);
+                    }}
+                    className="h-9 rounded-xl border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs px-3.5"
+                  >
                     Browse herd
-                  </Badge>
-                </Button>
+                  </Button>
+                </div>
               ) : (
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-3 space-y-2.5">
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-3.5 space-y-2.5">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
                       <Check className="size-3.5 text-emerald-700" />
@@ -816,9 +868,9 @@ export default function ProductionSalesTab({
                       variant="outline"
                       size="sm"
                       onClick={() => setIsAnimalSelectorOpen(true)}
-                      className="h-7 text-[11px] rounded-lg border-emerald-300 bg-white text-emerald-900 hover:bg-emerald-50 font-semibold px-2.5"
+                      className="h-8 text-xs rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-semibold px-3 shadow-2xs"
                     >
-                      Change / Add more
+                      Browse herd
                     </Button>
                   </div>
 
@@ -833,7 +885,7 @@ export default function ProductionSalesTab({
                       return (
                         <span
                           key={id}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-2 py-1 text-xs font-medium text-slate-800 shadow-2xs"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-800 shadow-2xs"
                         >
                           <span className="font-bold text-emerald-900">{label}</span>
                           {sub && <span className="text-[10px] text-slate-500">({sub})</span>}
@@ -853,79 +905,86 @@ export default function ProductionSalesTab({
               )}
             </div>
 
-            <div data-tour="intent-record-type" className="space-y-1.5">
-              <Label htmlFor="intent-type">Commercial Intent *</Label>
-              <Select
-                value={intentType}
-                onValueChange={(val) => { if (val === "FOR_SALE" || val === "FOR_SLAUGHTER" || val === "FOR_MOVEMENT") setIntentType(val); }}
-              >
-                <SelectTrigger id="intent-type" className="bg-slate-50">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="z-[var(--z-popover-dialog)]">
-                  <SelectItem value="FOR_SALE">Intended for Auction / Commercial Sale</SelectItem>
-                  <SelectItem value="FOR_SLAUGHTER">Intended for Slaughter / Katay</SelectItem>
-                  <SelectItem value="FOR_MOVEMENT">Farm Transfer / Pasture Movement</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
+            {/* Target Date Section */}
             <div data-tour="intent-record-date" className="space-y-1.5">
-              <Label htmlFor="intent-target-date">Target date (optional)</Label>
-              <Input
-                id="intent-target-date"
-                type="date"
-                value={targetDate}
-                onChange={(e) => setTargetDate(e.target.value)}
-              />
+              <Label htmlFor="intent-target-date" className="text-sm font-bold text-slate-900">
+                Target date (optional) *
+              </Label>
+              <div className="relative">
+                <Calendar className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-800" />
+                <Input
+                  id="intent-target-date"
+                  type="date"
+                  value={targetDate}
+                  onChange={(e) => setTargetDate(e.target.value)}
+                  className="pl-10 h-11 rounded-xl border-slate-200 bg-slate-50/60 hover:bg-white focus:bg-white text-slate-900 text-sm font-medium"
+                  placeholder="mm/dd/yyyy"
+                />
+              </div>
+              <p className="text-xs text-slate-500 flex items-center gap-1.5 pt-0.5">
+                <Calendar className="size-3.5 text-slate-500 shrink-0" />
+                This is the date you plan to bring the animal to the auction.
+              </p>
             </div>
 
-            <div data-tour="intent-record-destination" className="space-y-1.5">
-              <Label htmlFor="intent-dest">Target Destination / Buyer</Label>
-              <Input
-                id="intent-dest"
-                placeholder="e.g. Padre Garcia Livestock Market or Local Slaughterhouse"
-                value={targetDestination}
-                onChange={(e) => setTargetDestination(e.target.value)}
-              />
+            {/* Certificate of Ownership (from MAO) Section */}
+            <div data-tour="intent-record-certificate" className="rounded-2xl border border-emerald-200/90 bg-[#edf8f1] p-4 space-y-2.5">
+              <div className="flex items-center gap-2 text-emerald-950 font-bold text-sm">
+                <BadgeCheck className="size-4.5 text-emerald-700 shrink-0" />
+                <span>Certificate of Ownership (from MAO)</span>
+              </div>
+
+              <div className="rounded-xl border border-emerald-200/70 bg-white/80 p-3 sm:p-3.5 flex items-start gap-3">
+                <CheckCircle2 className="size-5 text-emerald-600 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <p className="text-xs sm:text-sm font-bold text-emerald-950">
+                    {targetDate && selectedCertificates.length > 0
+                      ? `Retrieved: ${selectedCertificates.join(", ")}`
+                      : "Will be retrieved automatically"}
+                  </p>
+                  <p className="text-[11px] sm:text-xs text-emerald-800/90 leading-relaxed">
+                    {targetDate && selectedCertificates.length > 0
+                      ? "Assigned Certificate of Ownership (C.O.) from MAO on record for this livestock."
+                      : "Once you set a target date, the system will show the assigned Certificate of Ownership (C.O.) from MAO."}
+                  </p>
+                </div>
+              </div>
             </div>
 
-            {intentType === "FOR_SALE" && <div className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
-              <p className="text-xs text-emerald-900">Preregister your paperwork before going to the market. Auction staff can request corrections online. Bring the animal and original documents for required checks.</p>
-              <div className="space-y-1"><Label htmlFor="intent-certificate">Original ownership certificate number</Label><Input id="intent-certificate" value={intentCertificate} onChange={event => setIntentCertificate(event.target.value)} maxLength={100} /></div>
-              <div className="space-y-1"><Label htmlFor="intent-document">Supporting document (optional)</Label><Input id="intent-document" type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={event => setIntentDocument(event.target.files?.[0] || null)} /><p className="text-xs text-slate-500">PDF, JPG, or PNG, up to 5 MB.</p></div>
-            </div>}
-
-            <div data-tour="intent-record-notes" className="space-y-1.5">
-              <Label htmlFor="intent-notes">Notes / Scheduling</Label>
-              <Input
-                id="intent-notes"
-                placeholder="e.g. Ready for Friday auction market"
-                value={intentNotes}
-                onChange={(e) => setIntentNotes(e.target.value)}
-              />
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
+            {/* Action Buttons */}
+            <div className="flex items-center justify-between pt-2">
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setIsIntentOpen(false)}
+                onClick={() => {
+                  setIsIntentOpen(false);
+                  onClose?.();
+                }}
+                className="rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-medium px-4 h-10 text-sm shadow-2xs"
               >
                 Cancel
               </Button>
-              <Button
-                data-tour="intent-record-save"
-                type="submit"
-                disabled={recordIntentMutation.isPending}
-                className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold"
-              >
-                {recordIntentMutation.isPending
-                  ? "Saving..."
-                  : selectedAnimalIds.length > 1
-                  ? `Save ${selectedAnimalIds.length} Declarations`
-                  : "Save Declaration"}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    setIsIntentOpen(false);
+                    onClose?.();
+                  }}
+                  className="rounded-xl text-slate-700 hover:bg-slate-100 font-medium px-4 h-10 text-sm"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  data-tour="intent-record-save"
+                  type="submit"
+                  disabled={recordIntentMutation.isPending || selectedAnimalIds.length === 0}
+                  className="rounded-xl bg-[#14532d] hover:bg-[#0f3f22] text-white font-semibold px-5 h-10 text-sm transition-colors shadow-sm disabled:opacity-50"
+                >
+                  {recordIntentMutation.isPending ? "Declaring..." : "Declare Intent"}
+                </Button>
+              </div>
             </div>
           </form>
         </DialogContent>
