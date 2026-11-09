@@ -40,7 +40,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
 Activity,
-Beef,
 Box,
 CheckCircle2,
 ChevronLeft,
@@ -92,11 +91,6 @@ export function BarangayDetails({
   const showMovement = !isFarmer && !isCbat && Boolean(userScope?.allowed_layers?.includes('movement'));
   const showMilk = !isCbat && (!userScope || userScope.allowed_layers.includes('milk'));
   const showFarmerMeat = !isCbat && (!userScope || userScope.allowed_layers.includes('farmer_meat'));
-  const showSlaughterYield =
-    !isCbat &&
-    (!userScope ||
-      userScope.allowed_layers.includes('slaughter_yield') ||
-      userScope.allowed_layers.includes('meat'));
 
   const [isFarmersDialogOpen, setIsFarmersDialogOpen] = React.useState(false);
   const [isHerdsDialogOpen, setIsHerdsDialogOpen] = React.useState(false);
@@ -467,7 +461,7 @@ export function BarangayDetails({
         )}
 
         {/* Production Metrics */}
-        {(showMilk || showFarmerMeat || showSlaughterYield) && (
+        {(showMilk || showFarmerMeat) && (
           <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-3">
             {(showMilk || showFarmerMeat) && (
               <div className="space-y-1.5">
@@ -503,37 +497,6 @@ export function BarangayDetails({
               </div>
             )}
 
-            {showSlaughterYield && (
-              <div className="pt-2 border-t border-slate-100 space-y-1.5">
-                <span className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
-                  <Beef className="size-3.5 text-rose-700" />
-                  Slaughterhouse Operations
-                </span>
-                <div className="space-y-1.5 text-xs">
-                  <div className="flex items-center justify-between p-2 bg-rose-50/70 border border-rose-100 rounded-lg">
-                    <span className="font-semibold text-rose-900 flex items-center gap-1.5">
-                      🔪 Carcass Yield
-                    </span>
-                    <span className="font-bold font-mono text-rose-900">
-                      {(data.slaughter_yield ?? data.meat ?? 0) > 0
-                        ? `${(data.slaughter_yield ?? data.meat ?? 0).toLocaleString()} kg`
-                        : 'No slaughter data available'}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between p-2 bg-rose-50/40 border border-rose-100/60 rounded-lg">
-                    <span className="font-semibold text-rose-800 flex items-center gap-1.5">
-                      🐂 Slaughtered Cattle
-                    </span>
-                    <span className="font-bold font-mono text-rose-800">
-                      {(data.slaughter_heads ?? 0) > 0
-                        ? `${(data.slaughter_heads ?? 0).toLocaleString()} heads`
-                        : '0 heads'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
