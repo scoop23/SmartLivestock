@@ -265,7 +265,7 @@ export default function FarmerDashboard() {
             popover: {
               title: "Disease reports this month",
               description:
-                "This card counts your disease reports for the month and shows how many are awaiting SIBAT or MAO review.",
+                "This card counts your disease reports for the month and shows how many are awaiting CBAT or MAO review.",
               side: "bottom",
               align: "center",
             },

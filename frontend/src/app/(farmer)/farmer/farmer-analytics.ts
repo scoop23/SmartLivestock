@@ -87,6 +87,16 @@ export interface FarmerDashboardAnalytics {
   health_incident_trend: HealthIncidentTrendPoint[];
   /** Recent live activities logged by the farmer */
   recent_activities: FarmerActivityItem[];
+  /** Raw API records for instant client-side date filtering */
+  raw_data?: FarmerRawData;
+}
+
+export interface FarmerRawData {
+  inventories: InventoryApiItem[];
+  batches: BatchApiItem[];
+  productions: ApiProductionRecord[];
+  diseaseCases: RawDiseaseCase[];
+  mortalities: RawMortalityRecord[];
 }
 
 const SPECIES_COLORS: Record<string, string> = {
@@ -183,7 +193,7 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
 
   const status_breakdown: StatusBreakdownPoint[] = [
     { name: "MAO Certified", value: approvedHeads, color: "#10b981" },
-    { name: "SIBAT Verified", value: verifiedHeads, color: "#0284c7" },
+    { name: "CBAT Verified", value: verifiedHeads, color: "#0284c7" },
     { name: "Pending Review", value: pendingHeads, color: "#f59e0b" },
     { name: "Needs Revision", value: revisionHeads, color: "#f59e0b" },
     { name: "Rejected", value: rejectedHeads, color: "#ef4444" },
@@ -392,6 +402,13 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
     status_breakdown,
     health_incident_trend,
     recent_activities: activities.slice(0, 8),
+    raw_data: {
+      inventories,
+      batches,
+      productions,
+      diseaseCases,
+      mortalities,
+    },
   };
 }
 
@@ -421,4 +438,286 @@ export function formatPeriodMonth(period: string): string {
     "en-US",
     { month: "short" },
   );
+}
+
+// ---------------------------------------------------------------------------
+// Chart Date Range Filtering Helpers
+// ---------------------------------------------------------------------------
+
+export type DateRangePreset = "ALL" | "30D" | "6M" | "YTD" | "CUSTOM";
+
+export interface FilteredFarmerChartData {
+  categories: HerdCategoryPoint[];
+  totalHerdCount: number;
+  reviewedShare: number | null;
+  statusBreakdown: StatusBreakdownPoint[];
+  milkTrend: FarmerTrendPoint[];
+  milkTotalInPeriod: number;
+  milkGrowthPct: number | null;
+  healthTrend: HealthIncidentTrendPoint[];
+  hasRawData: boolean;
+}
+
+export function getPresetDateRange(preset: DateRangePreset): {
+  startDate: string;
+  endDate: string;
+} {
+  const now = new Date();
+  const formatYMD = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
+
+  const todayStr = formatYMD(now);
+
+  switch (preset) {
+    case "30D": {
+      const past30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      return { startDate: formatYMD(past30), endDate: todayStr };
+    }
+    case "6M": {
+      const past6m = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+      return { startDate: formatYMD(past6m), endDate: todayStr };
+    }
+    case "YTD": {
+      const startOfYear = new Date(now.getFullYear(), 0, 1);
+      return { startDate: formatYMD(startOfYear), endDate: todayStr };
+    }
+    case "ALL":
+    case "CUSTOM":
+    default:
+      return { startDate: "", endDate: "" };
+  }
+}
+
+function parseDateOnly(d: string | null | undefined): string | null {
+  if (!d) return null;
+  return d.slice(0, 10);
+}
+
+function inDateRange(dateStr: string | null | undefined, start?: string, end?: string): boolean {
+  if (!start && !end) return true;
+  const d = parseDateOnly(dateStr);
+  if (!d) return false;
+  if (start && d < start) return false;
+  if (end && d > end) return false;
+  return true;
+}
+
+export function computeFilteredFarmerCharts(
+  rawData?: FarmerRawData,
+  startDate?: string,
+  endDate?: string,
+  preset: DateRangePreset = "ALL",
+  fallbackAnalytics?: FarmerDashboardAnalytics,
+): FilteredFarmerChartData {
+  if (!rawData) {
+    const totalCount = fallbackAnalytics?.cattle_count ?? 0;
+    const reviewedCount = (fallbackAnalytics?.approved_count ?? 0) + (fallbackAnalytics?.verified_count ?? 0);
+    return {
+      categories: fallbackAnalytics?.herd_categories ?? [],
+      totalHerdCount: totalCount,
+      reviewedShare: totalCount > 0 ? Math.round((reviewedCount / totalCount) * 100) : null,
+      statusBreakdown: fallbackAnalytics?.status_breakdown ?? [],
+      milkTrend: fallbackAnalytics?.milk_trend ?? [],
+      milkTotalInPeriod: fallbackAnalytics?.milk_production_liters ?? 0,
+      milkGrowthPct: fallbackAnalytics?.milk_growth_pct ?? null,
+      healthTrend: fallbackAnalytics?.health_incident_trend ?? [],
+      hasRawData: false,
+    };
+  }
+
+  const isAllTime = preset === "ALL" && !startDate && !endDate;
+
+  // 1. Livestock breakdown & review status
+  const activeInventories = (rawData.inventories || []).filter(
+    (item) => String(item.operational_status || "ACTIVE").toUpperCase() === "ACTIVE",
+  );
+
+  const filteredInventories = isAllTime
+    ? activeInventories
+    : activeInventories.filter((item) =>
+        inDateRange(item.created_at || item.date_acquired, startDate, endDate),
+      );
+
+  let totalHeads = 0;
+  let approvedHeads = 0;
+  let verifiedHeads = 0;
+  let pendingHeads = 0;
+  let revisionHeads = 0;
+  let rejectedHeads = 0;
+
+  const speciesMap = new Map<string, number>();
+
+  filteredInventories.forEach((item) => {
+    const qty = Number(item.quantity) || 1;
+    totalHeads += qty;
+
+    const st = String(item.status || "PENDING").toUpperCase();
+    if (st === "APPROVED") approvedHeads += qty;
+    else if (st === "VERIFIED") verifiedHeads += qty;
+    else if (st === "SUBJECT_TO_REVISION") revisionHeads += qty;
+    else if (st === "REJECTED") rejectedHeads += qty;
+    else pendingHeads += qty;
+
+    const species = (item.livestock_type_name || "Other Livestock").trim();
+    speciesMap.set(species, (speciesMap.get(species) || 0) + qty);
+  });
+
+  const categories: HerdCategoryPoint[] = Array.from(speciesMap.entries()).map(([name, value], i) => {
+    const key = name.toLowerCase();
+    const matchedKey = Object.keys(SPECIES_COLORS).find((k) => key.includes(k));
+    const color = matchedKey ? SPECIES_COLORS[matchedKey] : DEFAULT_COLORS[i % DEFAULT_COLORS.length];
+    return { name, value, color };
+  });
+
+  const statusBreakdown: StatusBreakdownPoint[] = [
+    { name: "MAO Certified", value: approvedHeads, color: "#10b981" },
+    { name: "CBAT Verified", value: verifiedHeads, color: "#0284c7" },
+    { name: "Pending Review", value: pendingHeads, color: "#f59e0b" },
+    { name: "Needs Revision", value: revisionHeads, color: "#f59e0b" },
+    { name: "Rejected", value: rejectedHeads, color: "#ef4444" },
+  ].filter((p) => p.value > 0);
+
+  const reviewedHeadCount = approvedHeads + verifiedHeads;
+  const reviewedShare = totalHeads > 0 ? Math.round((reviewedHeadCount / totalHeads) * 100) : null;
+
+  // 2. Milk Production Trajectory
+  const monthlyMilkMap = new Map<string, number>();
+  let milkTotalInPeriod = 0;
+
+  (rawData.productions || []).forEach((prod) => {
+    const type = String(prod.production_type || "").toUpperCase();
+    const status = String(prod.status || "").toUpperCase();
+    if (type !== "MILK" || status !== "RECORDED") return;
+
+    const dateStr = String(prod.record_date || prod.created_at || "");
+    if (!isAllTime && !inDateRange(dateStr, startDate, endDate)) return;
+
+    const qty = Number(prod.quantity) || 0;
+    const monthKey = dateStr.slice(0, 7);
+    if (monthKey) {
+      monthlyMilkMap.set(monthKey, (monthlyMilkMap.get(monthKey) || 0) + qty);
+    }
+    milkTotalInPeriod += qty;
+  });
+
+  const milkTrend: FarmerTrendPoint[] = Array.from(monthlyMilkMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([period, quantity]) => ({ period, quantity }));
+
+  let milkGrowthPct: number | null = null;
+  if (milkTrend.length >= 2) {
+    const current = milkTrend[milkTrend.length - 1].quantity;
+    const prev = milkTrend[milkTrend.length - 2].quantity;
+    if (prev > 0) {
+      milkGrowthPct = ((current - prev) / prev) * 100;
+    }
+  }
+
+  // 3. Animal Health Reports (Disease & Mortality Trend)
+  const now = new Date();
+  const formatYMD = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
+  const todayStr = formatYMD(now);
+
+  const monthLabels: { key: string; label: string }[] = [];
+  const monthMap = new Map<string, { disease: number; mortality: number }>();
+
+  if (isAllTime || preset === "6M" || (!startDate && !endDate)) {
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const label = d.toLocaleDateString("en-US", { month: "short" });
+      monthLabels.push({ key, label });
+      monthMap.set(key, { disease: 0, mortality: 0 });
+    }
+  } else if (preset === "30D") {
+    const dStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const startKey = `${dStart.getFullYear()}-${String(dStart.getMonth() + 1).padStart(2, "0")}`;
+    const endKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const keys = startKey === endKey ? [startKey] : [startKey, endKey];
+    keys.forEach((k) => {
+      const [y, m] = k.split("-").map(Number);
+      const d = new Date(y, m - 1, 1);
+      const label = d.toLocaleDateString("en-US", { month: "short" });
+      monthLabels.push({ key: k, label });
+      monthMap.set(k, { disease: 0, mortality: 0 });
+    });
+  } else if (preset === "YTD") {
+    const year = now.getFullYear();
+    const curMonth = now.getMonth();
+    for (let m = 0; m <= curMonth; m++) {
+      const d = new Date(year, m, 1);
+      const key = `${year}-${String(m + 1).padStart(2, "0")}`;
+      const label = d.toLocaleDateString("en-US", { month: "short" });
+      monthLabels.push({ key, label });
+      monthMap.set(key, { disease: 0, mortality: 0 });
+    }
+  } else {
+    // Custom date range
+    const startKey = (startDate || "2026-01-01").slice(0, 7);
+    const endKey = (endDate || todayStr).slice(0, 7);
+    const startYear = parseInt(startKey.slice(0, 4), 10);
+    const startMonth = parseInt(startKey.slice(5, 7), 10) - 1;
+    const endYear = parseInt(endKey.slice(0, 4), 10);
+    const endMonth = parseInt(endKey.slice(5, 7), 10) - 1;
+
+    let curY = startYear;
+    let curM = startMonth;
+    while (curY < endYear || (curY === endYear && curM <= endMonth)) {
+      const d = new Date(curY, curM, 1);
+      const key = `${curY}-${String(curM + 1).padStart(2, "0")}`;
+      const label = `${d.toLocaleDateString("en-US", { month: "short" })}${startYear !== endYear ? ` '${String(curY).slice(2)}` : ""}`;
+      monthLabels.push({ key, label });
+      monthMap.set(key, { disease: 0, mortality: 0 });
+      curM++;
+      if (curM > 11) {
+        curM = 0;
+        curY++;
+      }
+    }
+  }
+
+  (rawData.diseaseCases || []).forEach((dc) => {
+    const dStr = String(dc.record_date || dc.created_at || "");
+    if (!isAllTime && !inDateRange(dStr, startDate, endDate)) return;
+    const key = dStr.slice(0, 7);
+    if (monthMap.has(key)) {
+      monthMap.get(key)!.disease += Number(dc.affected_count) || 1;
+    }
+  });
+
+  (rawData.mortalities || []).forEach((m) => {
+    const dStr = String(m.record_date || m.created_at || "");
+    if (!isAllTime && !inDateRange(dStr, startDate, endDate)) return;
+    const key = dStr.slice(0, 7);
+    if (monthMap.has(key)) {
+      monthMap.get(key)!.mortality += Number(m.death_count) || 1;
+    }
+  });
+
+  const healthTrend: HealthIncidentTrendPoint[] = monthLabels.map(({ key, label }) => ({
+    period: label,
+    disease: monthMap.get(key)?.disease ?? 0,
+    mortality: monthMap.get(key)?.mortality ?? 0,
+  }));
+
+  return {
+    categories,
+    totalHerdCount: totalHeads,
+    reviewedShare,
+    statusBreakdown,
+    milkTrend,
+    milkTotalInPeriod,
+    milkGrowthPct,
+    healthTrend,
+    hasRawData: true,
+  };
 }

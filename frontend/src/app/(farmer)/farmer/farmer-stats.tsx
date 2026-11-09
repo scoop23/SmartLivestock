@@ -134,8 +134,8 @@ export default function FarmerStats({
           }
           description={
             diseaseReportsAwaitingReview > 0
-              ? `${diseaseReportsAwaitingReview} awaiting SIBAT or MAO review`
-              : "0 awaiting SIBAT or MAO review"
+              ? `${diseaseReportsAwaitingReview} awaiting CBAT or MAO review`
+              : "0 awaiting CBAT or MAO review"
           }
           wrapText
         />

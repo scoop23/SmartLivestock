@@ -3,43 +3,49 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-Card,
-CardContent,
-CardDescription,
-CardHeader,
-CardTitle,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cowHead } from "@lucide/lab";
 import {
-Activity,
-CheckCircle2,
-Icon,
-Milk,
-Package,
-Plus,
-ShieldCheck,
-TrendingUp
+  Activity,
+  Calendar,
+  CheckCircle2,
+  Icon,
+  Milk,
+  Package,
+  Plus,
+  RotateCcw,
+  ShieldCheck,
+  TrendingUp,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import React, { useMemo, useState } from "react";
 import {
-Area,
-AreaChart,
-Bar,
-BarChart,
-CartesianGrid,
-Cell,
-Pie,
-PieChart,
-ResponsiveContainer,
-Tooltip,
-XAxis,
-YAxis
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from "recharts";
 import {
-formatPeriodMonth,
-formatQty,
-type FarmerDashboardAnalytics,
+  computeFilteredFarmerCharts,
+  formatPeriodMonth,
+  formatQty,
+  getPresetDateRange,
+  type DateRangePreset,
+  type FarmerDashboardAnalytics,
 } from "./farmer-analytics";
 
 export default function FarmerCharts({
@@ -50,6 +56,63 @@ export default function FarmerCharts({
   isLoading?: boolean;
 }) {
   const router = useRouter();
+
+  // Date range filter state
+  const [preset, setPreset] = useState<DateRangePreset>("ALL");
+  const [customStartDate, setCustomStartDate] = useState<string>("");
+  const [customEndDate, setCustomEndDate] = useState<string>("");
+
+  const { effectiveStartDate, effectiveEndDate } = useMemo(() => {
+    if (preset === "CUSTOM") {
+      return {
+        effectiveStartDate: customStartDate,
+        effectiveEndDate: customEndDate,
+      };
+    }
+    const range = getPresetDateRange(preset);
+    return {
+      effectiveStartDate: range.startDate,
+      effectiveEndDate: range.endDate,
+    };
+  }, [preset, customStartDate, customEndDate]);
+
+  const filtered = useMemo(() => {
+    return computeFilteredFarmerCharts(
+      data?.raw_data,
+      effectiveStartDate,
+      effectiveEndDate,
+      preset,
+      data,
+    );
+  }, [data, effectiveStartDate, effectiveEndDate, preset]);
+
+  const handleResetFilter = () => {
+    setPreset("ALL");
+    setCustomStartDate("");
+    setCustomEndDate("");
+  };
+
+  const categories = filtered.categories;
+  const milkTrend = filtered.milkTrend;
+  const statusBreakdown = filtered.statusBreakdown;
+  const healthTrend = filtered.healthTrend;
+  const totalHerdCount = filtered.totalHerdCount;
+  const reviewedShare = filtered.reviewedShare;
+  const milkTotalInPeriod = filtered.milkTotalInPeriod;
+  const milkGrowthPct = filtered.milkGrowthPct;
+
+  const isFiltered = preset !== "ALL" || Boolean(effectiveStartDate || effectiveEndDate);
+
+  const activeRangeText = useMemo(() => {
+    if (preset === "ALL") return "All Time";
+    if (preset === "30D") return "Last 30 Days";
+    if (preset === "6M") return "Last 6 Months";
+    if (preset === "YTD") return `This Year (${new Date().getFullYear()})`;
+    if (customStartDate && customEndDate) return `${customStartDate} to ${customEndDate}`;
+    if (customStartDate) return `From ${customStartDate}`;
+    if (customEndDate) return `Until ${customEndDate}`;
+    return "Custom Range";
+  }, [preset, customStartDate, customEndDate]);
 
   if (isLoading) {
     return (
@@ -64,20 +127,10 @@ export default function FarmerCharts({
     );
   }
 
-  const categories = data?.herd_categories ?? [];
-  const milkTrend = data?.milk_trend ?? [];
-  const statusBreakdown = data?.status_breakdown ?? [];
-  const healthTrend = data?.health_incident_trend ?? [];
-
-  const totalHerdCount = data?.cattle_count ?? 0;
-  const reviewedHeadCount = (data?.approved_count ?? 0) + (data?.verified_count ?? 0);
-  const reviewedShare = totalHerdCount > 0
-    ? Math.round((reviewedHeadCount / totalHerdCount) * 100)
-    : null;
-
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      {/* ── TOP HEADER & DATE RANGE FILTER BAR ── */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 pb-1 border-b border-slate-100">
         <div>
           <h3 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
             <TrendingUp className="size-4.5 text-[#2D5A27]" />
@@ -87,7 +140,140 @@ export default function FarmerCharts({
             Livestock, production, record status, and animal health
           </p>
         </div>
+
+        {/* Date Filter Toolbar */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Preset Buttons */}
+          <div className="inline-flex items-center rounded-xl bg-slate-100/90 p-1 text-xs font-semibold text-slate-600 border border-slate-200/80 shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setPreset("ALL")}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                preset === "ALL"
+                  ? "bg-white text-emerald-900 shadow-2xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              All Time
+            </button>
+            <button
+              type="button"
+              onClick={() => setPreset("30D")}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                preset === "30D"
+                  ? "bg-white text-emerald-900 shadow-2xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              30 Days
+            </button>
+            <button
+              type="button"
+              onClick={() => setPreset("6M")}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                preset === "6M"
+                  ? "bg-white text-emerald-900 shadow-2xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              6 Months
+            </button>
+            <button
+              type="button"
+              onClick={() => setPreset("YTD")}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                preset === "YTD"
+                  ? "bg-white text-emerald-900 shadow-2xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              This Year
+            </button>
+            <button
+              type="button"
+              onClick={() => setPreset("CUSTOM")}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                preset === "CUSTOM"
+                  ? "bg-white text-emerald-900 shadow-2xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Calendar className="size-3" />
+              Custom
+            </button>
+          </div>
+
+          {/* Custom Date Pickers */}
+          {preset === "CUSTOM" && (
+            <div className="flex items-center gap-2 bg-white border border-slate-200/90 rounded-2xl p-1.5 shadow-2xs animate-in fade-in slide-in-from-right-1 duration-200">
+              <label className="flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100/80 focus-within:bg-white border border-slate-200/90 focus-within:border-emerald-700 focus-within:ring-2 focus-within:ring-emerald-700/20 rounded-xl px-2.5 py-1 transition-all cursor-pointer">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">From</span>
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  onClick={(e) => {
+                    try {
+                      (e.currentTarget as HTMLInputElement).showPicker?.();
+                    } catch {}
+                  }}
+                  className="w-32 sm:w-36 text-xs font-semibold text-slate-800 bg-transparent border-0 p-0 outline-none focus:ring-0 cursor-pointer"
+                />
+              </label>
+
+              <span className="text-slate-300 font-bold px-0.5">—</span>
+
+              <label className="flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100/80 focus-within:bg-white border border-slate-200/90 focus-within:border-emerald-700 focus-within:ring-2 focus-within:ring-emerald-700/20 rounded-xl px-2.5 py-1 transition-all cursor-pointer">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">To</span>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  onClick={(e) => {
+                    try {
+                      (e.currentTarget as HTMLInputElement).showPicker?.();
+                    } catch {}
+                  }}
+                  className="w-32 sm:w-36 text-xs font-semibold text-slate-800 bg-transparent border-0 p-0 outline-none focus:ring-0 cursor-pointer"
+                />
+              </label>
+
+              {(customStartDate || customEndDate) && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleResetFilter}
+                  className="h-8 w-8 p-0 text-slate-500 hover:text-slate-800 rounded-xl hover:bg-slate-100 cursor-pointer"
+                  title="Clear custom range"
+                >
+                  <RotateCcw className="size-3.5" />
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Active Filter Notification Bar */}
+      {isFiltered && (
+        <div className="flex items-center justify-between px-3 py-1.5 bg-emerald-50/80 border border-emerald-200/80 rounded-xl text-xs text-emerald-900 animate-in fade-in duration-200">
+          <div className="flex items-center gap-2">
+            <Calendar className="size-3.5 text-emerald-700" />
+            <span>
+              Charts filtered to: <strong className="font-bold">{activeRangeText}</strong>
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleResetFilter}
+            className="text-[11px] font-bold text-emerald-800 hover:text-emerald-950 underline underline-offset-2 cursor-pointer flex items-center gap-1"
+          >
+            <RotateCcw className="size-3" />
+            Reset to All Time
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* ── 1. HERD SPECIES COMPOSITION (DONUT CHART) ── */}
@@ -109,7 +295,7 @@ export default function FarmerCharts({
               </div>
 
               <Badge variant="outline" className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border-emerald-200">
-                {totalHerdCount} Total Heads
+                {isFiltered ? `${totalHerdCount} Heads in Range` : `${totalHerdCount} Total Heads`}
               </Badge>
             </div>
           </CardHeader>
@@ -120,17 +306,31 @@ export default function FarmerCharts({
                 <div className="p-3 bg-white rounded-2xl shadow-2xs border border-emerald-900/10 mb-2.5">
                   <Icon iconNode={cowHead} className="size-6 text-emerald-800" />
                 </div>
-                <p className="text-xs font-bold text-slate-700">No livestock recorded yet</p>
-                <p className="text-[11px] text-slate-400 max-w-xs mt-0.5">
-                  Add your cattle, carabaos, goats, or swine to visualize your herd breakdown.
+                <p className="text-xs font-bold text-slate-700">
+                  {isFiltered ? "No livestock recorded in this period" : "No livestock recorded yet"}
                 </p>
-                <Button
-                  size="sm"
-                  onClick={() => router.push("/livestock-inventory")}
-                  className="mt-3 bg-[#2D5A27] hover:bg-[#23471f] text-white text-xs rounded-xl font-bold gap-1 cursor-pointer"
-                >
-                  <Plus className="size-3.5" /> Register Animal
-                </Button>
+                <p className="text-[11px] text-slate-400 max-w-xs mt-0.5">
+                  {isFiltered
+                    ? "Try adjusting your date range or reset to view your full active herd."
+                    : "Add your cattle, carabaos, goats, or swine to visualize your herd breakdown."}
+                </p>
+                {isFiltered ? (
+                  <Button
+                    size="sm"
+                    onClick={handleResetFilter}
+                    className="mt-3 bg-[#2D5A27] hover:bg-[#23471f] text-white text-xs rounded-xl font-bold gap-1 cursor-pointer"
+                  >
+                    <RotateCcw className="size-3.5" /> Reset Filter
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    onClick={() => router.push("/livestock-inventory")}
+                    className="mt-3 bg-[#2D5A27] hover:bg-[#23471f] text-white text-xs rounded-xl font-bold gap-1 cursor-pointer"
+                  >
+                    <Plus className="size-3.5" /> Register Animal
+                  </Button>
+                )}
               </div>
             ) : (
               <>
@@ -208,9 +408,13 @@ export default function FarmerCharts({
                 </div>
               </div>
 
-              {data?.milk_production_liters ? (
+              {!isFiltered && data?.milk_production_liters ? (
                 <Badge variant="outline" className="text-[10px] font-bold text-sky-800 bg-sky-50 border-sky-200">
                   {formatQty(data.milk_production_liters)} L this month
+                </Badge>
+              ) : isFiltered ? (
+                <Badge variant="outline" className="text-[10px] font-bold text-sky-800 bg-sky-50 border-sky-200">
+                  {formatQty(milkTotalInPeriod)} L in period
                 </Badge>
               ) : null}
             </div>
@@ -222,23 +426,38 @@ export default function FarmerCharts({
                 <div className="p-3 bg-white rounded-2xl shadow-2xs border border-sky-900/10 mb-2.5">
                   <Milk className="size-6 text-sky-800" />
                 </div>
-                <p className="text-xs font-bold text-slate-700">No milk production recorded yet</p>
-                <p className="text-[11px] text-slate-400 max-w-xs mt-0.5">
-                  Log your daily or weekly dairy milk harvest in the production dashboard.
+                <p className="text-xs font-bold text-slate-700">
+                  {isFiltered ? "No milk production recorded in this period" : "No milk production recorded yet"}
                 </p>
-                <Button
-                  size="sm"
-                  onClick={() => router.push("/production-dashboard")}
-                  className="mt-3 bg-sky-700 hover:bg-sky-800 text-white text-xs rounded-xl font-bold gap-1 cursor-pointer"
-                >
-                  <Package className="size-3.5" /> Log Production
-                </Button>
+                <p className="text-[11px] text-slate-400 max-w-xs mt-0.5">
+                  {isFiltered
+                    ? "Try expanding your date range or reset to view all recorded logs."
+                    : "Log your daily or weekly dairy milk harvest in the production dashboard."}
+                </p>
+                {isFiltered ? (
+                  <Button
+                    size="sm"
+                    onClick={handleResetFilter}
+                    variant="outline"
+                    className="mt-3 text-xs rounded-xl font-bold gap-1 cursor-pointer text-sky-800"
+                  >
+                    <RotateCcw className="size-3.5" /> Reset Filter
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    onClick={() => router.push("/production-dashboard")}
+                    className="mt-3 bg-sky-700 hover:bg-sky-800 text-white text-xs rounded-xl font-bold gap-1 cursor-pointer"
+                  >
+                    <Package className="size-3.5" /> Log Production
+                  </Button>
+                )}
               </div>
             ) : (
               <>
                 <div className="h-[200px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={milkTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <AreaChart data={milkTrend} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                       <defs>
                         <linearGradient id="milkYieldGrad" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#0284c7" stopOpacity={0.35} />
@@ -254,6 +473,7 @@ export default function FarmerCharts({
                         tickLine={false}
                       />
                       <YAxis
+                        width={46}
                         tick={{ fill: "#64748b", fontSize: 10 }}
                         axisLine={false}
                         tickLine={false}
@@ -285,10 +505,10 @@ export default function FarmerCharts({
                 <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs">
                   <span className="text-slate-500 font-medium">Month-over-month trend</span>
                   <span className="font-bold text-sky-800">
-                    {data?.milk_growth_pct !== null && data?.milk_growth_pct !== undefined
-                      ? data.milk_growth_pct >= 0
-                        ? `↑ +${data.milk_growth_pct.toFixed(1)}% vs last month`
-                        : `↓ ${data.milk_growth_pct.toFixed(1)}% vs last month`
+                    {milkGrowthPct !== null && milkGrowthPct !== undefined
+                      ? milkGrowthPct >= 0
+                        ? `↑ +${milkGrowthPct.toFixed(1)}% vs last month`
+                        : `↓ ${milkGrowthPct.toFixed(1)}% vs last month`
                       : "Steady output"}
                   </span>
                 </div>
@@ -331,7 +551,19 @@ export default function FarmerCharts({
             {statusBreakdown.length === 0 ? (
               <div className="h-[230px] flex flex-col items-center justify-center text-center p-4 bg-slate-50/60 rounded-2xl border border-dashed border-slate-200 my-2">
                 <ShieldCheck className="size-8 text-slate-300 mb-2" />
-                <p className="text-xs font-bold text-slate-700">No inventory audit data</p>
+                <p className="text-xs font-bold text-slate-700">
+                  {isFiltered ? "No inventory records in this period" : "No inventory audit data"}
+                </p>
+                {isFiltered && (
+                  <Button
+                    size="sm"
+                    onClick={handleResetFilter}
+                    variant="outline"
+                    className="mt-3 text-xs rounded-xl font-bold gap-1 cursor-pointer"
+                  >
+                    <RotateCcw className="size-3.5" /> Reset Filter
+                  </Button>
+                )}
               </div>
             ) : (
               <>
@@ -373,7 +605,7 @@ export default function FarmerCharts({
                   </div>
                 </div>
 
-                {/* Legend */}
+                {/* Legend - Displays CBAT Verified */}
                 <div className="flex flex-wrap items-center justify-center gap-2 pt-3 border-t border-slate-100">
                   {statusBreakdown.map((st) => (
                     <div
@@ -410,7 +642,15 @@ export default function FarmerCharts({
               </div>
 
               <Badge variant="outline" className="text-[10px] font-bold text-amber-900 bg-amber-50 border-amber-200">
-                Last 6 Months
+                {preset === "ALL" || preset === "6M"
+                  ? "Last 6 Months"
+                  : preset === "30D"
+                  ? "Last 30 Days"
+                  : preset === "YTD"
+                  ? `This Year (${new Date().getFullYear()})`
+                  : customStartDate || customEndDate
+                  ? "Custom Range"
+                  : "All Time"}
               </Badge>
             </div>
           </CardHeader>
@@ -423,14 +663,16 @@ export default function FarmerCharts({
                 </div>
                 <p className="text-xs font-black text-slate-800">100% Healthy Herd Trajectory</p>
                 <p className="text-[11px] text-slate-400 max-w-xs mt-0.5">
-                  No disease outbreaks or casualties reported in the past 6 months.
+                  {isFiltered
+                    ? "No disease outbreaks or casualties reported in the selected period."
+                    : "No disease outbreaks or casualties reported in the past 6 months."}
                 </p>
               </div>
             ) : (
               <>
                 <div className="h-[200px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={healthTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <BarChart data={healthTrend} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                       <XAxis
                         dataKey="period"
@@ -439,6 +681,7 @@ export default function FarmerCharts({
                         tickLine={false}
                       />
                       <YAxis
+                        width={28}
                         allowDecimals={false}
                         tick={{ fill: "#64748b", fontSize: 10 }}
                         axisLine={false}
