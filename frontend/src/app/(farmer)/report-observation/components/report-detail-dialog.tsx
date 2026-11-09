@@ -447,6 +447,15 @@ export default function ReportDetailDialog({
                   <p className="break-all text-sm font-semibold text-slate-900">{report.cattleTag || "Not recorded"}</p>
                 </div>
               </div>
+              <div className="flex min-w-0 items-start gap-3 border-b border-slate-100 py-3">
+                <FileText className="mt-0.5 size-5 shrink-0 text-slate-700" />
+                <div className="min-w-0">
+                  <p className="text-xs text-slate-500">Ownership Certificate (COLC)</p>
+                  <p className="break-all text-sm font-semibold text-slate-900">
+                    {report.ownershipCertificateNumber ? `COLC #${report.ownershipCertificateNumber}` : "Not recorded / None"}
+                  </p>
+                </div>
+              </div>
               <div className="flex min-w-0 items-start gap-3 border-b border-slate-100 py-3 sm:pr-4">
                 <MapPin className="mt-0.5 size-5 shrink-0 text-slate-700" />
                 <div className="min-w-0">
@@ -467,6 +476,18 @@ export default function ReportDetailDialog({
           </section>
 
           <div className="order-3 space-y-4">
+            {!isMortality && report.hasMortalityReport && (
+              <div className="rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-xs text-rose-950 flex items-start gap-2.5 shadow-2xs">
+                <Skull className="size-4 text-rose-600 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <p className="font-bold text-rose-900">This animal has been reported dead</p>
+                  <p className="text-[11px] text-rose-800 leading-relaxed">
+                    A mortality report has been filed for this animal. Reviewers take both reports into account during inspection and certification.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Official Review Status Banner */}
             <div
               className={`rounded-xl border p-3 text-xs sm:text-sm font-bold flex items-center gap-2.5 shadow-2xs ${statusConfig.bg}`}

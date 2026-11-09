@@ -42,6 +42,9 @@ export interface FarmerReport {
   barangayName?: string;
   rawItem?: RawDiseaseCase | RawMortalityRecord;
   inspectionDetails?: ExtendedInspectionData | null;
+  ownershipCertificateNumber?: string | null;
+  hasMortalityReport?: boolean;
+  mortalityReportStatus?: BackendStatus | null;
 }
 
 export interface ObservationLogPayload {

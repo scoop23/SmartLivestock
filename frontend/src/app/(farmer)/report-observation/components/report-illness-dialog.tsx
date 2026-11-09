@@ -26,6 +26,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 Calendar,
 Camera,
+HeartPulse,
 Icon,
 Send,
 Skull,
@@ -120,7 +121,7 @@ function ReportIllnessDialogContent({
       const data = Array.isArray(response.data) ? response.data : response.data?.results;
       return (Array.isArray(data) ? data : []) as PendingMortalityReport[];
     },
-    enabled: open && reportType === "MORTALITY",
+    enabled: open,
   });
   const [selectedInventoryId, setSelectedInventoryId] = useState<string>(() => {
     if (isEditMode && existingReport) {
@@ -206,6 +207,25 @@ function ReportIllnessDialogContent({
     });
     return pendingIds;
   }, [diseaseCases, isEditMode, mortalityRecords, reportType]);
+
+  const deadReportedAnimalIds = useMemo(() => {
+    const ids = new Set<number>();
+    mortalityRecords.forEach((record) => {
+      if (record.livestock != null) ids.add(Number(record.livestock));
+      record.affected_animals?.forEach((animal) => ids.add(Number(animal.id)));
+    });
+    return ids;
+  }, [mortalityRecords]);
+
+  const pendingSickAnimalIds = useMemo(() => {
+    const ids = new Set<number>();
+    diseaseCases.forEach((dc) => {
+      if (dc.status === "PENDING" && dc.livestock != null) {
+        ids.add(Number(dc.livestock));
+      }
+    });
+    return ids;
+  }, [diseaseCases]);
   const animalsWithPendingReports = useMemo(
     () => eligibleAnimals.filter((animal) => pendingReportAnimalIds.has(Number(animal.id))),
     [eligibleAnimals, pendingReportAnimalIds],
@@ -561,8 +581,19 @@ function ReportIllnessDialogContent({
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                 <p className="break-words text-xs font-semibold text-slate-900">
                   #{selectedCattle?.tagNumber || existingReport?.cattleTag || "Not recorded"}
-                  {selectedCattle && ` ? ${selectedCattle.livestockTypeName || "Livestock"} (${selectedCattle.breed || "Breed not recorded"}, ${selectedCattle.sex || "Sex not recorded"})`}
+                  {selectedCattle && ` · ${selectedCattle.livestockTypeName || "Livestock"} (${selectedCattle.breed || "Breed not recorded"}, ${selectedCattle.sex || "Sex not recorded"})`}
                 </p>
+                {(selectedCattle?.ownershipCertificateNumber || existingReport?.ownershipCertificateNumber) && (
+                  <p className="mt-1 text-xs font-semibold text-sky-800">
+                    COLC #{selectedCattle?.ownershipCertificateNumber || existingReport?.ownershipCertificateNumber}
+                  </p>
+                )}
+                {selectedCattle && deadReportedAnimalIds.has(Number(selectedCattle.id)) && (
+                  <div className="mt-2 flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-[11px] font-bold text-rose-800">
+                    <Skull className="size-3.5 shrink-0 text-rose-600" />
+                    <span>This animal has been reported dead</span>
+                  </div>
+                )}
                 <p className="mt-1 text-xs text-slate-500">The animal is fixed to this report. Update the report details below.</p>
               </div>
             ) : (
@@ -595,6 +626,8 @@ function ReportIllnessDialogContent({
                     {sortedSelectableAnimals.map((animal) => {
                       const id = String(animal.id);
                       const checked = selectedInventoryIds.includes(id);
+                      const isDeadReported = deadReportedAnimalIds.has(Number(animal.id));
+                      const isSickReported = pendingSickAnimalIds.has(Number(animal.id));
                       return (
                         <label key={id} className="flex min-h-12 cursor-pointer items-center gap-3 bg-white px-3 py-2 hover:bg-emerald-50/60">
                           <input
@@ -607,9 +640,26 @@ function ReportIllnessDialogContent({
                             <span className="mb-1 flex flex-wrap gap-1">
                               <Badge variant="outline" className={animal.operationalStatus === "ACTIVE" ? "border-emerald-200 bg-emerald-50 text-[10px] text-emerald-800" : "border-slate-300 bg-slate-100 text-[10px] text-slate-700"}>{(animal.operationalStatus || "UNKNOWN").replaceAll("_", " ")}</Badge>
                               <Badge variant="outline" className={`text-[10px] ${animal.status === "APPROVED" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : animal.status === "VERIFIED" ? "border-blue-200 bg-blue-50 text-blue-800" : "border-slate-300 bg-slate-100 text-slate-700"}`}>{animal.status === "APPROVED" ? "MAO Approved" : animal.status === "VERIFIED" ? "CBAT Checked" : animal.status.replaceAll("_", " ")}</Badge>
+                              {animal.ownershipCertificateNumber && (
+                                <Badge variant="outline" className="border-sky-300 bg-sky-50 text-[10px] font-bold text-sky-800">
+                                  COLC #{animal.ownershipCertificateNumber}
+                                </Badge>
+                              )}
+                              {isDeadReported && (
+                                <Badge variant="outline" className="border-rose-300 bg-rose-50 text-[10px] font-bold text-rose-800 gap-1">
+                                  <Skull className="size-3 text-rose-600" />
+                                  This animal has been reported dead
+                                </Badge>
+                              )}
+                              {!isDisease && isSickReported && (
+                                <Badge variant="outline" className="border-amber-300 bg-amber-50 text-[10px] font-bold text-amber-800 gap-1">
+                                  <HeartPulse className="size-3 text-amber-600" />
+                                  Reported sick (Pending)
+                                </Badge>
+                              )}
                             </span>
                             <span className="block break-words">{animal.tagNumber || `Animal #${animal.id}`} · {animal.livestockTypeName || "Livestock"}</span>
-                            <span className="block text-[11px] font-normal text-slate-500">{animal.breed || "Breed not recorded"} · {animal.sex || "Sex not recorded"}{animal.batchCode ? ` · Herd ${animal.batchCode}` : " · Individual"}</span>
+                            <span className="block text-[11px] font-normal text-slate-500">{animal.breed || "Breed not recorded"} · {animal.sex || "Sex not recorded"}{animal.batchCode ? ` · Herd ${animal.batchCode}` : " · Individual"}{animal.ownershipCertificateNumber ? ` · COLC #${animal.ownershipCertificateNumber}` : ""}</span>
                           </span>
                         </label>
                       );
@@ -625,6 +675,18 @@ function ReportIllnessDialogContent({
                 <p className="border-t border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600">
                   {selectedAnimals.length} animal{selectedAnimals.length === 1 ? "" : "s"} selected
                 </p>
+              </div>
+            )}
+            {isDisease && selectedAnimals.some((animal) => deadReportedAnimalIds.has(Number(animal.id))) && (
+              <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-2.5 text-xs font-semibold text-rose-900">
+                <Skull className="size-4 shrink-0 text-rose-600" />
+                <span>This animal has been reported dead in a pending mortality report.</span>
+              </div>
+            )}
+            {!isDisease && selectedAnimals.some((animal) => pendingSickAnimalIds.has(Number(animal.id))) && (
+              <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-xs font-semibold text-amber-900">
+                <HeartPulse className="size-4 shrink-0 text-amber-600" />
+                <span>This animal has a pending illness report. You can link it below under disease reports.</span>
               </div>
             )}
             {!isEditMode && (

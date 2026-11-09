@@ -162,11 +162,31 @@ function ReportObservationContent() {
   const reports: FarmerReport[] = useMemo(() => {
     const list: FarmerReport[] = [];
 
+    // Map of animal IDs that have an associated mortality report
+    const mortalityByAnimalId = new Map<string, { status: BackendStatus }>();
+    mortalityRecords.forEach((m) => {
+      const status = (m.status || "PENDING").toUpperCase() as BackendStatus;
+      if (m.livestock != null) {
+        mortalityByAnimalId.set(String(m.livestock), { status });
+      }
+      if (Array.isArray(m.affected_animals)) {
+        m.affected_animals.forEach((animal: { id?: number | string }) => {
+          if (animal?.id != null) {
+            mortalityByAnimalId.set(String(animal.id), { status });
+          }
+        });
+      }
+    });
+
     diseaseCases.forEach((dc) => {
       const attached = getAttachedPhoto(`DIS-${dc.id}`, dc.tag_number);
       const photoUrl = dc.photo_url || dc.photo || (attached.isFarmerUpload ? attached.photoUrl : undefined);
       const photoName = (dc.photo_url || dc.photo) ? "Attached Field Photo" : (attached.isFarmerUpload ? attached.photoName : undefined);
       const inspectorPhotoUrl = dc.inspector_photo_url || dc.inspector_photo || (!attached.isFarmerUpload ? attached.photoUrl : undefined);
+      const linkedMortality = dc.livestock != null ? mortalityByAnimalId.get(String(dc.livestock)) : undefined;
+      const invMatch = dc.livestock != null ? inventory.find((inv) => String(inv.id) === String(dc.livestock)) : undefined;
+      const colc = (dc as { ownership_certificate_number?: string }).ownership_certificate_number || invMatch?.ownershipCertificateNumber || null;
+
       list.push({
         id: `DIS-${dc.id}`,
         reportType: "DISEASE",
@@ -193,6 +213,9 @@ function ReportObservationContent() {
         barangayName: dc.barangay_name,
         rawItem: dc,
         inspectionDetails: dc.inspection_details || null,
+        ownershipCertificateNumber: colc,
+        hasMortalityReport: Boolean(linkedMortality),
+        mortalityReportStatus: linkedMortality?.status || null,
       });
     });
 
@@ -230,6 +253,10 @@ function ReportObservationContent() {
         barangayName: m.barangay_name,
         rawItem: m,
         inspectionDetails: m.inspection_details || null,
+        ownershipCertificateNumber:
+          (m as { ownership_certificate_number?: string }).ownership_certificate_number ||
+          (m.livestock != null ? inventory.find((inv) => String(inv.id) === String(m.livestock))?.ownershipCertificateNumber : null) ||
+          null,
       });
     });
 
@@ -604,7 +631,7 @@ function ReportObservationContent() {
   return (
     <>
       <PageHeader
-        title="Record"
+        title="Animal Health"
         subtitle="Report sick or deceased livestock."
         variant="farmer"
         maxWidthClass="w-full"
@@ -901,6 +928,7 @@ function ReportObservationContent() {
                               </p>
                               <p className="text-[10px] text-slate-500 font-semibold">
                                 {rep.cattleBreed} • {rep.cattleType}
+                                {rep.ownershipCertificateNumber ? ` • COLC #${rep.ownershipCertificateNumber}` : ""}
                               </p>
                             </div>
                           </div>
@@ -919,6 +947,13 @@ function ReportObservationContent() {
                             Affected: <strong className="text-slate-800">{rep.affectedCount}</strong> Head{rep.affectedCount > 1 ? "s" : ""}
                           </p>
                         </div>
+
+                        {rep.reportType === "DISEASE" && rep.hasMortalityReport && (
+                          <div className="mt-2 flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-[11px] font-bold text-rose-800">
+                            <Skull className="size-3.5 shrink-0 text-rose-600" />
+                            <span>This animal has been reported dead</span>
+                          </div>
+                        )}
 
                         {chronologyConflicts.get(rep.id)?.length ? (
                           <details
@@ -968,6 +1003,12 @@ function ReportObservationContent() {
                             {statusInfo.icon}
                             <span>{statusInfo.label}</span>
                           </Badge>
+                          {rep.reportType === "DISEASE" && rep.hasMortalityReport && (
+                            <Badge variant="outline" className="border-rose-300 bg-rose-50 text-[10px] font-extrabold text-rose-800 gap-1">
+                              <Skull className="size-3 text-rose-600" />
+                              <span>Reported dead</span>
+                            </Badge>
+                          )}
                           {highlightedReportIds.includes(rep.id) && (
                             <Badge className="border border-emerald-300 bg-emerald-100 text-[10px] font-extrabold text-emerald-900">
                               Just submitted
