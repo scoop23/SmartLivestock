@@ -1211,7 +1211,7 @@ export function GISMap({
     for (const alert of adjacentAlertList) {
       const caseCount = Math.max(alert.active_cases || alert.disease_cases || 1, 1);
       // Visual representation: 1 to 4 pulsing dots randomly distributed inside the barangay polygon
-      const dotCount = Math.min(caseCount, 4);
+      const dotCount = Math.min(caseCount, 1);
       const visualPoints = getRandomVisualPointsInBarangay(alert.name, dotCount, alert.position);
 
       visualPoints.forEach((point, idx) => {
