@@ -702,7 +702,7 @@ function RegisterLivestockDialogContent({
           : resolveBreed(formData.livestockType, formData.breed);
 
         let response;
-        if (photoFile || certificateFile) {
+        if (photoFile) {
           const body = new FormData();
           body.append("livestock_type", String(typeId));
           body.append("entry_type", "INDIVIDUAL");
@@ -710,16 +710,12 @@ function RegisterLivestockDialogContent({
           body.append("tag_number", formData.tagNumber.trim());
           body.append("breed", finalBreed);
           body.append("sex", formData.sex);
-          if (formData.ownershipCertificateNumber?.trim()) {
-            body.append("ownership_certificate_number", formData.ownershipCertificateNumber.trim());
-          }
           if (formData.birthDate) body.append("birth_date", formData.birthDate);
           if (formData.weight) body.append("weight", formData.weight);
           if (formData.lastVaccinationDate) body.append("last_vaccination_date", formData.lastVaccinationDate);
           if (batchId !== null) body.append("batch", String(batchId));
           if (formData.avatarKey) body.append("avatar_key", formData.avatarKey);
-          if (photoFile) body.append("photo", photoFile);
-          if (certificateFile) body.append("certificate_photo", certificateFile);
+          body.append("photo", photoFile);
           if (formData.purchaseTransferId) body.append("purchase_transfer_id", formData.purchaseTransferId);
 
           response = await api.post("/livestock/inventory/", body, {
@@ -731,7 +727,6 @@ function RegisterLivestockDialogContent({
             entry_type: "INDIVIDUAL",
             quantity: 1,
             tag_number: formData.tagNumber.trim(),
-            ownership_certificate_number: formData.ownershipCertificateNumber?.trim() || "",
             breed: finalBreed,
             sex: formData.sex,
             birth_date: formData.birthDate || null,
@@ -782,7 +777,6 @@ function RegisterLivestockDialogContent({
           target_weight: avgWeight ? Math.round(avgWeight * 1.3) : null,
           animals: batchAnimals.map((a) => ({
             tag_number: a.tagNumber.trim(),
-            ownership_certificate_number: a.ownershipCertificateNumber?.trim() || "",
             breed: (a.breed?.trim() && a.breed !== "Others") ? a.breed.trim() : mainBreed,
             sex: a.sex,
             weight: a.weight ? parseFloat(a.weight) : null,
@@ -1351,20 +1345,20 @@ function RegisterLivestockDialogContent({
                     </>
                   )}
 
-                  {/* Certificate of Ownership of Large Cattle (COLC) # (Optional) */}
+                  {/* Certificate of Ownership of Large Cattle (COLC) — Issued by Padre Garcia MAO */}
                   {formData.entryType === "INDIVIDUAL" && (
-                  <div className="pt-3 border-t border-slate-200/80 space-y-1.5 animate-in fade-in-50 duration-200">
+                  <div className="pt-3 border-t border-slate-200/80 space-y-2.5 animate-in fade-in-50 duration-200">
                     <div className="flex items-center justify-between">
                       <Label
-                        htmlFor="ownershipCertificateNumber"
+                        htmlFor="registration-purchase"
                         className="text-xs font-bold text-slate-700 flex items-center gap-1.5"
                       >
                         <ClipboardCheck className="size-3.5 text-emerald-700" />
-                        <span>Certificate of Ownership (COLC) #</span>
-                        <InfoTooltip text="If the Municipal Treasury has already issued an official paper Certificate of Ownership of Large Cattle (COLC), enter its serial number here." />
+                        <span>Certificate of Ownership (COLC) &amp; Purchase Link</span>
+                        <InfoTooltip text="Padre Garcia MAO automatically generates the official Certificate of Ownership of Large Cattle (COLC) serial number upon approving this registration." />
                       </Label>
-                      <Badge variant="outline" className="text-[10px] bg-slate-100 text-slate-600 border-slate-300 font-bold">
-                        Optional
+                      <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-800 border-emerald-200 font-bold">
+                        Issued by MAO
                       </Badge>
                     </div>
                     <div className="space-y-1.5">
@@ -1380,33 +1374,18 @@ function RegisterLivestockDialogContent({
                       </Select>
                     </div>
                     {purchasesQuery.isError && <p className="text-xs text-rose-700">Could not load your purchases. Reopen this form to retry before registering a purchased animal.</p>}
-                    <p className="text-xs text-slate-500">Choose your approved purchase and enter the renewed certificate below. Your application adds to active population only after approval.</p>
-                    <div className="space-y-2">
-                      <Label htmlFor="registration-certificate-image" className="text-xs font-semibold">Certificate image (optional)</Label>
-                      <input id="registration-certificate-image" ref={certificateInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={e => setCertificateFile(e.target.files?.[0] ?? null)} />
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Button type="button" className="group h-11 gap-2.5 rounded-xl bg-emerald-700 px-4 text-xs font-bold text-white shadow-sm transition-colors hover:bg-emerald-800 focus-visible:ring-emerald-500/30 cursor-pointer" onClick={() => certificateInputRef.current?.click()}>
-                          <span className="flex size-7 items-center justify-center rounded-lg bg-white/15 transition-colors group-hover:bg-white/20"><Upload className="size-4" /></span>
-                          {certificateFile ? "Change certificate image" : "Upload certificate image"}
-                        </Button>
-                        {certificateFile && <span className="max-w-full truncate text-xs text-slate-500" title={certificateFile.name}>{certificateFile.name}</span>}
+                    <p className="text-xs text-slate-500">
+                      Select an approved Padre Garcia auction purchase if you bought this animal from another registered farmer, or leave as &ldquo;Not linked&rdquo; for newborn or outside-acquired livestock.
+                    </p>
+                    <div className="rounded-xl border border-emerald-200/80 bg-[#e8f6ee] px-3.5 py-2.5 flex items-start gap-2.5">
+                      <Check className="size-4 text-[#0c7a43] shrink-0 mt-0.5" />
+                      <div className="text-xs leading-relaxed">
+                        <p className="font-bold text-[#0c5932]">COLC # is auto-generated by Padre Garcia MAO</p>
+                        <p className="text-[#1e6b43]">
+                          Once SIBAT verifies the animal and MAO approves this registration, an official <span className="font-mono font-bold">COLC-YYYY-XXXXXX</span> certificate number is issued automatically.
+                        </p>
                       </div>
                     </div>
-                    <Input
-                      id="ownershipCertificateNumber"
-                      placeholder="e.g. COLC-2026-0001 or PG-2024-1234"
-                      value={formData.ownershipCertificateNumber}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          ownershipCertificateNumber: e.target.value.toUpperCase(),
-                        })
-                      }
-                      className="h-11 rounded-xl font-mono font-bold text-xs sm:text-sm border-slate-200 focus-visible:ring-emerald-500/20 bg-white"
-                    />
-                    <p className="text-[11px] text-slate-500 leading-relaxed">
-                      Official paper certificate serial number issued by Padre Garcia Municipal Agriculture Office or Treasury.
-                    </p>
                   </div>
                   )}
 
@@ -1960,23 +1939,6 @@ function RegisterLivestockDialogContent({
                                         />
                                       </div>
 
-                                      {/* COLC */}
-                                      <div className="space-y-1">
-                                        <Label className="text-xs font-bold text-slate-600">
-                                          Certificate of Ownership (COLC) # <span className="font-normal text-slate-400">(Optional)</span>
-                                        </Label>
-                                        <Input
-                                          value={animal.ownershipCertificateNumber || ""}
-                                          onChange={(e) => updateBatchAnimalField(idx, "ownershipCertificateNumber", e.target.value.toUpperCase())}
-                                          placeholder="e.g. COLC-2026-0001"
-                                          maxLength={100}
-                                          className="h-10 text-xs font-mono font-bold rounded-xl bg-white"
-                                        />
-                                        <p className="text-[10px] text-slate-500">
-                                          Paper certificate number issued for this animal, if available.
-                                        </p>
-                                      </div>
-
                                       {/* Breed */}
                                       <div className="space-y-1">
                                         <Label className="text-xs font-bold text-slate-600">
@@ -2314,7 +2276,7 @@ function RegisterLivestockDialogContent({
                         <div>
                           <span className="text-slate-400 font-medium block">COLC Certificate #</span>
                           <span className="font-mono font-bold text-emerald-800">
-                            {formData.ownershipCertificateNumber || "None / Pending"}
+                            Issued by MAO on approval
                           </span>
                         </div>
                       )}
