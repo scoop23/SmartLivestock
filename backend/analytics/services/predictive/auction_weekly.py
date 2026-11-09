@@ -35,6 +35,7 @@ MIN_TRAIN_WEEKS = 8
 MIN_HISTORY_WEEKS = 12
 MAX_HORIZON_WEEKS = 12
 MAX_BACKTEST_WINDOWS = 8
+MAX_QUIET_GAP_WEEKS = 2
 SYNTHETIC_TRANSFER_MARKERS = (
     SEED_MARKER_CATTLE_PRICE_DEMO,
     SEED_MARKER_OWNERSHIP_TRANSFER,
@@ -44,9 +45,8 @@ SYNTHETIC_TRANSFER_MARKERS = (
 )
 
 
-def _filtered_sales(target: str, user=None, transfer_source: Optional[str] = None):
+def _scoped_transfers(target: str, user=None, transfer_source: Optional[str] = None):
     qs = scope_reviewer_queryset(LivestockOwnershipTransfer.objects.all(), user).filter(
-        status=LivestockOwnershipTransfer.Status.APPROVED,
         transfer_date__isnull=False,
     )
     source = (transfer_source or "").strip().upper()
@@ -63,6 +63,25 @@ def _filtered_sales(target: str, user=None, transfer_source: Optional[str] = Non
             | Q(external_livestock_type__icontains=target)
         )
     return qs
+
+
+def _filtered_sales(target: str, user=None, transfer_source: Optional[str] = None):
+    return _scoped_transfers(target, user, transfer_source).filter(
+        status=LivestockOwnershipTransfer.Status.APPROVED,
+    )
+
+
+def _trailing_contiguous_frame(df: pd.DataFrame) -> pd.DataFrame:
+    """Return the most recent unbroken streak of finite weekly observations."""
+    if df.empty:
+        return df
+    finite_mask = np.isfinite(df["quantity"].to_numpy(dtype=float))
+    if not finite_mask.any() or not finite_mask[-1]:
+        return df.iloc[0:0].copy()
+    start_idx = len(df) - 1
+    while start_idx > 0 and finite_mask[start_idx - 1]:
+        start_idx -= 1
+    return df.iloc[start_idx:].copy().reset_index(drop=True)
 
 
 def build_weekly_auction_series(
@@ -151,13 +170,99 @@ def build_weekly_auction_series(
 
     if grouped:
         first_week = min(grouped)
+        latest_observed_week = max(grouped)
+        unapproved_dates = (
+            []
+            if requires_specific_target
+            else list(
+                _scoped_transfers(target, user, transfer_source_clean)
+                .filter(
+                    status__in=[
+                        LivestockOwnershipTransfer.Status.PENDING,
+                        LivestockOwnershipTransfer.Status.VERIFIED,
+                    ],
+                    transfer_date__gte=first_week,
+                    transfer_date__lt=current_week_start,
+                )
+                .values_list("transfer_date", flat=True)
+            )
+        )
+        unapproved_weeks = {d - timedelta(days=d.weekday()) for d in unapproved_dates if d}
+
+        # Option 2A (Monday / Pending Grace Window): If the most recently completed
+        # 1-2 weeks have unreviewed transfers waiting for approval (and no approved
+        # transfers yet), anchor at the last approved week rather than treating an
+        # unreviewed batch as zero or missing.
+        trailing_gap_weeks = (last_complete_week_start - latest_observed_week).days // 7
+        if (
+            0 < trailing_gap_weeks <= MAX_QUIET_GAP_WEEKS
+            and any(
+                (latest_observed_week + timedelta(weeks=step)) in unapproved_weeks
+                for step in range(1, trailing_gap_weeks + 1)
+            )
+        ):
+            effective_end_week = latest_observed_week
+        else:
+            effective_end_week = last_complete_week_start
+
+        all_weeks = []
+        w = first_week
+        while w <= effective_end_week:
+            all_weeks.append(w)
+            w += timedelta(days=7)
+
+        # Precompute empty-gap lengths and prior recorded streaks so only genuine
+        # isolated 1-2 week quiet periods (after at least 2 recorded weeks in a
+        # history of >= MIN_HISTORY_WEEKS) are filled, while sparse alternating
+        # series remain flagged as insufficient.
+        has_enough_history = len(grouped) >= MIN_HISTORY_WEEKS
+        gap_lengths: Dict[date, int] = {}
+        prior_streaks: Dict[date, int] = {}
+        idx = 0
+        running_recorded = 0
+        while idx < len(all_weeks):
+            wk = all_weeks[idx]
+            if wk in grouped:
+                running_recorded += 1
+                idx += 1
+            else:
+                gap_start = idx
+                while idx < len(all_weeks) and all_weeks[idx] not in grouped:
+                    idx += 1
+                gap_len = idx - gap_start
+                for g_idx in range(gap_start, idx):
+                    gap_lengths[all_weeks[g_idx]] = gap_len
+                    prior_streaks[all_weeks[g_idx]] = running_recorded
+                running_recorded = 0
+
         periods = []
-        week = first_week
-        while week <= last_complete_week_start:
+        last_valid_price: Optional[float] = None
+        last_valid_available_at = pd.NaT
+        for week in all_weeks:
             bucket = grouped.get(week)
             if bucket is None:
-                quantity = np.nan
-                available_at = pd.NaT
+                can_fill_quiet_week = (
+                    has_enough_history
+                    and week not in unapproved_weeks
+                    and gap_lengths.get(week, 999) <= MAX_QUIET_GAP_WEEKS
+                    and prior_streaks.get(week, 0) >= 2
+                )
+                if can_fill_quiet_week and unit in {"HEADS", "TRANSACTIONS"}:
+                    # Option 1A: A quiet week with no transfers has 0 sales volume.
+                    quantity = 0.0
+                    available_at = week + timedelta(days=6)
+                elif can_fill_quiet_week and unit == "PHP_PER_HEAD" and last_valid_price is not None:
+                    # Option 1B: Carry forward the most recent weekly average price
+                    # across an isolated 1-2 week quiet period with no cattle sold.
+                    quantity = last_valid_price
+                    available_at = (
+                        max(last_valid_available_at, week + timedelta(days=6))
+                        if pd.notna(last_valid_available_at)
+                        else week + timedelta(days=6)
+                    )
+                else:
+                    quantity = np.nan
+                    available_at = pd.NaT
                 record_count = 0
                 missing_value_records = 0
             else:
@@ -183,15 +288,18 @@ def build_weekly_auction_series(
                     timezone.localtime(max(latest_created, latest_reviewed)).date()
                     if all_timestamps_present else pd.NaT
                 )
+                if unit == "PHP_PER_HEAD" and np.isfinite(quantity):
+                    last_valid_price = float(quantity)
+                    last_valid_available_at = available_at
             periods.append({
                 "week": pd.Timestamp(week), "quantity": quantity,
                 "available_at": available_at, "record_count": record_count,
                 "missing_value_records": missing_value_records,
             })
-            week += timedelta(days=7)
         df = pd.DataFrame(periods)
         df["available_at"] = pd.to_datetime(df["available_at"])
     else:
+        effective_end_week = last_complete_week_start
         df = pd.DataFrame(columns=["week", "quantity", "available_at", "record_count", "missing_value_records"])
 
     missing_weeks = [row["week"].date().isoformat() for row in df.to_dict("records")
@@ -237,8 +345,8 @@ def build_weekly_auction_series(
         "seed_marker": sorted(observed_seed_markers)[0] if observed_seed_markers else None,
         "total_weekly_observations": int(np.isfinite(df["quantity"]).sum()) if not df.empty else 0,
         "first_week": df["week"].min().date().isoformat() if not df.empty else None,
-        "last_complete_week": last_complete_week_start.isoformat(),
-        "data_through_date": last_complete_week_start.isoformat(),
+        "last_complete_week": effective_end_week.isoformat(),
+        "data_through_date": effective_end_week.isoformat(),
         "missing_weeks": missing_weeks,
         "missing_week_count": len(missing_weeks),
         "unmeasured_value_records": unmeasured_value_count if unit in {"PHP", "PHP_PER_HEAD"} else 0,
@@ -370,8 +478,15 @@ def evaluate_weekly_auction(
     """Evaluate weekly transfer totals at independent rolling cutoffs."""
     horizon = max(1, min(int(horizon_weeks), MAX_HORIZON_WEEKS))
     df, meta = build_weekly_auction_series(target, unit, user, transfer_source)
-    obs_count = int(meta["total_weekly_observations"])
-    missing_count = int(meta["missing_week_count"])
+    trailing_df = _trailing_contiguous_frame(df)
+    use_trailing_window = (
+        len(trailing_df) >= MIN_HISTORY_WEEKS
+        and int(meta["missing_week_count"]) > 0
+        and meta["value_measurement_complete"]
+    )
+    active_df = trailing_df if use_trailing_window else df
+    obs_count = len(active_df) if use_trailing_window else int(meta["total_weekly_observations"])
+    missing_count = 0 if use_trailing_window else int(meta["missing_week_count"])
     candidate_names = [
         "Naive Baseline", "Moving Average (4 weeks)", "Linear Regression",
         "Random Forest", "ARIMA", "Holt-Winters",
@@ -383,7 +498,7 @@ def evaluate_weekly_auction(
         "ARIMA": "Time-series model",
         "Holt-Winters": "Exponential smoothing",
     }
-    if len(df) >= 52 + horizon:
+    if len(active_df) >= 52 + horizon:
         candidate_names.insert(2, "Seasonal Naive (52 weeks)")
     min_train = 52 if "Seasonal Naive (52 weeks)" in candidate_names else MIN_TRAIN_WEEKS
 
@@ -401,7 +516,7 @@ def evaluate_weekly_auction(
                 "Missing price weeks are unknown and are not filled in."
             )
         elif missing_count:
-            message = f"{missing_count} week(s) have no complete approved transfer total. Missing weeks are not counted as zero activity."
+            message = f"{missing_count} week(s) have no complete approved transfer total. Missing weeks are unknown and not counted as zero activity."
         else:
             message = f"{meta['unmeasured_value_records']} approved transfer(s) have no purchase price, so weekly sales totals are incomplete."
         status = "insufficient_data"
@@ -415,18 +530,18 @@ def evaluate_weekly_auction(
     backtest_rows = []
     valid_windows = 0
     final_predictions = None
-    if len(df) > min_train:
-        possible_origins = list(range(min_train, len(df) - horizon + 1))
+    if len(active_df) > min_train:
+        possible_origins = list(range(min_train, len(active_df) - horizon + 1))
         if len(possible_origins) > MAX_BACKTEST_WINDOWS:
             selected = np.linspace(0, len(possible_origins) - 1, MAX_BACKTEST_WINDOWS, dtype=int)
             possible_origins = [possible_origins[index] for index in sorted(set(selected.tolist()))]
 
         results_by_model = {name: {"actual": [], "predicted": [], "windows": 0} for name in candidate_names}
         for origin in possible_origins:
-            cutoff = pd.Timestamp(df.iloc[origin]["week"])
-            full_history = df.iloc[:origin].copy()
+            cutoff = pd.Timestamp(active_df.iloc[origin]["week"])
+            full_history = active_df.iloc[:origin].copy()
             known = full_history.loc[full_history["available_at"].notna() & (full_history["available_at"] < cutoff)].copy()
-            test = df.iloc[origin:origin + horizon].copy()
+            test = active_df.iloc[origin:origin + horizon].copy()
             expected_test_weeks = pd.date_range(cutoff, periods=horizon, freq="7D")
             missing_availability = int(full_history["available_at"].isna().sum())
             late_rows = int((full_history["available_at"].notna() & (full_history["available_at"] >= cutoff)).sum())
@@ -506,13 +621,13 @@ def evaluate_weekly_auction(
                 if values["windows"] == valid_windows and values["actual"]
             ]
 
-    all_weeks_contiguous = bool(len(df) and not missing_count and np.isfinite(df["quantity"]).all())
+    all_weeks_contiguous = bool(len(active_df) and not missing_count and np.isfinite(active_df["quantity"]).all())
     if not meta["value_measurement_complete"]:
         all_weeks_contiguous = False
     if forecast_available and not all_weeks_contiguous:
         forecast_available = False
         status = "insufficient_data"
-        message = "Some weeks are missing or have incomplete amounts. Missing weeks are not counted as zero activity."
+        message = "Some weeks are missing or have incomplete amounts. Missing weeks are unknown and not counted as zero activity."
     if forecast_available and not valid_windows:
         status = "unvalidated"
 
@@ -617,16 +732,18 @@ def generate_weekly_auction_forecast(
         result.update({"forecast": [], "chart_data": chart_data})
         return result
     df, meta = build_weekly_auction_series(target, unit, user, transfer_source)
+    trailing_df = _trailing_contiguous_frame(df)
+    active_df = trailing_df if len(trailing_df) >= MIN_HISTORY_WEEKS else df
     winner = result["selection"].get("selected_model")
     model_name = preferred_model or winner or "Naive Baseline"
     horizon = result["data"]["horizon_weeks"]
-    last_week = pd.Timestamp(df["week"].iloc[-1])
+    last_week = pd.Timestamp(active_df["week"].iloc[-1])
     future_weeks = [last_week + pd.Timedelta(weeks=step) for step in range(1, horizon + 1)]
     try:
-        predictions = _predict(model_name, df, future_weeks)
+        predictions = _predict(model_name, active_df, future_weeks)
     except Exception:
         model_name = "Naive Baseline"
-        predictions = _predict(model_name, df, future_weeks)
+        predictions = _predict(model_name, active_df, future_weeks)
     forecast = [
         {"date": week.date().isoformat(), "month_label": f"Week of {week:%b %d, %Y}", "predicted": round(float(value), 2)}
         for week, value in zip(future_weeks, predictions)
