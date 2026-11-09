@@ -56,6 +56,8 @@ _BARANGAY_COMPARISON_PHRASES = (
     "each barangay", "for each barangay", "in each barangay", "which barangays",
     "barangay comparison", "barangays reported", "sa bawat barangay",
     "ayon sa barangay", "saang barangay", "bawat barangay", "bawat na barangay",
+    "all barangays", "every barangay", "lahat ng barangay", "lahat ng mga barangay",
+    "buong barangay", "buong mga barangay",
 )
 SPECIES_ALIASES = {
     "cattle": ("cattle", "cow", "cows", "baka", "bovine"),
@@ -349,7 +351,13 @@ def _resolve_barangay(text, barangays):
         return None, "Please ask about one barangay at a time, or request a comparison by barangay."
     if matches:
         return matches[0], None
-    location_match = re.search(r"\b(?:in|within|sa)\s+([a-z][\w-]*)", text)
+    # Grouping phrases are not place names: 'sa buong mga barangay' must
+    # not resolve 'buong' as a named barangay. Keep other location text so an
+    # unknown explicit location still produces clarification.
+    location_text = text
+    for phrase in sorted(_BARANGAY_COMPARISON_PHRASES, key=len, reverse=True):
+        location_text = re.sub(rf"(?<!\w){re.escape(phrase)}(?!\w)", " ", location_text)
+    location_match = re.search(r"\b(?:in|within|sa)\s+([a-z][\w-]*)", location_text)
     if location_match:
         first_word = location_match.group(1)
         typo_matches = [
@@ -371,9 +379,9 @@ def _resolve_barangay(text, barangays):
         }
         if first_word not in non_locations:
             return None, "I could not match that barangay within the data available to your account."
-    if any(_contains(text, phrase) for phrase in ("all barangays", "every barangay", "which barangays", "by barangay", "per barangay", "across barangays", "each barangay", "sa bawat barangay")):
+    if any(_contains(text, phrase) for phrase in _BARANGAY_COMPARISON_PHRASES):
         return None, None
-    if re.search(r"\bbarangay\s+[a-z]", text) and not any(_contains(text, phrase) for phrase in ("all barangays", "which barangays", "by barangay", "per barangay", "across barangays", "each barangay")):
+    if re.search(r"\bbarangay\s+[a-z]", text) and not any(_contains(text, phrase) for phrase in _BARANGAY_COMPARISON_PHRASES):
         return None, "I could not match that barangay within the data available to your account."
     return None, None
 
@@ -808,7 +816,7 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
         if compare_by_barangay:
             group_by = "barangay"
     elif intent == "population_summary":
-        if any(_contains(normalized, phrase) for phrase in ("by barangay", "per barangay", "each barangay", "for each barangay", "in each barangay", "across barangays", "sa bawat barangay", "bawat barangay", "ayon sa barangay")):
+        if any(_contains(normalized, phrase) for phrase in _BARANGAY_COMPARISON_PHRASES):
             group_by = "barangay"
         elif any(_contains(normalized, phrase) for phrase in ("by livestock type", "by species", "per species", "each livestock species", "by type", "ayon sa uri")):
             group_by = "species"
@@ -948,12 +956,7 @@ def _candidate_preserves_explicit_filters(question, candidate, *, today, baranga
     if period_error or parameters["period"] != expected_period:
         return False
 
-    barangay_group_phrases = (
-        "by barangay", "per barangay", "each barangay", "for each barangay", "in each barangay",
-        "across barangays", "across all barangays", "which barangays", "barangay comparison",
-        "barangays reported", "sa bawat barangay", "bawat barangay", "bawat na barangay",
-        "ayon sa barangay", "saang barangay",
-    )
+    barangay_group_phrases = _BARANGAY_COMPARISON_PHRASES
     species_group_phrases = (
         "by livestock type", "per livestock type", "by species", "per species", "each livestock species",
         "across livestock types", "across species", "according to species", "according to livestock type",
