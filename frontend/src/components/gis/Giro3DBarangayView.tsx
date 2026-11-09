@@ -53,7 +53,7 @@ interface Giro3DBarangayViewProps {
 interface AnimatedPulse {
   headMesh: import('three').Mesh;
   trailMeshes: import('three').Mesh[];
-  curve: import('three').CatmullRomCurve3;
+  curve: import('three').CubicBezierCurve3;
   speed: number;
   offset: number;
   isSelected?: boolean;
@@ -1194,7 +1194,7 @@ export function Giro3DBarangayView({
     instance.notifyChange();
   }, [heightScale, activeLayer, barangaysByName, diseaseSubMode, selectedLivestockType, simulationColorMode]);
 
-  // Render dynamic 3D parabolic movement arcs across the Philippine archipelago with forward animation
+  // Render movement arcs with vertical takeoff/landing at their geographic anchors.
   useEffect(() => {
     if (!isSceneReady) return;
     const instance = instanceRef.current;
@@ -1239,8 +1239,16 @@ export function Giro3DBarangayView({
     // Render 3D parabolic arcs, destination beacons, origin anchors, and animated flow pulses
     for (const move of groupMovementRoutes(movements)) {
       if (!move.from || !move.to) continue;
-      const [fromLat, fromLng] = move.from;
-      const [toLat, toLng] = move.to;
+      // Use the local barangay centroid when explicitly identified; retain external coordinates.
+      const findCentroid = (name: string | null | undefined) => {
+        if (!name) return undefined;
+        const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
+        return Object.values(barangaysByName).find(barangay =>
+          [barangay.name, barangay.db_name].some(value => value && normalize(value) === normalize(name))
+        )?.position;
+      };
+      const [fromLat, fromLng] = findCentroid(move.origin_barangay) ?? move.from;
+      const [toLat, toLng] = findCentroid(move.destination_barangay) ?? move.to;
       if (!Number.isFinite(fromLat) || !Number.isFinite(fromLng) || !Number.isFinite(toLat) || !Number.isFinite(toLng)) {
         continue;
       }
@@ -1272,27 +1280,24 @@ export function Giro3DBarangayView({
         ? Math.min(Math.max(dist * 0.004, 50), 2200)
         : Math.min(Math.max(dist * 0.0022, 28), 1200);
 
-      // Construct smooth parabolic curve points
-      const sampleCount = 32;
-      const curvePoints: import('three').Vector3[] = [];
-      for (let i = 0; i <= sampleCount; i++) {
-        const t = i / sampleCount;
-        const px = startX + dx * t;
-        const py = startY + dy * t;
-        const pz = 4 * apexHeight * t * (1 - t) + 25;
-        curvePoints.push(new three.Vector3(px, py, pz));
-      }
-
-      const curve = new three.CatmullRomCurve3(curvePoints);
+      // Control points directly above each endpoint create vertical tangents, then
+      // a smooth bend between barangays. Equal control heights preserve the apex.
+      const controlHeight = 25 + apexHeight * 4 / 3;
+      const curve = new three.CubicBezierCurve3(
+        new three.Vector3(startX, startY, 25),
+        new three.Vector3(startX, startY, controlHeight),
+        new three.Vector3(endX, endY, controlHeight),
+        new three.Vector3(endX, endY, 25),
+      );
 
       // Base atmospheric flight corridor tube
       const tubeGeom = new three.TubeGeometry(curve, 32, tubeRadius, 6, false);
       const tubeMat = new three.MeshBasicMaterial({
         color: hexColor,
-        opacity: isSelected ? 0.8 : 0.2,
-        transparent: true,
+        opacity: 1,
+        transparent: false,
         depthTest: true,
-        depthWrite: false,
+        depthWrite: true,
       });
 
       const tubeMesh = new three.Mesh(tubeGeom, tubeMat);
@@ -1535,7 +1540,7 @@ export function Giro3DBarangayView({
       animatedRingsRef.current = [];
       destinationBeaconsRef.current = [];
     };
-  }, [isSceneReady, activeLayer, showMovementOverlay, movements, selectedMovement, movementDisplayMode]);
+  }, [isSceneReady, activeLayer, showMovementOverlay, movements, selectedMovement, movementDisplayMode, barangaysByName]);
 
   // Animate the polygon column extrusion heights in response to movementDisplayMode,
   // timeline scrubber date changes, and timeline activation
