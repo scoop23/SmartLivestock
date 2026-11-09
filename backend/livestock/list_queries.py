@@ -66,8 +66,11 @@ def filter_livestock_list(queryset, params, *, batch=False):
             if value and value.upper() != "ALL":
                 matching_animals = matching_animals.filter(status=value)
             if reviewer_role:
+                # CBAT is the current display label for field verification;
+                # existing reviewers and audit records can still use SIBAT.
+                role = reviewer_role.strip().upper()
                 matching_animals = matching_animals.filter(
-                    reviewed_by__role__role_name=reviewer_role.upper()
+                    reviewed_by__role__role_name__in=("CBAT", "SIBAT") if role == "CBAT" else (role,)
                 )
             queryset = queryset.alias(has_status_match=Exists(matching_animals)).filter(has_status_match=True)
     search = params.get("search", "").strip()

@@ -57,14 +57,15 @@ import {
   type ReviewTargetItem,
 } from "../data-validation/validation-review-dialog";
 
-type IncidentStatusFilter = ValidationStatus | "UNAPPROVED";
+type IncidentStatusFilter = ValidationStatus;
 const INCIDENT_STATUS_FILTERS: IncidentStatusFilter[] = [
-  "ALL", "PENDING", "AWAITING_MAO", "VERIFIED", "CBAT_VERIFIED", "APPROVED",
-  "SUBJECT_TO_REVISION", "REJECTED", "UNAPPROVED",
+  "ALL", "PENDING", "VERIFIED", "APPROVED",
+  "SUBJECT_TO_REVISION", "REJECTED",
 ];
 
 function parseIncidentStatusFilter(value: string | null): IncidentStatusFilter {
-  const normalized = (value || "").toUpperCase() as IncidentStatusFilter;
+  const raw = (value || "").toUpperCase();
+  const normalized = (raw === "AWAITING_MAO" || raw === "CBAT_VERIFIED" ? "VERIFIED" : raw) as IncidentStatusFilter;
   return INCIDENT_STATUS_FILTERS.includes(normalized) ? normalized : "ALL";
 }
 
@@ -74,7 +75,6 @@ function matchesStatusFilter(
 ): boolean {
   if (statusFilter === "ALL") return true;
   const s = (rawStatus || "PENDING").toUpperCase();
-  if (statusFilter === "UNAPPROVED") return s !== "APPROVED";
   if (statusFilter === "AWAITING_MAO" || (statusFilter as string) === "CBAT_VERIFIED") return s === "VERIFIED";
   if (statusFilter === "SUBJECT_TO_REVISION") {
     return (
@@ -732,11 +732,9 @@ function DiseaseMortalityContent() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL">All Status</SelectItem>
-                  <SelectItem value="UNAPPROVED">Unapproved</SelectItem>
-                  <SelectItem value="AWAITING_MAO">Awaiting MAO Review</SelectItem>
                   <SelectItem value="VERIFIED">CBAT Verified</SelectItem>
                   <SelectItem value="APPROVED">Certified / Approved</SelectItem>
-                  <SelectItem value="SUBJECT_TO_REVISION">Revision Required</SelectItem>
+                  <SelectItem value="SUBJECT_TO_REVISION">For Revision</SelectItem>
                 </SelectContent>
               </Select>
             </div>

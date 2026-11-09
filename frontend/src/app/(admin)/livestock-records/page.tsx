@@ -604,7 +604,7 @@ function LivestockRecordsContent() {
       const matchStatus =
         statusFilter === "ALL" ||
         (statusFilter === "APPROVED" && item.status === "APPROVED") ||
-        (statusFilter === "CBAT_VERIFIED" && item.status === "VERIFIED" && item.reviewedByRole?.toUpperCase() === "CBAT") ||
+        (statusFilter === "CBAT_VERIFIED" && item.status === "VERIFIED" && ["CBAT", "SIBAT"].includes(item.reviewedByRole?.trim().toUpperCase() || "")) ||
         (statusFilter === "FOR_REVIEW" && (item.status === "PENDING" || item.status === "VERIFIED")) ||
         (statusFilter === "SUBJECT_TO_REVISION" &&
           (item.status === "SUBJECT_TO_REVISION" || item.status === "REJECTED")) ||
@@ -785,7 +785,7 @@ function LivestockRecordsContent() {
     }
     if (s === "VERIFIED") {
       const role = reviewerRole?.trim().toUpperCase();
-      const label = !role || role === "CBAT" || role === "SIBAT" ? "CBAT Verified" : "Field Verified";
+      const label = role === "CBAT" || role === "SIBAT" ? "CBAT Verified" : "Field Verified";
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-sky-100 text-sky-800 border border-sky-300">
           <ShieldCheck className="w-3 h-3 text-sky-600" />
@@ -1145,7 +1145,11 @@ function LivestockRecordsContent() {
 
             {/* Status Dropdown */}
             <div className="lg:col-span-2">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select value={statusFilter} onValueChange={(value) => {
+                setStatusFilter(value);
+                setIndividualPage(1);
+                setHerdPage(1);
+              }}>
                 <SelectTrigger className="h-9 rounded-xl border-slate-200 text-xs font-semibold bg-slate-50/50">
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
@@ -1215,7 +1219,7 @@ function LivestockRecordsContent() {
                 </p>
                 <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
                   {statusFilter === "CBAT_VERIFIED"
-                    ? "No herds with animals verified by a CBAT match these filters. SIBAT-verified animals are not included."
+                    ? "No herds with CBAT-verified animals match these filters. Records stored under the SIBAT role are included."
                     : "No herd records matched your active search query or filter criteria."}
                 </p>
               </div>
@@ -1443,7 +1447,7 @@ function LivestockRecordsContent() {
                 </p>
                 <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
                   {statusFilter === "CBAT_VERIFIED"
-                    ? "No individual records verified by a CBAT match these filters. SIBAT-verified animals are not included."
+                    ? "No CBAT-verified individual records match these filters. Records stored under the SIBAT role are included."
                     : "No individual animal records matched your active search query or filter criteria."}
                 </p>
               </div>
