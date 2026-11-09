@@ -34,7 +34,7 @@ class DiseaseCase(models.Model):
         blank=True,
         help_text="Optional link if disease outbreak affects an entire herd.",
     )
-    name = models.CharField(max_length=150, blank=False)
+    name = models.CharField(max_length=500, blank=False)
     affected_count = models.IntegerField(default=0)
     record_date = models.DateField(blank=True, null=True)
     status = models.CharField(

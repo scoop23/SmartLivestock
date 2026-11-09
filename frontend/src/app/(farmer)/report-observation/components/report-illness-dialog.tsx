@@ -331,11 +331,13 @@ function ReportIllnessDialogContent({
       return;
     }
 
-    const mainName =
+    const rawName =
       conditionName.trim() ||
       (selectedSymptoms.length > 0
         ? selectedSymptoms.join(", ")
         : DEFAULT_MORTALITY_CAUSE);
+
+    const mainName = rawName.length > 500 ? rawName.slice(0, 497).trimEnd() + "..." : rawName;
 
     setIsSubmitting(true);
     let submittedCount = 0;
