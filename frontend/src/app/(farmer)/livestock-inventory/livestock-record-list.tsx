@@ -1229,7 +1229,7 @@ export default function LivestockRecordList({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">All Lifecycle</SelectItem>
-                <SelectItem value="ACTIVE">Active Herd</SelectItem>
+                <SelectItem value="ACTIVE">Active Individual</SelectItem>
                 <SelectItem value="SOLD">Sold</SelectItem>
                 <SelectItem value="DECEASED">Deceased</SelectItem>
                 <SelectItem value="SLAUGHTERED">Slaughtered</SelectItem>
@@ -1451,7 +1451,7 @@ export default function LivestockRecordList({
                   Status
                 </TableHead>
                 <TableHead className="font-bold text-slate-700 text-xs">
-                  Herd Lifecycle
+                  Individual Status
                 </TableHead>
                 <TableHead className="font-bold text-slate-700 text-xs">
                   Registered

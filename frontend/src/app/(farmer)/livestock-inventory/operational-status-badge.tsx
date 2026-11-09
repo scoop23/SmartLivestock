@@ -7,7 +7,7 @@ const STATUS_CONFIG: Record<
   { label: string; icon: typeof CircleDot; className: string }
 > = {
   ACTIVE: {
-    label: "Active Herd",
+    label: "Individual",
     icon: CircleDot,
     className: "bg-emerald-100 text-emerald-900 border-emerald-200",
   },

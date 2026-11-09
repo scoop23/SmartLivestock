@@ -197,10 +197,12 @@ function getReviewStatusBadge(status?: string) {
 function HerdSplitCard({
   batch,
   isSelected,
+  isHighlighted,
   onSelect,
 }: {
   batch: EnrichedBatch;
   isSelected: boolean;
+  isHighlighted: boolean;
   onSelect: () => void;
 }) {
   const [photoIndex, setPhotoIndex] = useState(0);
@@ -230,8 +232,11 @@ function HerdSplitCard({
   return (
     <Card
       onClick={onSelect}
+      data-herd-species={batch.species}
       className={`group cursor-pointer overflow-hidden rounded-xl border transition-all duration-200 flex flex-col sm:flex-row justify-between ${
-        isSelected
+        isHighlighted
+          ? "border-emerald-500 bg-emerald-100/70 ring-4 ring-emerald-400/60 shadow-xl shadow-emerald-200/70"
+          : isSelected
           ? "border-emerald-600 bg-emerald-50/40 ring-2 ring-emerald-500/30 shadow-md"
           : "border-slate-200 bg-white hover:border-emerald-400 hover:shadow-md"
       }`}
@@ -423,6 +428,7 @@ export default function BatchOverviewPage() {
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const livestockTypeReturn = searchParams?.get("livestockType");
+  const [highlightedSpecies, setHighlightedSpecies] = useState<string | null>(livestockTypeReturn);
   const animalProfileReturnUrl = `/livestock-inventory/batches${livestockTypeReturn ? `?livestockType=${encodeURIComponent(livestockTypeReturn)}` : ""}`;
   const livestockReturnUrl = livestockTypeReturn
     ? `/livestock-inventory?livestockType=${encodeURIComponent(livestockTypeReturn)}`
@@ -649,6 +655,28 @@ export default function BatchOverviewPage() {
     const startIndex = (safeHerdPage - 1) * HERDS_PER_PAGE;
     return filteredBatches.slice(startIndex, startIndex + HERDS_PER_PAGE);
   }, [filteredBatches, safeHerdPage]);
+
+  useEffect(() => {
+    if (!highlightedSpecies || isBatchesLoading || filteredBatches.length === 0) return;
+    const normalize = (value: string) => value.trim().toLocaleLowerCase();
+    const matchingIndex = filteredBatches.findIndex(
+      (batch) => normalize(batch.species) === normalize(highlightedSpecies),
+    );
+    if (matchingIndex < 0) return;
+
+    const matchingPage = Math.floor(matchingIndex / HERDS_PER_PAGE) + 1;
+    if (safeHerdPage !== matchingPage) {
+      setHerdCurrentPage(matchingPage);
+      return;
+    }
+
+    const card = Array.from(document.querySelectorAll<HTMLElement>("[data-herd-species]"))
+      .find((element) => normalize(element.dataset.herdSpecies ?? "") === normalize(highlightedSpecies));
+    if (!card) return;
+    card.scrollIntoView({ behavior: "smooth", block: "center" });
+    const timeout = window.setTimeout(() => setHighlightedSpecies(null), 2000);
+    return () => window.clearTimeout(timeout);
+  }, [highlightedSpecies, isBatchesLoading, filteredBatches, safeHerdPage]);
 
   // Active selected batch
   const currentBatch = useMemo(() => {
@@ -1105,6 +1133,10 @@ export default function BatchOverviewPage() {
                 key={batch.id}
                 batch={batch}
                 isSelected={currentBatch?.id === batch.id}
+                isHighlighted={Boolean(
+                  highlightedSpecies &&
+                  batch.species.trim().toLocaleLowerCase() === highlightedSpecies.trim().toLocaleLowerCase(),
+                )}
                 onSelect={() => handleBatchSelect(batch.id)}
               />
             ))}

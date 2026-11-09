@@ -373,12 +373,13 @@ export default function LivestockDetailPage() {
   );
   const isDeceased = activeItem?.operationalStatus === "DECEASED";
   const isSlaughtered = activeItem?.operationalStatus === "SLAUGHTERED";
-  const isInactive = isDeceased || isSlaughtered;
+  const isInactive = Boolean(activeItem && activeItem.operationalStatus !== "ACTIVE");
+  const inactiveStatusLabel = activeItem?.operationalStatus?.replaceAll("_", " ").toLowerCase() || "inactive";
 
   const correctionMutation = useMutation({
     mutationFn: async (payload: DialogUpdatePayload) => {
       if (!activeItem) throw new Error("No livestock record is selected.");
-      if (isInactive) throw new Error(`${isDeceased ? "Deceased" : "Slaughtered"} animals are read-only.`);
+      if (isInactive) throw new Error(`${inactiveStatusLabel} animals are read-only.`);
       const response = await api.put(`livestock/inventory/${activeItem.id}/`, payload);
       return response.data;
     },
@@ -1100,7 +1101,7 @@ export default function LivestockDetailPage() {
       weighing_date: string;
       notes?: string;
     }) => {
-      if (isInactive) throw new Error(`${isDeceased ? "Deceased" : "Slaughtered"} animals are read-only.`);
+      if (isInactive) throw new Error(`${inactiveStatusLabel} animals are read-only.`);
       const res = await api.post("production/weights/", payload);
       return res.data;
     },
@@ -1137,7 +1138,7 @@ export default function LivestockDetailPage() {
   const updateBirthDateMutation = useMutation({
     mutationFn: async (birthDateStr: string | null) => {
       if (!activeItem) throw new Error("No livestock record selected.");
-      if (isInactive) throw new Error(`${isDeceased ? "Deceased" : "Slaughtered"} animals are read-only.`);
+      if (isInactive) throw new Error(`${inactiveStatusLabel} animals are read-only.`);
       const res = await api.patch(`livestock/inventory/${activeItem.id}/`, {
         birth_date: birthDateStr || null,
       });
@@ -1202,7 +1203,7 @@ export default function LivestockDetailPage() {
       record_date: string;
       notes?: string;
     }) => {
-      if (isInactive) throw new Error(`${isDeceased ? "Deceased" : "Slaughtered"} animals are read-only.`);
+      if (isInactive) throw new Error(`${inactiveStatusLabel} animals are read-only.`);
       if (payload.production_type === "MILK" && !canProduceMilk) {
         throw new Error("Milk production can only be recorded for a female animal.");
       }
@@ -1234,7 +1235,7 @@ export default function LivestockDetailPage() {
       calving_ease: string;
       notes: string;
     }) => {
-      if (isInactive) throw new Error(`${isDeceased ? "Deceased" : "Slaughtered"} animals are read-only.`);
+      if (isInactive) throw new Error(`${inactiveStatusLabel} animals are read-only.`);
       const res = await api.post("production/calving/", payload);
       return res.data;
     },
@@ -1475,6 +1476,13 @@ export default function LivestockDetailPage() {
         <div className="mx-4 mt-4 flex items-start gap-3 rounded-2xl border border-stone-300 bg-stone-100 px-4 py-3 text-slate-700 md:mx-6 xl:mx-8" role="status">
           <AlertTriangle className="mt-0.5 size-4 shrink-0 text-stone-600" />
           <p className="text-sm font-semibold">Deceased record — read-only. Production, weight, calving, and correction actions are disabled; existing history remains available.</p>
+        </div>
+      )}
+
+      {isInactive && !isDeceased && !isSlaughtered && (
+        <div className="mx-4 mt-4 flex items-start gap-3 rounded-2xl border border-slate-300 bg-slate-100 px-4 py-3 text-slate-700 md:mx-6 xl:mx-8" role="status">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-slate-600" />
+          <p className="text-sm font-semibold">This animal is {inactiveStatusLabel} and read-only. Production logging and other update actions are disabled; existing history remains available.</p>
         </div>
       )}
 
@@ -1880,7 +1888,7 @@ export default function LivestockDetailPage() {
                   </div>
                   <Button
                     disabled={isInactive}
-                    title={isDeceased ? "Deceased animals are read-only" : isSlaughtered ? "Slaughtered animals are read-only" : "Log weight"}
+                    title={isInactive ? `${inactiveStatusLabel} animals are read-only` : "Log weight"}
                     onClick={() => {
                       setNewWeight(String(latestWeight || "70.0"));
                       setWeighTargetWeight(targetWeight != null ? String(targetWeight) : "");
@@ -2126,7 +2134,7 @@ export default function LivestockDetailPage() {
 
                 <Button
                   disabled={isInactive}
-                  title={isDeceased ? "Deceased animals are read-only" : isSlaughtered ? "Slaughtered animals are read-only" : "Record production"}
+                  title={isInactive ? `${inactiveStatusLabel} animals are read-only` : "Record production"}
                   onClick={openProductionDialog}
                   size="sm"
                   className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs gap-1.5 cursor-pointer shadow-sm"
@@ -2243,7 +2251,7 @@ export default function LivestockDetailPage() {
 
                 <Button
                   disabled={isInactive}
-                  title={isDeceased ? "Deceased animals are read-only" : isSlaughtered ? "Slaughtered animals are read-only" : `Record new ${terms.eventName.toLowerCase()}`}
+                  title={isInactive ? `${inactiveStatusLabel} animals are read-only` : `Record new ${terms.eventName.toLowerCase()}`}
                   onClick={() => setIsCalvingDialogOpen(true)}
                   size="sm"
                   className="rounded-xl bg-pink-700 hover:bg-pink-800 text-white font-bold text-xs gap-1.5 shadow-sm cursor-pointer"
@@ -2582,7 +2590,7 @@ export default function LivestockDetailPage() {
 
                 <Button
                   disabled={isInactive}
-                  title={isDeceased ? "Deceased animals are read-only" : isSlaughtered ? "Slaughtered animals are read-only" : "Log a clinical treatment"}
+                  title={isInactive ? `${inactiveStatusLabel} animals are read-only` : "Log a clinical treatment"}
                   onClick={() => setIsTreatmentDialogOpen(true)}
                   size="sm"
                   className="rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white cursor-pointer shadow-2xs gap-1.5 shrink-0"
