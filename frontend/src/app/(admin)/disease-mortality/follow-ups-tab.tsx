@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { ValidationIncidentItem } from "../data-validation/validation-analytics";
+import { ValidationPagination } from "../data-validation/components/validation-pagination";
 
 interface FollowUpEvent { id: number; event_type: string; observed_on: string; notes: string; created_by_name: string; created_by_role: string }
 interface CaseFollowUps { case_id: number; clinical_status: string; can_resolve: boolean; can_recover: boolean; events: FollowUpEvent[] }
@@ -29,6 +30,8 @@ export function FollowUpsTab({ records }: { records: ValidationIncidentItem[] })
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [updatesOnly, setUpdatesOnly] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(12);
   const approved = useMemo(() => records.filter(record => record.type === "disease" && record.status === "APPROVED"), [records]);
   const { data = [], isLoading, isError, refetch, isFetching } = useQuery<FollowUpQueueItem[]>({
     queryKey: ["disease-follow-up-queue", approved.map(record => record.id)],
@@ -46,6 +49,9 @@ export function FollowUpsTab({ records }: { records: ValidationIncidentItem[] })
     return (!updatesOnly || item.events.some(event => event.event_type === "FARMER_UPDATE")) && text.includes(search.trim().toLowerCase());
   });
   const selectedCase = data.find(item => item.case_id === selected) ?? null;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const pageItems = filtered.slice((safeCurrentPage - 1) * pageSize, safeCurrentPage * pageSize);
 
   const openOutcome = (caseId: number) => {
     setSelected(caseId); setNotes(""); setDate(today()); setError("");
@@ -94,8 +100,8 @@ export function FollowUpsTab({ records }: { records: ValidationIncidentItem[] })
     </div>
 
     <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
-      <div className="relative w-full sm:max-w-sm"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" /><Input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search report, farmer, tag, barangay" className="pl-9" /></div>
-      <button type="button" onClick={() => setUpdatesOnly(value => !value)} className={"inline-flex items-center justify-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-bold " + (updatesOnly ? "border-amber-300 bg-amber-50 text-amber-900" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50")}><UserRound className="size-4" /> Farmer updates <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px]">{isLoading ? "—" : withUpdates.length}</span></button>
+      <div className="relative w-full sm:max-w-sm"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" /><Input value={search} onChange={event => { setSearch(event.target.value); setCurrentPage(1); }} placeholder="Search report, farmer, tag, barangay" className="pl-9" /></div>
+      <button type="button" onClick={() => { setUpdatesOnly(value => !value); setCurrentPage(1); }} className={"inline-flex items-center justify-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-bold " + (updatesOnly ? "border-amber-300 bg-amber-50 text-amber-900" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50")}><UserRound className="size-4" /> Farmer updates <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px]">{isLoading ? "—" : withUpdates.length}</span></button>
     </div>
 
     {isLoading && <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{[0, 1, 2, 3].map(item => <div key={item} className="h-[22rem] animate-pulse rounded-2xl border bg-white" />)}</div>}
@@ -103,7 +109,7 @@ export function FollowUpsTab({ records }: { records: ValidationIncidentItem[] })
     {!isLoading && !isError && filtered.length === 0 && <div className="rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center"><span className="mx-auto grid size-14 place-items-center rounded-2xl bg-emerald-50 text-emerald-700"><Stethoscope className="size-7" /></span><h3 className="mt-4 text-base font-bold text-slate-900">{data.length ? "No matching follow-ups" : "No approved disease cases yet"}</h3><p className="mx-auto mt-1 max-w-md text-sm text-slate-500">{data.length ? "Try a different search or clear the farmer updates filter." : "Approved disease cases will appear here for continued monitoring."}</p></div>}
 
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-      {filtered.map(item => {
+      {pageItems.map(item => {
         const isResolved = ["RECOVERED", "CLOSED"].includes(item.clinical_status);
         return <article key={item.case_id} className="flex h-[22rem] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xs transition-shadow hover:shadow-sm">
           <div className="shrink-0 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white p-3 sm:p-4">
@@ -142,6 +148,17 @@ export function FollowUpsTab({ records }: { records: ValidationIncidentItem[] })
         </article>;
       })}
     </div>
+    {!isLoading && !isError && (
+      <ValidationPagination
+        currentPage={safeCurrentPage}
+        totalPages={totalPages}
+        totalItems={filtered.length}
+        pageSize={pageSize}
+        pageSizeOptions={[6, 12, 24]}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }}
+      />
+    )}
     <Dialog open={selected !== null} onOpenChange={open => { if (!open) closeOutcome(); }}>
       <DialogContent className="max-h-[88vh] max-w-xl overflow-y-auto rounded-2xl">
         <DialogHeader>
