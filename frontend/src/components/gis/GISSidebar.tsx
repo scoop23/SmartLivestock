@@ -83,6 +83,7 @@ interface GISSidebarProps {
   activeLayer?: MapLayer;
   selectedMovement?: MovementRecord | null;
   onSelectMovement?: (m: MovementRecord | null) => void;
+  onExploreMovement?: () => void;
   onClearSelectedMovement?: () => void;
   adjacentAlerts?: AdjacentDiseaseAlert[];
 }
@@ -108,6 +109,7 @@ export function GISSidebar({
   activeLayer,
   selectedMovement = null,
   onSelectMovement,
+  onExploreMovement,
   onClearSelectedMovement,
   adjacentAlerts,
 }: GISSidebarProps) {
@@ -220,6 +222,7 @@ export function GISSidebar({
     />
   ) : selectedBarangay ? (
     <BarangayDetails
+      key={selectedBarangay.name}
       data={selectedBarangay}
       simulatedState={simulatedStates?.[selectedBarangay.name]}
       diseaseSubMode={diseaseSubMode}
@@ -229,6 +232,9 @@ export function GISSidebar({
       selectedLivestockType={selectedLivestockType}
       userScope={userScope}
       adjacentAlerts={adjacentAlerts}
+      movements={movements}
+      onSelectMovement={onSelectMovement}
+      onExploreMovement={onExploreMovement}
     />
   ) : (
     <MunicipalOverview

@@ -58,6 +58,9 @@ import React from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { BarangayFarmersDialog } from './BarangayFarmersDialog';
 import { BarangayHerdsDialog } from './BarangayHerdsDialog';
+import { MovementAnalysisPanel } from './MovementAnalysisPanel';
+import { movementEndpointMatches } from './movement-routes';
+import type { MovementRecord } from './types';
 import { AdjacentDiseaseAlert,BarangayGISData,DiseaseSubMode,GISUserScope,SimulatedBarangayState,ViewMode } from './types';
 
 interface BarangayDetailsProps {
@@ -70,6 +73,9 @@ interface BarangayDetailsProps {
   selectedLivestockType?: string;
   userScope?: GISUserScope;
   adjacentAlerts?: AdjacentDiseaseAlert[];
+  movements?: MovementRecord[];
+  onSelectMovement?: (movement: MovementRecord) => void;
+  onExploreMovement?: () => void;
 }
 
 export function BarangayDetails({
@@ -82,6 +88,9 @@ export function BarangayDetails({
   selectedLivestockType = 'Cattle',
   userScope,
   adjacentAlerts,
+  movements = [],
+  onSelectMovement,
+  onExploreMovement,
 }: BarangayDetailsProps) {
   const { user } = useAuth();
   const userRole = (user?.role || userScope?.role || '').toUpperCase();
@@ -94,6 +103,10 @@ export function BarangayDetails({
 
   const [isFarmersDialogOpen, setIsFarmersDialogOpen] = React.useState(false);
   const [isHerdsDialogOpen, setIsHerdsDialogOpen] = React.useState(false);
+  const [movementExpanded, setMovementExpanded] = React.useState(false);
+  const barangayMovements = movements.filter(movement =>
+    movementEndpointMatches(movement, data, 'origin') || movementEndpointMatches(movement, data, 'destination')
+  );
 
   const isHighRisk = data.disease_risk === 'high';
   const isMedRisk = data.disease_risk === 'medium';
@@ -569,7 +582,16 @@ export function BarangayDetails({
 
         {/* Live Movement & Inspections */}
         {showMovement && (
-          <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2">
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 shadow-sm space-y-2">
+            <button
+              type="button"
+              aria-expanded={movementExpanded}
+              onClick={() => {
+                setMovementExpanded(value => !value);
+                if (!movementExpanded) onExploreMovement?.();
+              }}
+              className="w-full rounded-lg text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+            >
             <div className="flex items-center justify-between">
               <span className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
                 <Truck className="size-3.5 text-blue-600" />
@@ -586,6 +608,18 @@ export function BarangayDetails({
                 <span className="font-bold font-mono text-slate-900">{data.movement_out} heads</span>
               </div>
             </div>
+            <span className="mt-2 block text-xs font-bold text-emerald-800">
+              {movementExpanded ? 'Hide movement records' : `View movement records (${barangayMovements.length})`} →
+            </span>
+            </button>
+            {movementExpanded && (
+              <MovementAnalysisPanel
+                movements={barangayMovements}
+                selectedMovement={null}
+                onSelectMovement={movement => onSelectMovement?.(movement)}
+                onClearSelectedMovement={() => {}}
+              />
+            )}
           </div>
         )}
       </div>

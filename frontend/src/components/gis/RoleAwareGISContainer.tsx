@@ -1077,6 +1077,7 @@ export function RoleAwareGISContainer({
           activeLayer={activeLayer}
           selectedMovement={selectedMovement}
           onSelectMovement={handleSelectMovement}
+          onExploreMovement={() => { setActiveLayer('movement'); setMovementDisplayMode('both'); setMovementDateIndex(0); }}
           onClearSelectedMovement={handleClearSelectedMovement}
           adjacentAlerts={gisData?.adjacent_disease_alerts ?? []}
         />
@@ -1103,6 +1104,7 @@ export function RoleAwareGISContainer({
           activeLayer={activeLayer}
           selectedMovement={selectedMovement}
           onSelectMovement={handleSelectMovement}
+          onExploreMovement={() => { setActiveLayer('movement'); setMovementDisplayMode('both'); setMovementDateIndex(0); }}
           onClearSelectedMovement={handleClearSelectedMovement}
           adjacentAlerts={gisData?.adjacent_disease_alerts ?? []}
         />
