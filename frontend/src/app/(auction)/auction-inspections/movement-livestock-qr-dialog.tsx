@@ -28,9 +28,7 @@ import {
   Search,
   Users,
   Video,
-  X,
   Zap,
-  ZoomIn,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -72,7 +70,6 @@ export function MovementLivestockQrDialog({
   const [isPhotoZoomOpen, setIsPhotoZoomOpen] = useState(false);
 
   // Camera & hardware controls
-  const [cameraActive, setCameraActive] = useState(false);
   const [isLiveWebcam, setIsLiveWebcam] = useState(false);
   const [cameraMessage, setCameraMessage] = useState("");
   const [flashOn, setFlashOn] = useState(false);
@@ -107,13 +104,11 @@ export function MovementLivestockQrDialog({
       videoRef.current.srcObject = null;
     }
     setIsLiveWebcam(false);
-    setCameraActive(false);
     setFlashOn(false);
   }, []);
 
   const startCamera = useCallback(async () => {
     setCameraMessage("");
-    setCameraActive(true);
 
     if (!navigator.mediaDevices?.getUserMedia) {
       setCameraMessage("Webcam is unavailable in this browser.");
@@ -148,9 +143,9 @@ export function MovementLivestockQrDialog({
     } catch (err: unknown) {
       setIsLiveWebcam(false);
       if (err instanceof DOMException && err.name === "NotAllowedError") {
-        setCameraMessage("Camera permission was denied. Click to retry or use simulated camera.");
+        setCameraMessage("Camera permission was denied. Please allow camera access in browser settings.");
       } else {
-        setCameraMessage("Webcam not detected. Displaying interactive livestock viewfinder.");
+        setCameraMessage("Camera not detected or offline. Please connect camera or use manual lookup.");
       }
     }
   }, []);
@@ -178,38 +173,7 @@ export function MovementLivestockQrDialog({
     setAddError("");
     setRecord(null);
     try {
-      let animal: RegisteredLivestockLookup;
-      try {
-        animal = await lookupRegisteredLivestock(value.trim());
-      } catch (fetchErr: unknown) {
-        if (value.trim().includes("240")) {
-          animal = {
-            id: 240,
-            tag_number: "240",
-            livestock_type: 1,
-            livestock_type_name: "Cattle",
-            breed: "Brahman",
-            sex: "Male",
-            birth_date: "2024-01-15",
-            age: { years: 2, months: 0, total_months: 24 },
-            age_classification: "ADULT",
-            photo_url: "/images/species-cattle.jpg",
-            registration_status: "Active",
-            ownership_certificate_number: "REG-2026-000123",
-            operational_status: "ACTIVE",
-            eligible: true,
-            ineligibility_reason: "",
-            owner_id: 1,
-            owner_name: "Juan Dela Cruz",
-            origin: "San Juan, Batangas",
-            barangay: "San Juan",
-            owner_phone: "0917 123 4567",
-            date_registered: "2026-01-15",
-          };
-        } else {
-          throw fetchErr;
-        }
-      }
+      const animal = await lookupRegisteredLivestock(value.trim());
 
       if (currentRequest === requestId.current) {
         stopCamera();
@@ -217,10 +181,10 @@ export function MovementLivestockQrDialog({
       }
     } catch (cause: unknown) {
       const data = axios.isAxiosError(cause)
-        ? (cause.response?.data as { detail?: string } | undefined)
+        ? (cause.response?.data as { detail?: string; error?: string } | undefined)
         : undefined;
       if (currentRequest === requestId.current) {
-        setError(data?.detail || "Livestock record not found. Check the QR or tag and try again.");
+        setError(data?.detail || data?.error || "Livestock record not found. Check the QR or tag and try again.");
       }
     } finally {
       if (currentRequest === requestId.current) setSearching(false);
@@ -230,6 +194,7 @@ export function MovementLivestockQrDialog({
   // Activate camera automatically when dialog opens on camera tab without an existing record
   useEffect(() => {
     if (open && !record && activeTab === "camera") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       void startCamera();
     } else {
       stopCamera();
@@ -334,12 +299,14 @@ export function MovementLivestockQrDialog({
       } catch {
         // no readable code in current camera frame
       }
+      toast.info("No QR code detected in the frame. Please hold the ear tag QR code steady within the markers.");
+      return;
     }
 
-    // Default simulation scan: scans the visible ear tag 240
-    toast.success("Scanning ear tag #240 in frame...");
-    setCode("240");
-    await lookupCode("240");
+    if (!isLiveWebcam) {
+      toast.info("Camera is not active. Click 'Activate Camera' or use Manual Lookup.");
+      void startCamera();
+    }
   };
 
   const handleResetToScan = () => {
@@ -441,35 +408,38 @@ export function MovementLivestockQrDialog({
                     }`}
                   />
 
-                  {/* Realistic Camera Simulation View (shown when webcam is offline or simulated) */}
+                  {/* Camera Offline / Permissions Placeholder */}
                   {!isLiveWebcam && (
-                    <div
-                      onClick={handleManualTriggerScan}
-                      title="Click to scan Tag 240"
-                      className="absolute inset-0 flex items-center justify-center overflow-hidden bg-slate-900 cursor-pointer select-none group"
-                    >
-                      {/* Cattle Ear & Background Photo */}
-                      <img
-                        src="/images/species-cattle.jpg"
-                        alt="Camera livestock preview"
-                        className="absolute inset-0 h-full w-full object-cover filter brightness-[0.72] contrast-105 scale-110 group-hover:scale-115 transition-transform duration-500"
-                      />
-
-                      {/* Subtle Vignette Gradient */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-black/50" />
-
-                      {/* Realistic Yellow Ear Tag Graphic */}
-                      <div className="relative flex flex-col items-center justify-center rounded-2xl bg-amber-400 border-2 border-amber-300/80 px-6 py-4.5 text-slate-950 shadow-2xl shadow-black/80 ring-2 ring-black/40 transform transition-transform group-hover:scale-105">
-                        {/* Tag Ear Pin / Grommet */}
-                        <div className="absolute -top-3 size-4 rounded-full bg-slate-800 border-2 border-amber-200 shadow-inner" />
-
-                        {/* Ear Tag QR Code */}
-                        <QrCode className="size-13 text-slate-950 stroke-[1.8]" />
-
-                        {/* Big Ear Tag Identifier */}
-                        <span className="mt-1 font-mono text-2xl font-black tracking-wider text-slate-950">
-                          240
-                        </span>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-slate-900 select-none z-0">
+                      <div className="size-14 rounded-2xl bg-slate-800/90 border border-slate-700/80 flex items-center justify-center text-slate-400 mb-3 shadow-inner">
+                        <Camera className="size-7 text-emerald-400" />
+                      </div>
+                      <p className="text-sm font-bold text-white tracking-tight">
+                        {cameraMessage || "Ready to Scan"}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-400 max-w-xs leading-relaxed">
+                        Point camera at the livestock ear tag QR code, upload an image of the tag, or lookup manually.
+                      </p>
+                      <div className="mt-4 flex flex-wrap items-center justify-center gap-2 pointer-events-auto z-10">
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => void startCamera()}
+                          className="h-8.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1.5 shadow-sm cursor-pointer"
+                        >
+                          <Video className="size-3.5" />
+                          <span>Activate Camera</span>
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setActiveTab("manual")}
+                          className="h-8.5 rounded-xl border-slate-700 bg-slate-800/80 hover:bg-slate-800 text-slate-200 font-bold text-xs gap-1.5 cursor-pointer"
+                        >
+                          <Search className="size-3.5 text-emerald-400" />
+                          <span>Manual Lookup</span>
+                        </Button>
                       </div>
                     </div>
                   )}

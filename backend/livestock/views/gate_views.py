@@ -166,16 +166,27 @@ def gate_verification_list_create(request):
     if role_name(request.user) != AUCTION:
         raise PermissionDenied("Only Auction Office staff can verify gate entries.")
     if request.method == "GET":
-        session_id = serializers.UUIDField().run_validation(request.query_params.get("session"))
-        records = LivestockGateVerification.objects.filter(gate_session_id=session_id).select_related(
+        session_param = request.query_params.get("session")
+        qs = LivestockGateVerification.objects.select_related(
             "livestock__farmer__user", "livestock__livestock_type"
-        )
+        ).order_by("-verified_at")
+        if session_param:
+            try:
+                session_id = serializers.UUIDField().run_validation(session_param)
+                records = qs.filter(gate_session_id=session_id)
+            except Exception:
+                records = qs.none()
+        else:
+            records = qs[:50]
         return Response([{
             "id": row.livestock_id,
             "tag": row.livestock.tag_number or str(row.livestock_id),
             "species": row.livestock.livestock_type.name,
             "owner": row.livestock.farmer.user.get_full_name().strip() or row.livestock.farmer.user.username,
             "certificate": row.certificate_number_checked or "Not recorded",
+            "sex": row.livestock.sex or "Unspecified",
+            "breed": row.livestock.breed or "Standard",
+            "verified_at": row.verified_at.isoformat() if row.verified_at else None,
         } for row in records])
 
     data = GateVerificationRequestSerializer(data=request.data)

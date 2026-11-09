@@ -81,43 +81,6 @@ export interface GateRecordItem {
   status: "Pending Review" | "Cleared" | "Rejected";
 }
 
-// Default initial gate records matching the visual reference mockup
-const INITIAL_DEMO_RECORDS: GateRecordItem[] = [
-  {
-    id: 101,
-    certificateNo: "PG-2026-0001",
-    farmerName: "Junior Pesigan",
-    livestockType: "Cattle",
-    tagNo: "1234",
-    sex: "Male",
-    breed: "Brahman",
-    dateTime: "Oct 9, 2026 • 10:24 AM",
-    status: "Pending Review",
-  },
-  {
-    id: 102,
-    certificateNo: "PG-2026-0002",
-    farmerName: "Jharen Narvacan",
-    livestockType: "Cattle",
-    tagNo: "1235",
-    sex: "Female",
-    breed: "Native",
-    dateTime: "Oct 9, 2026 • 11:10 AM",
-    status: "Cleared",
-  },
-  {
-    id: 103,
-    certificateNo: "PG-2026-0003",
-    farmerName: "Mark Angelo Bathan",
-    livestockType: "Cattle",
-    tagNo: "1236",
-    sex: "Male",
-    breed: "Brahman",
-    dateTime: "Oct 9, 2026 • 11:35 AM",
-    status: "Rejected",
-  },
-];
-
 function getGateSession(): string {
   if (typeof window === "undefined") return "";
   try {
@@ -147,7 +110,7 @@ export default function AuctionGatePage() {
   const [viewRecord, setViewRecord] = useState<GateRecordItem | null>(null);
 
   // Session & Livestock Data
-  const [records, setRecords] = useState<GateRecordItem[]>(INITIAL_DEMO_RECORDS);
+  const [records, setRecords] = useState<GateRecordItem[]>([]);
 
   // Form States for "Record Gate Certificate"
   const [types, setTypes] = useState<TypeOption[]>([
@@ -190,7 +153,16 @@ export default function AuctionGatePage() {
     if (!session) return;
 
     api
-      .get<Array<{ id: number; tag: string; species: string; owner: string; certificate: string }>>(
+      .get<Array<{
+        id: number;
+        tag: string;
+        species: string;
+        owner: string;
+        certificate: string;
+        sex?: string;
+        breed?: string;
+        verified_at?: string;
+      }>>(
         "livestock/gate-verifications/",
         { params: { session } }
       )
@@ -202,24 +174,34 @@ export default function AuctionGatePage() {
             farmerName: item.owner || "Registered Farmer",
             livestockType: item.species || "Cattle",
             tagNo: item.tag || "N/A",
-            sex: "Unspecified",
-            breed: "Standard",
-            dateTime: new Date().toLocaleDateString("en-PH", {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-              hour: "numeric",
-              minute: "2-digit",
-              hour12: true,
-            }).replace(",", " •"),
+            sex: item.sex || "Unspecified",
+            breed: item.breed || "Standard",
+            dateTime: item.verified_at
+              ? new Date(item.verified_at).toLocaleDateString("en-PH", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                  hour12: true,
+                }).replace(",", " •")
+              : new Date().toLocaleDateString("en-PH", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                  hour12: true,
+                }).replace(",", " •"),
             status: "Cleared",
           }));
-          // Prepend session records while keeping defaults
-          setRecords([...mapped, ...INITIAL_DEMO_RECORDS]);
+          setRecords(mapped);
+        } else {
+          setRecords([]);
         }
       })
       .catch(() => {
-        // Silently preserve initial records
+        setRecords([]);
       });
   }, []);
 
@@ -737,12 +719,27 @@ export default function AuctionGatePage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody className="divide-y divide-slate-100">
-                  {records.map((row) => (
-                    <TableRow
-                      key={row.id}
-                      className="hover:bg-emerald-50/30 transition-colors cursor-pointer"
-                      onClick={() => setViewRecord(row)}
-                    >
+                  {records.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="py-12 text-center text-slate-500">
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <div className="size-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                            <Scan className="size-5" />
+                          </div>
+                          <p className="text-sm font-bold text-slate-700">No gate intake records yet for this session</p>
+                          <p className="text-xs text-slate-400 max-w-sm">
+                            Click &quot;Start Scanning&quot; to scan livestock ear tag QR codes or &quot;Enter QR Code&quot; for manual intake.
+                          </p>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    records.map((row) => (
+                      <TableRow
+                        key={row.id}
+                        className="hover:bg-emerald-50/30 transition-colors cursor-pointer"
+                        onClick={() => setViewRecord(row)}
+                      >
                       {/* Certificate No */}
                       <TableCell className="px-4 py-3.5">
                         <span className="inline-block px-2.5 py-1 rounded-lg text-xs font-bold font-mono bg-emerald-50 text-emerald-800 border border-emerald-200/80">
@@ -818,8 +815,9 @@ export default function AuctionGatePage() {
                         </Button>
                       </TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
+                  ))
+                )}
+              </TableBody>
               </Table>
             </div>
           </CardContent>
