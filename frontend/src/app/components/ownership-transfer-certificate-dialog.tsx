@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import {
@@ -129,13 +129,28 @@ export function OwnershipTransferCertificateDialog({
   const [mayorName, setMayorName] = useState("MICHAEL ANGELO C. RIVERA");
   const [secretaryName, setSecretaryName] = useState("ELIZABETH M. KALAW");
 
+  // Synchronize selection whenever the dialog opens or target changes
+  useEffect(() => {
+    if (initialTransfer?.id) {
+      setSelectedId(initialTransfer.id);
+    }
+  }, [initialTransfer?.id, open]);
+
+  // Safe subset for switcher dropdown: only show if a small, manageable batch (2-50 items) is provided.
+  // Rendering large datasets (thousands of items) in an unvirtualized Select crashes browser performance.
+  const switcherRecords = useMemo(() => {
+    if (!allTransfers || allTransfers.length <= 1) return [];
+    if (allTransfers.length > 50) return [];
+    return allTransfers;
+  }, [allTransfers]);
+
   const activeTransfer = useMemo(() => {
-    if (selectedId && allTransfers.length > 0) {
-      const found = allTransfers.find((t) => t.id === selectedId);
+    if (selectedId && switcherRecords.length > 0) {
+      const found = switcherRecords.find((t) => t.id === selectedId);
       if (found) return found;
     }
     return initialTransfer;
-  }, [selectedId, allTransfers, initialTransfer]);
+  }, [selectedId, switcherRecords, initialTransfer]);
 
   // Serial Number parsing (e.g., "BTG-2026-000001", "1942301", or custom paper booklet)
   const serialNumberFormatted = useMemo(() => {
@@ -250,8 +265,8 @@ export function OwnershipTransferCertificateDialog({
         {/* Toolbar Controls — Hidden during Print */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3 print:hidden">
           <div className="flex flex-wrap items-center gap-2.5">
-            {/* Record Switcher Dropdown if allTransfers provided */}
-            {allTransfers.length > 0 && (
+            {/* Record Switcher Dropdown only if small, valid set of alternative records provided */}
+            {switcherRecords.length > 1 && (
               <div className="w-56">
                 <Select
                   value={String(activeTransfer.id)}
@@ -261,7 +276,7 @@ export function OwnershipTransferCertificateDialog({
                     <SelectValue placeholder="Select Record" />
                   </SelectTrigger>
                   <SelectContent className="max-h-60">
-                    {allTransfers.map((t) => (
+                    {switcherRecords.map((t) => (
                       <SelectItem key={t.id} value={String(t.id)} className="text-xs">
                         {t.transfer_certificate_number} · {t.livestock_tag || t.livestock_type_name}
                       </SelectItem>

@@ -2287,7 +2287,6 @@ export default function AuctionOwnershipTransfersPage() {
         open={Boolean(certificateTarget)}
         onOpenChange={(open) => !open && setCertificateTarget(null)}
         transfer={certificateTarget}
-        allTransfers={transfers}
       />
     </div>
   );

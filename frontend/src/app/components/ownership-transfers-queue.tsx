@@ -94,6 +94,27 @@ export type Transfer = {
   created_at?: string;
 };
 
+function ManilaClock() {
+  const [clockString, setClockString] = useState<string>("");
+  useEffect(() => {
+    const formatter = new Intl.DateTimeFormat("en-PH", {
+      timeZone: "Asia/Manila",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    });
+    const updateTime = () => setClockString(`${formatter.format(new Date())} PHT`);
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
+  return <>{clockString || "Loading Manila time…"}</>;
+}
+
 export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO" }) {
   const client = useQueryClient();
   const searchParams = useSearchParams();
@@ -133,25 +154,6 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
   const [approveConfirmTarget, setApproveConfirmTarget] = useState<Transfer | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-
-  // Manila Clock
-  const [clockString, setClockString] = useState<string>("");
-  useEffect(() => {
-    const formatter = new Intl.DateTimeFormat("en-PH", {
-      timeZone: "Asia/Manila",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hourCycle: "h23",
-    });
-    const updateTime = () => setClockString(`${formatter.format(new Date())} PHT`);
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   // Fetch live backend records from Django PostgreSQL
   const { data = [], isLoading, isFetching, refetch } = useQuery({
@@ -422,7 +424,7 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
             <div className="flex items-center gap-1.5 font-mono text-[11px] font-semibold text-slate-700">
               <Clock className="size-3.5 text-slate-400" />
               <span className="tabular-nums font-bold">
-                {clockString || "Loading Manila time…"}
+                <ManilaClock />
               </span>
             </div>
           </div>
@@ -1376,7 +1378,6 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
         open={Boolean(certificateTarget)}
         onOpenChange={(open) => !open && setCertificateTarget(null)}
         transfer={certificateTarget}
-        allTransfers={data}
       />
     </>
   );
