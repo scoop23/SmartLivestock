@@ -48,18 +48,25 @@ def demo_time(day, hour):
 
 
 # Increasing scenario: deliberately increasing synthetic reporting, with early quiet months.
-DISEASE_CASES_PER_MONTH = (0, 1, 0, 1, 1, 2, 1, 2, 2, 3, 2, 3, 3, 4, 3, 4, 4, 5, 4, 5, 6, 6, 7, 8)
-MORTALITY_RECORDS_PER_MONTH = (0, 1, 0, 0, 1, 0, 2, 0, 1, 0, 0, 1, 0, 1, 0, 2, 0, 1, 0, 1, 0, 1, 0, 0)
+DISEASE_CASES_PER_MONTH = (
+    0, 1, 0, 1, 1, 2, 1, 2, 2, 3, 2, 3, 3, 4, 3, 4, 4, 5, 4, 5, 6, 6, 7, 8, 3,
+)
+MORTALITY_RECORDS_PER_MONTH = (
+    0, 1, 0, 0, 1, 0, 2, 0, 1, 0, 0, 1, 0, 1, 0, 2, 0, 1, 0, 1, 0, 1, 0, 0, 1,
+)
 
 # Realistic scenario: natural seasonal/outbreak waves where cases peak during wet/monsoon
 # seasons and decline into troughs where prior cases recover and close ("goes low meaning recovery and closed").
+# Includes current in-progress month so rolling 7-day, 14-day, and 30-day surveillance windows are active.
 REALISTIC_DISEASE_CASES_PER_MONTH = (
-    1, 0, 1, 2, 4, 6, 8, 7, 5, 2, 1, 0,
-    1, 1, 2, 3, 5, 7, 9, 8, 6, 3, 1, 1,
+    1, 0, 1, 2, 4, 6, 8, 7, 5, 2, 1, 0,  # Year 1 (Months 0-11)
+    1, 1, 2, 3, 5, 7, 9, 8, 6, 4, 3, 4,  # Year 2 (Months 12-23)
+    2,                                    # Current Month up to today (Month 24)
 )
 REALISTIC_MORTALITY_RECORDS_PER_MONTH = (
-    1, 0, 1, 1, 2, 3, 4, 3, 2, 1, 1, 0,
-    1, 1, 2, 2, 3, 4, 5, 3, 2, 1, 1, 0,
+    1, 0, 1, 1, 2, 3, 4, 3, 2, 1, 1, 0,  # Year 1
+    1, 1, 2, 2, 3, 4, 5, 3, 2, 2, 1, 2,  # Year 2
+    1,                                    # Current Month up to today (Month 24)
 )
 
 REALISTIC_DISEASE_PROFILES = [
@@ -307,7 +314,7 @@ class Command(BaseCommand):
             self.stdout.write(
                 f"Dry run: {action} {count} explicitly owned objects. "
                 f"Monthly event range: {months[0].isoformat()} to {months[-1].isoformat()} "
-                f"({MONTHS} complete calendar months)."
+                f"({MONTHS} complete calendar months plus current month to date)."
             )
             if not clean:
                 self.stdout.write(f"Scenario: {scenario}")
@@ -348,13 +355,14 @@ class Command(BaseCommand):
 
     @staticmethod
     def _completed_months(today):
-        """Return the final day of each of the 24 most recently completed months."""
+        """Return the final day of each of the 24 completed months, plus current month to date."""
         month_index = today.year * 12 + today.month - 1
         dates = []
         for offset in range(MONTHS, 0, -1):
             year, zero_month = divmod(month_index - offset, 12)
             month = zero_month + 1
             dates.append(date(year, month, monthrange(year, month)[1]))
+        dates.append(today)
         return dates
 
     @staticmethod
@@ -531,7 +539,10 @@ class Command(BaseCommand):
                     source_case = None
 
                     if m_profile.get("link_prior_disease"):
-                        prior_day = max(1, mortality_date.day - (4 + (event_index % 3)))
+                        delta = 2 + (event_index % 3)
+                        prior_day = max(1, mortality_date.day - delta)
+                        if prior_day >= mortality_date.day and mortality_date.day > 1:
+                            prior_day = mortality_date.day - 1
                         prior_date = date(month_end.year, month_end.month, prior_day)
                         prior_case = self._create_approved_disease(
                             key=f"mortality-prior-disease:{month_end:%Y-%m}:{event_index + 1}",
@@ -565,9 +576,9 @@ class Command(BaseCommand):
                 self._track_notifications("mortality_record", f"mortality:{month_end:%Y-%m}:{event_index + 1}")
 
                 # Staff confirmed cause classification label:
-                # Seed labels for months <= 20 to establish a rich training set,
+                # Seed labels for months <= 21 to establish a rich training set,
                 # leaving the recent ~3 months unlabelled for the live prediction queue.
-                should_label = (month_index <= 20)
+                should_label = (month_index <= 21)
                 if should_label:
                     review = MortalityCauseClassificationReview.objects.create(
                         mortality_record=record,
@@ -614,8 +625,11 @@ class Command(BaseCommand):
 
     @staticmethod
     def _event_day(month_end, month_index, event_index, *, offset):
-        days_in_month = monthrange(month_end.year, month_end.month)[1]
-        day = 3 + ((month_index * 7 + event_index * 11 + offset) % (days_in_month - 5))
+        max_day = min(month_end.day, monthrange(month_end.year, month_end.month)[1])
+        if max_day <= 3:
+            day = max(2, max_day)
+        else:
+            day = 2 + ((month_index * 7 + event_index * 11 + offset) % (max_day - 2))
         return date(month_end.year, month_end.month, day)
 
     def _seed_coverage_confirmations(self, plan, months):
@@ -629,6 +643,9 @@ class Command(BaseCommand):
         ):
             for month_end in months:
                 month_start = date(month_end.year, month_end.month, 1)
+                # Skip in-progress current month for monthly coverage confirmations
+                if month_end >= timezone.localdate():
+                    continue
                 events = model.objects.filter(
                     record_date__year=month_start.year,
                     record_date__month=month_start.month,

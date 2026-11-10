@@ -666,7 +666,7 @@ export default function SurveillanceAnalytics({ selectedDomainProp }: { selected
     const d = domainParam.toLowerCase();
     if (d === "disease") return "disease";
     if (d === "mortality") return "mortality";
-    if (d === "inventory" || d === "barangay") return "associations";
+    if (d === "inventory" || d === "barangay") return "all";
     return "all";
   }, [domainParam]);
 
