@@ -200,7 +200,7 @@ export default function SlaughterhousePage() {
       };
       if (editingId) await api.patch(`/production/slaughterhouse/records/${editingId}/`, payload);
       else await api.post("/production/slaughterhouse/records/", payload);
-      toast.success(editingId ? "Slaughter record updated and returned to MAO review." : "Slaughter record submitted for MAO review.");
+      toast.success(editingId ? "Slaughter record updated." : "Slaughter record submitted directly to MAO.");
       closeRecordDialog();
       await refresh();
     } catch (error) {
@@ -226,8 +226,8 @@ export default function SlaughterhousePage() {
     if (!selectedFile) return;
     setSaving(true);
     try {
-      setImportSummary(await executeBatchImport("slaughter", selectedFile, true, "PENDING"));
-      toast.success("Rows imported as pending records for MAO review.");
+      setImportSummary(await executeBatchImport("slaughter", selectedFile, true, "APPROVED"));
+      toast.success("Rows imported directly to MAO official records.");
       await refresh();
     } catch (error) {
       toast.error(apiError(error, "The file could not be imported."));
@@ -287,7 +287,7 @@ export default function SlaughterhousePage() {
                 </span>
               </div>
               <p className="text-[10px] sm:text-[11px] text-emerald-100/90 font-medium mt-0.5 leading-snug">
-                Daily carcass throughput, meat inspection findings, and dressing yield logs. Submissions stay pending until MAO inspection review.
+                Daily carcass throughput, meat inspection findings, and dressing yield logs. Submissions are transmitted directly to MAO official records.
               </p>
             </div>
           </div>
@@ -428,11 +428,11 @@ export default function SlaughterhousePage() {
             isLoading={recordsQuery.isLoading}
           />
           <KpiCard
-            title="Awaiting MAO review"
-            value={recordsQuery.isError ? "—" : pendingCount.toLocaleString()}
-            description={returnedCount ? `${returnedCount} returned for revision` : "Your pending submissions"}
+            title="Submitted to MAO"
+            value={recordsQuery.isError ? "—" : approved.length.toLocaleString()}
+            description="Directly recorded to municipal ledger"
             variant="stone"
-            icon={<CalendarDays className="size-4" />}
+            icon={<ShieldCheck className="size-4" />}
             isLoading={recordsQuery.isLoading}
           />
         </div>

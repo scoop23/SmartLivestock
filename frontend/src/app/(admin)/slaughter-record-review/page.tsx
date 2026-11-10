@@ -114,7 +114,7 @@ export default function SlaughterRecordReviewPage() {
     <>
       <PageHeader
         title="Slaughter Records"
-        subtitle="View and review slaughterhouse records submitted by the slaughter staff."
+        subtitle="View official slaughterhouse records submitted directly by abattoir staff to MAO."
         variant="admin"
         icon={<MeatIcon className="size-6 text-[#1E7E34]" />}
         maxWidthClass="w-full"

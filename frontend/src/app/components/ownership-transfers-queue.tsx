@@ -257,11 +257,11 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
   // Status counts for MAO workflow
   const counts = useMemo(() => {
     const pending = data.filter((t) => ["PENDING", "VERIFIED"].includes(t.status)).length;
-    const approved = data.filter((t) => t.status === "APPROVED").length;
+    const completedAtAuction = data.filter((t) => t.status === "APPROVED").length;
     const revision = data.filter((t) => ["SUBJECT_TO_REVISION", "REJECTED"].includes(t.status)).length;
     const total = data.length;
-    const approvalRate = total > 0 ? Math.round((approved / total) * 100) : 100;
-    return { pending, approved, revision, total, approvalRate };
+    const completionRate = total > 0 ? Math.round((completedAtAuction / total) * 100) : 100;
+    return { pending, approved: completedAtAuction, completedAtAuction, revision, total, approvalRate: completionRate, completionRate };
   }, [data]);
 
   // Filtered dataset
@@ -338,7 +338,7 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
       `"${t.owner_brand || ""}"`,
       `"${t.origin_municipality || ""}, ${t.origin_province || ""}"`,
       `"${t.municipality || ""}, ${t.province || ""}"`,
-      `"${t.status || ""}"`,
+      `"${t.status === "APPROVED" ? "Completed at Auction" : t.status || ""}"`,
       `"${(t.review_remarks || "").replace(/"/g, '""')}"`,
     ]);
     const csvContent =
@@ -385,12 +385,12 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
   return (
     <>
       <PageHeader
-        title={isMao && activeReviewTab === "inspections" ? "Movement/Livestock Inspections" : isMao ? "Auction Transfer Review" : "Ownership Transfers"}
+        title={isMao && activeReviewTab === "inspections" ? "Movement/Livestock Inspections" : isMao ? "Auction Ownership Transfers" : "Ownership Transfers"}
         subtitle={
           isMao && activeReviewTab === "inspections"
             ? "Review auction movement submissions and livestock inspection clearances."
             : isMao
-            ? "Review and approve livestock ownership transfers submitted by the Padre Garcia Auction Market."
+            ? "View and monitor livestock ownership transfers completed at the Padre Garcia Auction Market."
             : "Review certificate-backed changes to livestock ownership from municipal sellers."
         }
         variant="admin"
@@ -398,12 +398,12 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
         maxWidthClass="w-full"
         breadcrumbs={isMao && activeReviewTab === "inspections" ? [
           { label: "Admin", href: "/admin" },
-          { label: "Auction Review", href: "/ownership-transfers" },
+          { label: "Auction Transfers", href: "/ownership-transfers" },
           { label: "Movement/Livestock Inspections", href: "/ownership-transfers" },
         ] : [
           { label: "Admin", href: "/admin" },
           { label: "Validations", href: "/data-validation" },
-          { label: "Auction Transfer Review", href: "/ownership-transfers" },
+          { label: "Auction Ownership Transfers", href: "/ownership-transfers" },
         ]}
       />
 
@@ -436,7 +436,7 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/90 pb-3">
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-600 font-semibold">
-              {activeReviewTab === "ownership" ? "Auction Ownership Transfer Submissions" : "Auction Movement / Livestock Inspection Submissions"}
+              {activeReviewTab === "ownership" ? "Auction Ownership Transfers (View Only)" : "Auction Movement / Livestock Inspection Submissions"}
             </span>
           </div>
 
@@ -503,14 +503,14 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
 
         {activeReviewTab === "ownership" ? (
           <>
-        {/* 4 Bespoke MAO Approval KPI Cards */}
+        {/* 4 Bespoke Ownership Transfer KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* KPI 1: Waiting for MAO Approval */}
+          {/* KPI 1: Pending */}
           <KpiCard
-            title="Waiting for Approval"
+            title="Pending"
             variant="amber"
             icon={<Clock className="size-5" />}
-            badge={counts.pending > 0 ? "NEEDS REVIEW" : "ALL CLEAR"}
+            badge={counts.pending > 0 ? "IN PROGRESS" : "ALL CLEAR"}
             badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 tracking-wider"
             value={
               <div className="flex items-baseline gap-1.5 mt-0.5">
@@ -520,27 +520,27 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
                 <span className="text-xs font-mono text-amber-800 font-bold">Transfers</span>
               </div>
             }
-            description="Transfers waiting for MAO approval"
+            description="Transfers in progress or pending"
             isLoading={isLoading}
             wrapText
           />
 
-          {/* KPI 2: Approved by MAO */}
+          {/* KPI 2: Completed at Auction */}
           <KpiCard
-            title="Approved"
+            title="Completed at Auction"
             variant="emerald"
             icon={<CheckCircle2 className="size-5" />}
-            badge={counts.total > 0 ? `${counts.approvalRate}% APPROVED` : "ACTIVE"}
+            badge={counts.total > 0 ? `${counts.completionRate}% COMPLETED` : "ACTIVE"}
             badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 tracking-wider"
             value={
               <div className="flex items-baseline gap-1.5 mt-0.5">
                 <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                  {counts.approved.toLocaleString()}
+                  {counts.completedAtAuction.toLocaleString()}
                 </span>
-                <span className="text-xs font-mono text-emerald-800 font-bold">Approved</span>
+                <span className="text-xs font-mono text-emerald-800 font-bold">Completed</span>
               </div>
             }
-            description="Ownership officially transferred"
+            description="Ownership officially transferred at auction"
             isLoading={isLoading}
             wrapText
           />
@@ -588,7 +588,7 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
 
         {/* MAO Workflow Filter & Search Toolbar */}
         <div className="flex flex-col gap-3.5 rounded-2xl border border-slate-200/90 bg-white/95 p-4 shadow-2xs lg:flex-row lg:items-center lg:justify-between">
-          {/* Status Tabs — PENDING is default */}
+          {/* Status Tabs */}
           <div className="flex flex-wrap items-center gap-1.5">
             <button
               type="button"
@@ -604,7 +604,7 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
               }`}
             >
               <Clock className="size-3.5" />
-              <span>Waiting for Review</span>
+              <span>Pending</span>
               <span className={`rounded-full px-1.5 py-0.5 font-mono text-[10px] ${
                 statusFilter === "PENDING" ? "bg-white/20" : "bg-white"
               }`}>
@@ -626,11 +626,11 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
               }`}
             >
               <Check className="size-3.5" />
-              <span>Approved</span>
+              <span>Completed at Auction</span>
               <span className={`rounded-full px-1.5 py-0.5 font-mono text-[10px] ${
                 statusFilter === "APPROVED" ? "bg-white/20" : "bg-white"
               }`}>
-                {counts.approved}
+                {counts.completedAtAuction}
               </span>
             </button>
 
@@ -734,15 +734,15 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
               <div>
                 <h2 className="text-sm font-bold text-slate-900">
                   {statusFilter === "PENDING"
-                    ? `Transfers Waiting for Approval (${filtered.length})`
+                    ? `Pending Transfers (${filtered.length})`
                     : statusFilter === "APPROVED"
-                    ? `Approved Transfers (${filtered.length})`
+                    ? `Transfers Completed at Auction (${filtered.length})`
                     : statusFilter === "SUBJECT_TO_REVISION"
                     ? `Transfers Returned for Correction (${filtered.length})`
                     : `All Transfer Records (${filtered.length})`}
                 </h2>
                 <p className="text-[11px] text-slate-500">
-                  Municipal Agriculture Office official review of ownership transfers
+                  Padre Garcia Municipal Agriculture Office record of livestock ownership transfers
                 </p>
               </div>
             </div>
@@ -765,13 +765,15 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
               <FileCheck2 className="size-8 mx-auto text-slate-300" />
               <p className="text-sm font-bold text-slate-700">
                 {statusFilter === "PENDING"
-                  ? "All caught up! No transfers are currently waiting for approval."
+                  ? "No transfers are currently pending or in progress."
+                  : statusFilter === "APPROVED"
+                  ? "No transfer records completed at auction match your criteria."
                   : "No transfer records match your criteria."}
               </p>
               <p className="text-xs text-slate-500">
                 {search || speciesFilter !== "ALL"
                   ? "Try resetting your search query or species filter."
-                  : "Transfers from the Padre Garcia Auction Market will appear here for review."}
+                  : "Transfers completed at the Padre Garcia Auction Market will appear here."}
               </p>
             </div>
           )}
@@ -884,7 +886,7 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
                           ) : (
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#FEF3C7] text-[#B45309] border border-[#FDE68A]">
                               <span className="size-1.5 rounded-full bg-amber-500 animate-pulse" />
-                              Pending Approval
+                              Pending
                             </span>
                           )}
                         </TableCell>
@@ -993,7 +995,7 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
             <span>About Livestock Ownership Transfers</span>
           </div>
           <p className="leading-relaxed">
-            Farmers declare sale intent and pass their livestock to the Padre Garcia Auction Market, where Auction Personnel verify and complete the ownership transfer certificate, marking the seller&apos;s animal as <strong className="text-slate-900 font-bold">SOLD</strong>. MAO reviews and approves <strong className="text-slate-900 font-bold">Movement / Livestock Inspections</strong>.
+            Farmers declare sale intent and pass their livestock to the Padre Garcia Auction Market, where Auction Personnel verify and complete the ownership transfer certificate, marking the seller&apos;s animal as <strong className="text-slate-900 font-bold">SOLD</strong>. Ownership transfers are completed at the auction and viewed by MAO for monitoring, while MAO reviews and approves <strong className="text-slate-900 font-bold">Movement / Livestock Inspections</strong>.
           </p>
         </div>
           </>
@@ -1020,7 +1022,7 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
                     REPUBLIC OF THE PHILIPPINES · MUNICIPALITY OF PADRE GARCIA
                   </span>
                   <Badge variant="outline" className="font-bold text-xs uppercase">
-                    {selectedTransfer.status.replace(/_/g, " ")}
+                    {selectedTransfer.status === "APPROVED" ? "Completed at Auction" : selectedTransfer.status.replace(/_/g, " ")}
                   </Badge>
                 </div>
                 <DialogTitle className="text-xl font-black text-slate-900 mt-2">
@@ -1036,9 +1038,9 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs text-amber-900 flex items-start gap-2.5">
                   <Clock className="size-4 text-amber-600 shrink-0 mt-0.5" />
                   <div>
-                    <strong className="font-bold block">Waiting for MAO Approval</strong>
+                    <strong className="font-bold block">Pending Auction Finalization</strong>
                     <span>
-                      This transfer was submitted by the Padre Garcia Auction Market and needs MAO approval before the ownership change takes effect.
+                      This transfer was recorded by the Padre Garcia Auction Market and is being processed.
                     </span>
                   </div>
                 </div>

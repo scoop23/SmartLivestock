@@ -1027,18 +1027,17 @@ export function SlaughterRecordsView({
       {/* =================================================================== */}
       {activeTab === "reports" && (
         <div className="space-y-4">
-          <Card className="rounded-2xl border-amber-200/80 bg-amber-50/50 shadow-2xs">
+          <Card className="rounded-2xl border-emerald-200/80 bg-emerald-50/50 shadow-2xs">
             <CardContent className="flex items-start gap-3 px-4 py-3.5 sm:px-5">
-              <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
-                <Clock className="size-4" />
+              <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                <CheckCircle2 className="size-4" />
               </div>
               <div className="min-w-0 space-y-1">
                 <p className="text-xs font-black uppercase tracking-wider text-slate-800">
-                  Municipal Review & Approval Queue
+                  Official Municipal Slaughter Submissions
                 </p>
                 <p className="text-xs leading-relaxed text-slate-600 sm:text-sm">
-                  Facility daily totals and farmer slaughter reports awaiting official MAO validation. Approved records
-                  are finalized in the municipal master ledger.
+                  Facility daily totals transmitted directly to MAO official records. No manual review is required.
                 </p>
               </div>
             </CardContent>
@@ -1104,7 +1103,7 @@ export function SlaughterRecordsView({
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-7 rounded-lg text-xs"
+                          className="h-7 rounded-lg text-xs gap-1"
                           onClick={() => {
                             setSelectedRecord({
                               id: r.id,
@@ -1117,7 +1116,7 @@ export function SlaughterRecordsView({
                               cattle: { heads: r.livestock_type_name.toLowerCase().includes("cattle") ? r.quantity : 0, kg: 0 },
                               hogs: { heads: r.livestock_type_name.toLowerCase().includes("swine") || r.livestock_type_name.toLowerCase().includes("hog") ? r.quantity : 0, kg: 0 },
                               totalHeads: r.quantity,
-                              status: (r.status as "APPROVED" | "PENDING" | "SUBJECT_TO_REVISION") || "PENDING",
+                              status: (r.status as "APPROVED" | "PENDING" | "SUBJECT_TO_REVISION") || "APPROVED",
                               remarks: r.review_remarks,
                               condemnedHeads: r.condemned_heads,
                               condemnedKg: Number(r.condemned_weight_kg || 0),
@@ -1125,7 +1124,8 @@ export function SlaughterRecordsView({
                             });
                           }}
                         >
-                          Review
+                          <Eye className="size-3.5 text-gray-500" />
+                          <span>View</span>
                         </Button>
                       </td>
                     </tr>
@@ -1202,22 +1202,15 @@ export function SlaughterRecordsView({
                 </div>
               </div>
 
-              {/* Review remarks textarea */}
-              <div className="space-y-1.5">
-                <label htmlFor="review-remarks" className="text-xs font-semibold text-gray-700">
-                  MAO Review Remarks / Notes:
-                </label>
-                <Textarea
-                  id="review-remarks"
-                  placeholder="Enter remarks or feedback for this daily slaughter submission..."
-                  value={reviewRemarks}
-                  onChange={(e) => setReviewRemarks(e.target.value)}
-                  className="h-20 rounded-xl border-gray-200 text-xs focus:border-emerald-500"
-                />
-              </div>
+              {selectedRecord.remarks ? (
+                <div className="space-y-1 rounded-xl bg-slate-50 p-3 text-xs text-slate-700">
+                  <span className="font-semibold text-slate-500">Record Notes / Inspection Remarks:</span>
+                  <p className="mt-0.5">{selectedRecord.remarks}</p>
+                </div>
+              ) : null}
 
               {/* Actions Footer */}
-              <DialogFooter className="flex flex-row items-center justify-between gap-2 pt-2">
+              <DialogFooter className="flex items-center justify-end pt-2">
                 <Button
                   type="button"
                   variant="outline"
@@ -1226,29 +1219,6 @@ export function SlaughterRecordsView({
                 >
                   Close
                 </Button>
-
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={isSubmittingReview || !reviewRemarks.trim()}
-                    onClick={() => void handleReview("SUBJECT_TO_REVISION")}
-                    className="gap-1.5 rounded-xl border-amber-300 bg-amber-50 text-amber-800 text-xs font-bold hover:bg-amber-100"
-                  >
-                    <RotateCcw className="size-3.5" />
-                    <span>Return for Revision</span>
-                  </Button>
-
-                  <Button
-                    type="button"
-                    disabled={isSubmittingReview}
-                    onClick={() => void handleReview("APPROVED")}
-                    className="gap-1.5 rounded-xl bg-[#1B4D2E] text-white text-xs font-bold hover:bg-[#163e25] shadow-xs"
-                  >
-                    <CheckCircle2 className="size-3.5" />
-                    <span>Approve Record</span>
-                  </Button>
-                </div>
               </DialogFooter>
             </div>
           )}

@@ -74,10 +74,7 @@ class SlaughterRecordInputSerializer(serializers.ModelSerializer):
 
     def get_can_edit(self, obj):
         user = self.context["request"].user
-        return role_name(user) == "SLAUGHTERHOUSESTAFF" and obj.created_by_id == user.id and obj.status in {
-            SlaughterRecord.StatusType.PENDING,
-            SlaughterRecord.StatusType.SUBJECT_TO_REVISION,
-        }
+        return role_name(user) == "SLAUGHTERHOUSESTAFF" and obj.created_by_id == user.id
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
@@ -210,7 +207,12 @@ def slaughterhouse_records(request):
             ).exists()
             if duplicate:
                 return Response({"detail": "An identical slaughter record already exists."}, status=status.HTTP_409_CONFLICT)
-            record = serializer.save(created_by=request.user, status=SlaughterRecord.StatusType.PENDING)
+            record = serializer.save(
+                created_by=request.user,
+                status=SlaughterRecord.StatusType.APPROVED,
+                reviewed_by=request.user,
+                reviewed_at=timezone.now(),
+            )
         return Response(SlaughterRecordInputSerializer(record, context={"request": request}).data, status=status.HTTP_201_CREATED)
 
     records = _visible_slaughter_records(request.user)
@@ -250,17 +252,15 @@ def slaughterhouse_livestock_types(request):
 @api_view(["PATCH", "DELETE"])
 @permission_classes([IsAuthenticated])
 def slaughterhouse_record_detail(request, pk):
-    """Allow staff to correct only their own unapproved aggregate submission."""
+    """Allow staff to correct their own aggregate submission."""
     require_action(request.user, "slaughter_records", "edit_own")
     record = get_object_or_404(_visible_slaughter_records(request.user), pk=pk, created_by=request.user)
-    if record.status not in {SlaughterRecord.StatusType.PENDING, SlaughterRecord.StatusType.SUBJECT_TO_REVISION}:
-        return Response({"detail": "Only pending or returned records can be changed."}, status=403)
     if request.method == "DELETE":
         record.delete()
         return Response(status=204)
     serializer = SlaughterRecordInputSerializer(record, data=request.data, partial=True, context={"request": request})
     serializer.is_valid(raise_exception=True)
-    record = serializer.save(status=SlaughterRecord.StatusType.PENDING, reviewed_by=None, reviewed_at=None, review_remarks="")
+    record = serializer.save(status=SlaughterRecord.StatusType.APPROVED, reviewed_by=request.user, reviewed_at=timezone.now())
     return Response(SlaughterRecordInputSerializer(record, context={"request": request}).data)
 
 
