@@ -29,6 +29,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
             retry: 1,
             networkMode: "offlineFirst",
           },
+          mutations: {
+            networkMode: "always",
+          },
         },
       });
       return client;

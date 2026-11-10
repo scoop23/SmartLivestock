@@ -60,8 +60,11 @@ export async function warmOfflineCache(role?: string | null, force: boolean = fa
     { url: "production/treatments/" },
     { url: "production/dispositions/" },
     { url: "diseases/cases/", params: { mine: true } },
+    { url: "diseases/cases/" },
     { url: "diseases/mortality/", params: { mine: true } },
+    { url: "diseases/mortality/" },
     { url: "analytics/market-prices/" },
+    { url: "livestock/ownership-transfers/", params: { direction: "outgoing", status: "APPROVED" } },
   ];
 
   const sibatEndpoints = [
@@ -134,7 +137,7 @@ export async function warmOfflineCache(role?: string | null, force: boolean = fa
 
       // Store HTML in CACHE_HTML
       if ("caches" in window && contentType.includes("text/html")) {
-        const htmlCache = await caches.open("smartlivestock-html-v5");
+        const htmlCache = await caches.open("smartlivestock-html-v6");
         await htmlCache.put(
           pageUrl,
           new Response(htmlText, {
@@ -159,7 +162,7 @@ export async function warmOfflineCache(role?: string | null, force: boolean = fa
 
       // Warm static chunks into the static cache
       if ("caches" in window && assetUrls.length > 0) {
-        const staticCache = await caches.open("smartlivestock-static-v5");
+        const staticCache = await caches.open("smartlivestock-static-v6");
         assetUrls.slice(0, 30).forEach((assetUrl) => {
           fetch(assetUrl)
             .then((res) => {
@@ -168,13 +171,31 @@ export async function warmOfflineCache(role?: string | null, force: boolean = fa
             .catch(() => {});
         });
       }
+      // Pre-cache Next.js RSC wire streams strictly into CACHE_RSC partition
+      if ("caches" in window) {
+        try {
+          const rscRes = await fetch(pageUrl, {
+            headers: { RSC: "1", Accept: "text/x-component" },
+            cache: "reload",
+          });
+          if (rscRes.ok) {
+            const rscCache = await caches.open("smartlivestock-rsc-v6");
+            await rscCache.put(pageUrl, rscRes);
+          }
+        } catch {
+          // Non-fatal
+        }
+      }
     } catch {
       // Non-fatal
     }
   });
 
-  // Run in background without blocking caller
-  Promise.allSettled([...apiPromises, ...pagePromises]).then(() => {
+  // Await the critical API data so that caller (e.g. login) can guarantee data is cached
+  await Promise.allSettled(apiPromises);
+
+  // Shells and static assets continue in the background
+  Promise.allSettled(pagePromises).then(() => {
     console.log(`[SmartLivestock Warmer] Field data pre-cache ready for offline use.`);
   });
 }

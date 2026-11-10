@@ -1,6 +1,6 @@
-// SmartLivestock Service Worker — Padre Garcia Biosecurity & Field PWA (v5)
+// SmartLivestock Service Worker — Padre Garcia Biosecurity & Field PWA (v6)
 // Clean Cache Partitioning: Isolates HTML Navigation from Next.js RSC Wire Streams
-const CACHE_VERSION = "v5";
+const CACHE_VERSION = "v6";
 const CACHE_HTML = `smartlivestock-html-${CACHE_VERSION}`;
 const CACHE_RSC = `smartlivestock-rsc-${CACHE_VERSION}`;
 const CACHE_STATIC = `smartlivestock-static-${CACHE_VERSION}`;
@@ -61,24 +61,67 @@ self.addEventListener("install", (event) => {
           )
         );
       }),
-      // 2. HTML Document Shells strictly as text/html into CACHE_HTML
-      caches.open(CACHE_HTML).then((cache) => {
+      // 2. HTML Document Shells, Scripts, Styles and RSC into their partitions
+      caches.open(CACHE_HTML).then(async (htmlCache) => {
+        const staticCache = await caches.open(CACHE_STATIC);
+        const rscCache = await caches.open(CACHE_RSC);
         return Promise.allSettled(
-          PRECACHE_HTML_SHELLS.map((url) =>
-            fetch(url, {
-              headers: { Accept: "text/html,application/xhtml+xml" },
-              cache: "reload",
-            })
-              .then((res) => {
-                const cType = res.headers.get("content-type") || "";
-                if (res.ok && cType.includes("text/html")) {
-                  return cache.put(url, res);
+          PRECACHE_HTML_SHELLS.map(async (url) => {
+            try {
+              // A. Fetch & store HTML
+              const res = await fetch(url, {
+                headers: { Accept: "text/html,application/xhtml+xml" },
+                cache: "reload",
+              });
+              const cType = res.headers.get("content-type") || "";
+              if (res.ok && cType.includes("text/html")) {
+                const htmlText = await res.text();
+                await htmlCache.put(
+                  url,
+                  new Response(htmlText, {
+                    status: 200,
+                    headers: { "Content-Type": "text/html; charset=utf-8" },
+                  })
+                );
+
+                // Extract all referenced JS scripts and CSS chunks
+                const assetUrls = [];
+                const scriptRegex = /<script[^>]+src=["'](\/_next\/static\/[^"']+)["']/g;
+                const cssRegex = /<link[^>]+href=["'](\/_next\/static\/[^"']+\.css[^"']*)["']/g;
+                let match;
+                while ((match = scriptRegex.exec(htmlText)) !== null) {
+                  assetUrls.push(match[1]);
                 }
-              })
-              .catch((err) => {
-                console.warn(`[SmartLivestock SW] HTML precache skipped for ${url}:`, err);
-              })
-          )
+                while ((match = cssRegex.exec(htmlText)) !== null) {
+                  assetUrls.push(match[1]);
+                }
+
+                // Cache each static asset immediately
+                await Promise.allSettled(
+                  assetUrls.map((assetUrl) =>
+                    fetch(assetUrl)
+                      .then((chunkRes) => {
+                        if (chunkRes.ok) return staticCache.put(assetUrl, chunkRes);
+                      })
+                      .catch(() => {})
+                  )
+                );
+              }
+
+              // B. Fetch & store Next.js RSC payload for client-side router
+              if (url !== OFFLINE_URL) {
+                const rscRes = await fetch(url, {
+                  headers: { RSC: "1", Accept: "text/x-component" },
+                  cache: "reload",
+                });
+                if (rscRes.ok) {
+                  await rscCache.put(url, rscRes);
+                }
+              }
+            } catch (err) {
+              console.warn(`[SmartLivestock SW] HTML precache skipped for ${url}:`, err);
+            }
+          })
         );
       }),
     ])
@@ -178,6 +221,16 @@ self.addEventListener("fetch", (event) => {
           const pathnameMatch = await rscCache.match(url.pathname, MATCH_OPTIONS);
           if (pathnameMatch) return pathnameMatch;
 
+          // Sub-route fallbacks for RSC
+          if (url.pathname.startsWith("/production-dashboard/")) {
+            const baseMatch = await rscCache.match("/production-dashboard", MATCH_OPTIONS);
+            if (baseMatch) return baseMatch;
+          }
+          if (url.pathname.startsWith("/livestock-inventory/")) {
+            const baseMatch = await rscCache.match("/livestock-inventory", MATCH_OPTIONS);
+            if (baseMatch) return baseMatch;
+          }
+
           return new Response("", {
             status: 503,
             statusText: "Offline RSC Unavailable",
@@ -224,6 +277,15 @@ self.addEventListener("fetch", (event) => {
           }
           if (rawPath.startsWith("/farmer")) {
             candidates.push("/farmer");
+          }
+          if (rawPath.startsWith("/production-dashboard")) {
+            candidates.push("/production-dashboard");
+          }
+          if (rawPath.startsWith("/report-observation")) {
+            candidates.push("/report-observation");
+          }
+          if (rawPath.startsWith("/livestock-inventory")) {
+            candidates.push("/livestock-inventory");
           }
           candidates.push("/");
           candidates.push(OFFLINE_URL);
@@ -299,7 +361,24 @@ self.addEventListener("fetch", (event) => {
               }
               return networkResponse;
             })
-            .catch(() => cachedResponse);
+            .catch(() => {
+              if (cachedResponse) return cachedResponse;
+              const isJs = url.pathname.endsWith(".js") || url.pathname.includes(".js?");
+              const isCss = url.pathname.endsWith(".css") || url.pathname.includes(".css?");
+              if (isJs) {
+                return new Response("/* offline */", {
+                  status: 200,
+                  headers: { "Content-Type": "application/javascript" },
+                });
+              }
+              if (isCss) {
+                return new Response("/* offline */", {
+                  status: 200,
+                  headers: { "Content-Type": "text/css" },
+                });
+              }
+              return new Response("", { status: 404, statusText: "Offline Asset Unavailable" });
+            });
 
           return cachedResponse || fetchPromise;
         });

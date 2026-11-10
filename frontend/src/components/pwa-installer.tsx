@@ -68,7 +68,8 @@ export function PwaInstaller() {
               key.includes("v1") ||
               key.includes("v2") ||
               key.includes("v3") ||
-              key.includes("v4")
+              key.includes("v4") ||
+              key.includes("v5")
             ) {
               console.log("[SmartLivestock PWA] Client purging legacy cache partition:", key);
               caches.delete(key);

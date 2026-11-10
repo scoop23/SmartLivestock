@@ -151,7 +151,15 @@ export async function syncOfflineQueue(): Promise<{ total: number; synced: numbe
           const fd = new FormData();
           Object.entries(item.payload).forEach(([k, v]) => {
             if (v !== undefined && v !== null) {
-              fd.append(k, typeof v === "object" ? JSON.stringify(v) : String(v));
+              if (Array.isArray(v)) {
+                v.forEach((entry) => {
+                  if (entry !== undefined && entry !== null) {
+                    fd.append(k, typeof entry === "object" ? JSON.stringify(entry) : String(entry));
+                  }
+                });
+              } else {
+                fd.append(k, typeof v === "object" ? JSON.stringify(v) : String(v));
+              }
             }
           });
           item.files.forEach((f) => {
@@ -298,7 +306,18 @@ async function handleOfflineQueueFallback<T>({
           // ignore file conversion error
         }
       } else {
-        serializablePayload[k] = v;
+        if (k in serializablePayload) {
+          const prev = serializablePayload[k];
+          if (Array.isArray(prev)) {
+            prev.push(v);
+          } else {
+            serializablePayload[k] = [prev, v];
+          }
+        } else if (k === "livestocks") {
+          serializablePayload[k] = [v];
+        } else {
+          serializablePayload[k] = v;
+        }
       }
     }
   } else if (typeof data === "object" && data !== null) {

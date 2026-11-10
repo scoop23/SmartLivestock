@@ -33,6 +33,7 @@ export function buildApiCacheKey(
   // Strip origin, leading/trailing slashes, and redundant api prefixes
   cleanUrl = cleanUrl.replace(/^https?:\/\/[^\/]+/, "");
   cleanUrl = cleanUrl.replace(/^\/+/, "").replace(/\/+$/, "");
+  cleanUrl = cleanUrl.replace(/^api\//, "");
 
   let queryString = "";
   if (params) {
@@ -152,7 +153,24 @@ export function getApiCache<T = unknown>(
     if (baseMatch !== null) return baseMatch;
   }
 
-  // 3. Fallback: normalize "api/" prefix variations
+  // 3. Fallback: If no params were provided in request, check if a parameterized entry exists
+  // (e.g. caller requested "diseases/cases/" but we pre-cached "diseases/cases/?mine=true")
+  try {
+    const basePrefix = buildApiCacheKey(url, undefined, baseURL);
+    const raw = localStorage.getItem(INDEX_KEY);
+    if (raw) {
+      const index: string[] = JSON.parse(raw);
+      const matchKey = index.find((k) => k.startsWith(`${basePrefix}?`));
+      if (matchKey) {
+        const fallbackData = readCacheEntry<T>(matchKey);
+        if (fallbackData !== null) return fallbackData;
+      }
+    }
+  } catch {
+    // Ignore
+  }
+
+  // 4. Fallback: normalize "api/" prefix variations
   const hasApiPrefix = url.startsWith("api/") || url.startsWith("/api/");
   const alternateUrl = hasApiPrefix
     ? url.replace(/^\/?api\//, "")
