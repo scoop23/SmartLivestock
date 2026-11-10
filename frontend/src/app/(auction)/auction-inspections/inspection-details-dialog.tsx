@@ -351,7 +351,7 @@ export function InspectionDetailsDialog({
               <div>
                 <span className="text-[10px] font-bold uppercase text-slate-400 block">Handler License No.</span>
                 <p className="font-mono font-bold text-slate-800 mt-0.5">
-                  {inspection.livestock_handler_license_no || "Not specified"}
+                  {inspection.livestock_handler_license_no || "None (Optional)"}
                 </p>
               </div>
 

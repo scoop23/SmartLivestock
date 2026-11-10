@@ -793,13 +793,19 @@ export function NewInspectionForm({
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700">Handler License No.</label>
+                <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
+                  <span>Handler License No.</span>
+                  <span className="text-[10px] font-normal text-slate-400">Optional</span>
+                </label>
                 <Input
-                  placeholder="LHL-2026-4412"
+                  placeholder="e.g., LHL-2026-4412 (Optional)"
                   value={handlerLicense}
                   onChange={(e) => setHandlerLicense(e.target.value)}
                   className="h-10 rounded-xl bg-white border-slate-200 text-xs text-slate-800"
                 />
+                <p className="text-[10px] text-slate-400 leading-tight">
+                  Commercial livestock byahero license. Backyard farmers without a license can leave this blank.
+                </p>
               </div>
             </div>
           </div>
