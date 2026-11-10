@@ -984,19 +984,10 @@ export function GISMap({
 
   const selectMovementAt = (event: LeafletMouseEvent, movement: MovementRecord) => {
     if (performance.now() < suppressClickUntilRef.current) return;
-    const point: [number, number] = [event.latlng.lng, event.latlng.lat];
-    const feature = (padreGarciaGeojson as FeatureCollection).features.find(feature => {
-      const geometry = feature.geometry;
-      const polygons = geometry.type === 'Polygon' ? [geometry.coordinates]
-        : geometry.type === 'MultiPolygon' ? geometry.coordinates : [];
-      return polygons.some(rings => isPointInRing(point, rings[0]) && !rings.slice(1).some(ring => isPointInRing(point, ring)));
-    });
-    if (feature) {
-      const name = String(feature.properties?.name ?? '');
-      const data = barangaysByName[name];
-      const inScope = data?.is_in_scope ?? (!userScope || userScope.can_view_all_barangays || userScope.allowed_barangays.includes(name));
-      if (data && inScope) onSelectBarangay(data);
-      return;
+    // Stop propagation so clicking a transit corridor line or endpoint marker selects the movement permit
+    // instead of bubbling down to the underlying municipal barangay polygon
+    if (event.originalEvent) {
+      event.originalEvent.stopPropagation?.();
     }
     onSelectMovement?.(movement);
   };
@@ -1365,6 +1356,7 @@ export function GISMap({
           stroke-dashoffset: 0;
           -webkit-animation: gis-movement-line-flow 1.4s linear infinite !important;
           animation: gis-movement-line-flow 1.4s linear infinite !important;
+          transition: opacity 0.32s ease-out, stroke 0.32s ease-out;
         }
         path.movement-polyline-flow-selected,
         .leaflet-overlay-pane path.movement-polyline-flow-selected,
@@ -1373,6 +1365,7 @@ export function GISMap({
           -webkit-animation: gis-movement-line-flow 0.75s linear infinite !important;
           animation: gis-movement-line-flow 0.75s linear infinite !important;
           filter: drop-shadow(0 0 6px #facc15);
+          transition: opacity 0.32s ease-out, stroke 0.32s ease-out;
         }
 
         /* Compact High-Visibility Sonar Pulsing Dot for Adjacent Disease Outbreak */
@@ -1638,15 +1631,21 @@ export function GISMap({
                 const color = isSelected ? '#38bdf8' : move.direction === 'INBOUND' ? '#2563eb' : move.direction === 'INTERNAL' ? '#10b981' : '#ef4444';
                 const positions = computeCurvedArc(move.from, move.to, 0.1 + (index % 3) * 0.05);
                 return <React.Fragment key={`route-${move.id}`}>
-                  <Polyline positions={positions} pathOptions={{color, weight: isSelected ? 5 : 3, opacity: isSelected ? 1 : 0.8, dashArray: '10, 10', className: isSelected ? 'movement-polyline-flow-selected' : 'movement-polyline-flow'}} eventHandlers={{click: event => selectMovementAt(event, move)}}>
+                  <Polyline positions={positions} pathOptions={{color, weight: 3.5, opacity: isSelected ? 1 : 0.85, dashArray: '10, 10', className: isSelected ? 'movement-polyline-flow-selected' : 'movement-polyline-flow'}} eventHandlers={{click: event => selectMovementAt(event, move)}}>
 
                   </Polyline>
-                  <CircleMarker center={move.to} radius={isSelected ? 6 : 4} pathOptions={{color: '#ffffff', fillColor: color, fillOpacity: 1, weight: 1.5}} eventHandlers={{click: event => selectMovementAt(event, move)}}>
-
-                  </CircleMarker>
-                  <CircleMarker center={move.from} radius={isSelected ? 5 : 3} pathOptions={{color: '#ffffff', fillColor: color, fillOpacity: 1, weight: 1.5}} eventHandlers={{click: event => selectMovementAt(event, move)}}>
-
-                  </CircleMarker>
+                  <CircleMarker
+                    center={move.from}
+                    radius={isSelected ? 6 : 4}
+                    pathOptions={{color: '#ffffff', fillColor: '#10b981', fillOpacity: 1, weight: 2}}
+                    eventHandlers={{click: event => selectMovementAt(event, move)}}
+                  />
+                  <CircleMarker
+                    center={move.to}
+                    radius={isSelected ? 7 : 5}
+                    pathOptions={{color: '#ffffff', fillColor: color, fillOpacity: 1, weight: 2}}
+                    eventHandlers={{click: event => selectMovementAt(event, move)}}
+                  />
                 </React.Fragment>;
               })}
             </Pane>

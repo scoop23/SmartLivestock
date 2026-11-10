@@ -17,14 +17,15 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
-ChevronLeft,
-ChevronRight,
-Pause,
-Play,
-Truck,
-X
+  ChevronLeft,
+  ChevronRight,
+  Pause,
+  Play,
+  Repeat,
+  Truck,
+  X
 } from 'lucide-react';
-import { useEffect,useMemo,useRef,useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { MovementRecord } from './types';
 
 interface MovementTimelinePlayerProps {
@@ -57,6 +58,8 @@ export function MovementTimelinePlayer({
   onClose,
 }: MovementTimelinePlayerProps) {
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [isLooping, setIsLooping] = useState<boolean>(true);
+  const [playbackSpeed, setPlaybackSpeed] = useState<1 | 1.5 | 2>(1.5);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const mode = timelineMode ?? (isAllDatesMode ? 'all' : 'single');
@@ -66,6 +69,8 @@ export function MovementTimelinePlayer({
   activeIndexRef.current = activeDateIndex;
   const datesLengthRef = useRef(uniqueDates.length);
   datesLengthRef.current = uniqueDates.length;
+  const isLoopingRef = useRef(isLooping);
+  isLoopingRef.current = isLooping;
 
   const activeMovementsCount = useMemo(() => {
     if (mode === 'all') return movements.length;
@@ -89,7 +94,7 @@ export function MovementTimelinePlayer({
       .reduce((acc, m) => acc + m.heads, 0);
   }, [movements, mode, currentDate]);
 
-  // Playback timer loop
+  // Seamless playback timer loop
   useEffect(() => {
     if (!isPlaying || uniqueDates.length <= 1) {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -97,21 +102,26 @@ export function MovementTimelinePlayer({
       return;
     }
 
+    const stepMs = Math.round(1100 / playbackSpeed);
     timerRef.current = setInterval(() => {
       const maxIndex = datesLengthRef.current - 1;
       const current = activeIndexRef.current;
       if (current >= maxIndex) {
-        setIsPlaying(false);
+        if (isLoopingRef.current) {
+          onDateIndexChange(0); // Seamlessly cycle back to beginning
+        } else {
+          setIsPlaying(false);
+        }
       } else {
         onDateIndexChange(current + 1);
       }
-    }, 1200);
+    }, stepMs);
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       timerRef.current = null;
     };
-  }, [isPlaying, uniqueDates.length, onDateIndexChange]);
+  }, [isPlaying, uniqueDates.length, playbackSpeed, onDateIndexChange]);
 
   const handleTogglePlay = () => {
     if (mode === 'all') {
@@ -123,6 +133,10 @@ export function MovementTimelinePlayer({
     setIsPlaying((prev) => !prev);
   };
 
+  const handleCycleSpeed = () => {
+    setPlaybackSpeed((prev) => (prev === 1 ? 1.5 : prev === 1.5 ? 2 : 1));
+  };
+
   const handlePrev = () => {
     setIsPlaying(false);
     if (mode === 'all') {
@@ -130,6 +144,8 @@ export function MovementTimelinePlayer({
     }
     if (activeDateIndex > 0) {
       onDateIndexChange(activeDateIndex - 1);
+    } else if (isLooping && uniqueDates.length > 0) {
+      onDateIndexChange(uniqueDates.length - 1);
     }
   };
 
@@ -140,6 +156,8 @@ export function MovementTimelinePlayer({
     }
     if (activeDateIndex < uniqueDates.length - 1) {
       onDateIndexChange(activeDateIndex + 1);
+    } else if (isLooping) {
+      onDateIndexChange(0);
     }
   };
 
@@ -262,17 +280,27 @@ export function MovementTimelinePlayer({
         </div>
       </div>
 
-      {/* Scrubber Controls */}
+      {/* Scrubber Controls with Seamless Cycle Animation */}
       {uniqueDates.length > 1 && (
-        <div className="space-y-1.5 pt-1">
-          <div className="flex items-center gap-2">
+        <div className="space-y-2 pt-1">
+          {/* Animated Seamless Timeline Progress Track */}
+          <div className="relative w-full h-1 bg-slate-100 rounded-full overflow-hidden">
+            <div
+              className="absolute top-0 bottom-0 left-0 bg-gradient-to-r from-blue-600 via-sky-500 to-emerald-500 rounded-full transition-all duration-300 ease-out"
+              style={{
+                width: `${((activeDateIndex + 1) / uniqueDates.length) * 100}%`,
+              }}
+            />
+          </div>
+
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={handlePrev}
-              disabled={activeDateIndex === 0}
-              className="size-7 p-0 rounded-lg cursor-pointer"
+              disabled={!isLooping && activeDateIndex === 0}
+              className="size-7 p-0 rounded-lg cursor-pointer hover:bg-slate-100"
               aria-label="Previous date"
             >
               <ChevronLeft className="size-4" />
@@ -283,7 +311,7 @@ export function MovementTimelinePlayer({
               variant="default"
               size="sm"
               onClick={handleTogglePlay}
-              className="size-7 p-0 rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
+              className="size-7 p-0 rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-sm transition-transform active:scale-95"
               aria-label={isPlaying ? 'Pause' : 'Play timeline'}
             >
               {isPlaying ? <Pause className="size-3.5" /> : <Play className="size-3.5 ml-0.5" />}
@@ -294,11 +322,36 @@ export function MovementTimelinePlayer({
               variant="outline"
               size="sm"
               onClick={handleNext}
-              disabled={activeDateIndex === uniqueDates.length - 1}
-              className="size-7 p-0 rounded-lg cursor-pointer"
+              disabled={!isLooping && activeDateIndex === uniqueDates.length - 1}
+              className="size-7 p-0 rounded-lg cursor-pointer hover:bg-slate-100"
               aria-label="Next date"
             >
               <ChevronRight className="size-4" />
+            </Button>
+
+            <Button
+              type="button"
+              variant={isLooping ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setIsLooping((prev) => !prev)}
+              className={`size-7 p-0 rounded-lg cursor-pointer transition-colors ${
+                isLooping ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-2xs' : 'text-slate-500 hover:bg-slate-100'
+              }`}
+              title={isLooping ? 'Seamless Loop Active (Cycles continuously)' : 'Loop Disabled'}
+              aria-label="Toggle seamless timeline loop"
+            >
+              <Repeat className="size-3.5" />
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleCycleSpeed}
+              className="h-7 px-1.5 min-w-[32px] rounded-lg text-[10px] font-mono font-bold text-slate-700 cursor-pointer hover:bg-slate-100"
+              title="Cycle playback speed (1x, 1.5x, 2x)"
+            >
+              {playbackSpeed}x
             </Button>
 
             <input

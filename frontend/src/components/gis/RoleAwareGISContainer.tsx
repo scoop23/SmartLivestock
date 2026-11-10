@@ -419,15 +419,14 @@ export function RoleAwareGISContainer({
       || STATIC_MONTHLY_WIND[0];
   }, [monthlyWindData, currentMonthIndex]);
 
-  // Simulation Player Playback Loop
+  // Simulation Player Playback Loop (Seamless cycle loop)
   useEffect(() => {
     if (isPlaying) {
       const stepDurationMs = Math.round(1200 / playbackSpeed);
       timerRef.current = setInterval(() => {
         setCurrentMonthIndex((prev) => {
           if (prev >= TIMELINE_MONTHS.length - 1) {
-            setIsPlaying(false);
-            return prev;
+            return 0; // Seamlessly cycle back to baseline month
           }
           return prev + 1;
         });
@@ -497,10 +496,15 @@ export function RoleAwareGISContainer({
   }, [gisData?.movements, activeMovementYear, uniqueMovementDates, movementDateIndex, showMovementTimeline, movementTimelineMode]);
 
   // Clear selected movement permit if it leaves the visible timeline date window
-  if (selectedMovement && (!activeDisplayMovements.some((m) => m.id === selectedMovement.id) ||
-      selectedMovement.route_records?.some(record => !activeDisplayMovements.some(m => m.id === record.id)))) {
-    setSelectedMovement(null);
-  }
+  useEffect(() => {
+    if (!selectedMovement) return;
+    const isVisible =
+      activeDisplayMovements.some((m) => m.id === selectedMovement.id) ||
+      selectedMovement.route_records?.some((record) => activeDisplayMovements.some((m) => m.id === record.id));
+    if (!isVisible) {
+      setSelectedMovement(null);
+    }
+  }, [selectedMovement, activeDisplayMovements]);
 
   const handleMovementYearChange = useCallback((year: string) => {
     setSelectedMovementYear(year);

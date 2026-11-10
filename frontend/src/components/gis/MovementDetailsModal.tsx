@@ -49,6 +49,14 @@ export function MovementDetailsModal({
   onFocusOnMap,
   isMobileDrawer = false,
 }: MovementDetailsModalProps) {
+  // Support grouped route permits as well as individual permits
+  const records = movement.route_records && movement.route_records.length > 0
+    ? movement.route_records
+    : [movement];
+
+  const [selectedRecordIndex, setSelectedRecordIndex] = useState(0);
+  const activeRecord = records[selectedRecordIndex] ?? records[0] ?? movement;
+
   const [isHighlighted, setIsHighlighted] = useState(true);
 
   // Trigger highlight animation on mount or whenever the clicked line/movement changes
@@ -56,81 +64,42 @@ export function MovementDetailsModal({
     setIsHighlighted(true);
     const timer = setTimeout(() => setIsHighlighted(false), 2200);
     return () => clearTimeout(timer);
-  }, [movement.id]);
+  }, [activeRecord.id]);
 
-  const isApproved = movement.clearance_status?.toUpperCase() === 'APPROVED';
-  const isPending = movement.clearance_status?.toUpperCase() === 'PENDING';
-  const isVerified = movement.clearance_status?.toUpperCase() === 'VERIFIED';
+  const isApproved = activeRecord.clearance_status?.toUpperCase() === 'APPROVED';
+  const isPending = activeRecord.clearance_status?.toUpperCase() === 'PENDING';
+  const isVerified = activeRecord.clearance_status?.toUpperCase() === 'VERIFIED';
 
   const directionLabel =
-    movement.direction === 'OUTBOUND'
+    activeRecord.direction === 'OUTBOUND'
       ? 'Outbound from Padre Garcia'
-      : movement.direction === 'INBOUND'
+      : activeRecord.direction === 'INBOUND'
       ? 'Inbound to Padre Garcia'
-      : movement.direction === 'INTERNAL'
+      : activeRecord.direction === 'INTERNAL'
       ? 'Local Intra-Municipal Transfer'
-      : movement.type === 'export'
+      : activeRecord.type === 'export'
       ? 'Outbound Shipment'
       : 'Inbound Shipment';
 
   const directionColor =
-    movement.direction === 'OUTBOUND'
+    activeRecord.direction === 'OUTBOUND'
       ? 'text-rose-700 bg-rose-50 border-rose-200'
-      : movement.direction === 'INBOUND'
+      : activeRecord.direction === 'INBOUND'
       ? 'text-blue-700 bg-blue-50 border-blue-200'
       : 'text-emerald-700 bg-emerald-50 border-emerald-200';
 
   const formattedDate = (() => {
     try {
-      const d = new Date(movement.date);
+      const d = new Date(activeRecord.date);
       return d.toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
         year: 'numeric',
       });
     } catch {
-      return movement.date;
+      return activeRecord.date;
     }
   })();
-
-  if (movement.route_records?.length) {
-    const records = movement.route_records;
-    const heads = records.reduce((total, record) => total + record.heads, 0);
-    return <div className="flex h-full flex-col overflow-hidden rounded-2xl bg-white text-slate-800 transition-all duration-500 animate-in fade-in zoom-in-[0.98] motion-reduce:animate-none">
-      <div className="relative flex shrink-0 items-center justify-between gap-3 overflow-hidden bg-slate-900 p-4 text-white">
-        {isHighlighted && <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400 animate-shimmer-sweep motion-reduce:animate-none" />}
-        <div className="flex min-w-0 items-center gap-2">
-          <div className={`flex size-9 shrink-0 items-center justify-center rounded-xl shadow-sm transition-all duration-500 ${isHighlighted ? 'scale-105 bg-blue-600 ring-2 ring-blue-400/60' : 'bg-emerald-700'}`}><Truck className="size-5" /></div>
-          <div><h3 className="text-sm font-bold">Movement route</h3><p className="mt-1 text-xs text-slate-300">{records.length} clearances · {heads} heads</p></div>
-        </div>
-        <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close route details"><X className="size-4" /></Button>
-      </div>
-      <div className="flex-1 space-y-3 overflow-y-auto p-4">
-        <div className={`min-w-0 space-y-3 overflow-hidden rounded-xl border p-3.5 text-xs transition-all duration-500 ${isHighlighted ? 'border-blue-400 bg-gradient-to-b from-blue-50/90 to-white shadow-md ring-2 ring-blue-400/50 animate-line-highlight motion-reduce:animate-none' : 'border-slate-200/90 bg-slate-50 shadow-2xs'}`}>
-          <span className={`inline-block rounded-md border px-2 py-0.5 text-[10px] font-bold ${directionColor}`}>{directionLabel}</span>
-          <div className="grid gap-2.5 sm:grid-cols-2">
-            <div className="min-w-0 rounded-lg border border-emerald-300 bg-emerald-50/90 p-2.5"><p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">Origin Hub</p><p className="mt-1 break-words font-bold text-emerald-950">{movement.origin}</p></div>
-            <div className="min-w-0 rounded-lg border border-blue-300 bg-blue-50/90 p-2.5"><p className="text-[10px] font-bold uppercase tracking-wide text-blue-800">Destination Terminal</p><p className="mt-1 break-words font-bold text-blue-950">{movement.destination}</p></div>
-          </div>
-          <div className="flex items-center gap-2 pt-1">
-            <div className="h-0.5 flex-1 bg-gradient-to-r from-emerald-500 to-blue-500" />
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-blue-200 bg-blue-100/70 px-2.5 py-0.5 text-[10px] font-bold text-blue-700"><Truck className={`size-3 ${isHighlighted ? 'animate-bounce motion-reduce:animate-none' : ''}`} />Transit Line Arc</span>
-            <div className="h-0.5 flex-1 bg-gradient-to-r from-blue-500 to-blue-600" />
-          </div>
-        </div>
-        <p className="text-xs text-slate-500">One line groups clearances with the same mapped endpoints. These are recorded permits, not live trips.</p>
-        {records.map(record => <details key={record.id} className="rounded-xl border border-slate-200 p-3 text-xs">
-          <summary className="cursor-pointer font-semibold text-emerald-800">{record.control_number || `Permit #${record.id}`}<span className="ml-2 font-normal text-slate-500">{record.date} · {record.heads} heads</span></summary>
-          <dl className="mt-3 space-y-1 text-slate-600">
-            <div><dt className="inline font-semibold">Shipper: </dt><dd className="inline">{record.shipper_name}</dd></div>
-            <div><dt className="inline font-semibold">Species: </dt><dd className="inline">{record.species}</dd></div>
-            <div><dt className="inline font-semibold">Purpose: </dt><dd className="inline">{record.purpose}</dd></div>
-            <div><dt className="inline font-semibold">Status: </dt><dd className="inline">{record.clearance_status}</dd></div>
-          </dl>
-        </details>)}
-      </div>
-    </div>;
-  }
 
   return (
     <div className="bg-white rounded-2xl flex flex-col h-full overflow-hidden text-slate-800 transition-all duration-500 animate-in fade-in zoom-in-[0.98]">
@@ -149,7 +118,7 @@ export function MovementDetailsModal({
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
               <h3 className="font-black text-sm text-white truncate">
-                Movement Permit #{movement.id}
+                Movement Permit #{activeRecord.id}
               </h3>
               <Badge
                 className={
@@ -162,11 +131,11 @@ export function MovementDetailsModal({
                     : 'bg-rose-600 text-white text-[10px] font-bold px-1.5 py-0'
                 }
               >
-                {movement.clearance_status || 'RECORDED'}
+                {activeRecord.clearance_status || 'RECORDED'}
               </Badge>
             </div>
             <p className="text-[11px] text-slate-300 truncate font-mono">
-              Control No: {movement.control_number || 'N/A'}
+              Control No: {activeRecord.control_number || 'N/A'}
             </p>
           </div>
         </div>
@@ -200,11 +169,11 @@ export function MovementDetailsModal({
               <div className="text-[11px] font-black text-blue-950 flex items-center gap-1.5 truncate">
                 <span>Map Line Selected</span>
                 <span className="text-[10px] text-blue-700 font-mono bg-blue-100/80 px-1.5 py-0.2 rounded font-bold">
-                  Permit #{movement.id}
+                  Permit #{activeRecord.id}
                 </span>
               </div>
               <div className="text-[10px] text-blue-700 font-medium truncate">
-                Route: {movement.origin} → {movement.destination}
+                Route: {activeRecord.origin} → {activeRecord.destination}
               </div>
             </div>
           </div>
@@ -215,6 +184,37 @@ export function MovementDetailsModal({
             Transit Flow
           </Badge>
         </div>
+
+        {/* Grouped Permits Quick-Switch Tabs (when multiple permits share this transit route) */}
+        {records.length > 1 && (
+          <div className="rounded-xl border border-blue-200/90 bg-blue-50/70 p-2.5 space-y-1.5 shadow-2xs">
+            <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-blue-900">
+              <span className="flex items-center gap-1">
+                <Layers className="size-3 text-blue-600" />
+                Permits on this Route ({records.length})
+              </span>
+              <span className="font-mono text-blue-700 font-bold">
+                {selectedRecordIndex + 1} of {records.length}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+              {records.map((rec, idx) => (
+                <button
+                  key={rec.id}
+                  type="button"
+                  onClick={() => setSelectedRecordIndex(idx)}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-black font-mono transition-all shrink-0 cursor-pointer ${
+                    selectedRecordIndex === idx
+                      ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-400/50'
+                      : 'bg-white text-slate-700 border border-blue-200/80 hover:bg-blue-100/60'
+                  }`}
+                >
+                  Permit #{rec.id}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Origin to Destination Flow Card (Counterpart to the Map Line) */}
         <div
@@ -243,11 +243,11 @@ export function MovementDetailsModal({
                 <span className="size-2 rounded-full bg-emerald-600 inline-block shrink-0" />
                 Origin Hub
               </div>
-              <div className="font-black text-sm text-emerald-950 truncate" title={movement.origin}>
-                {movement.origin}
+              <div className="font-black text-sm text-emerald-950 truncate" title={activeRecord.origin}>
+                {activeRecord.origin}
               </div>
               <div className="text-[10px] text-emerald-700 font-mono truncate">
-                Coords: [{movement.from[0].toFixed(4)}, {movement.from[1].toFixed(4)}]
+                Coords: [{activeRecord.from?.[0]?.toFixed(4) ?? '0.0000'}, {activeRecord.from?.[1]?.toFixed(4) ?? '0.0000'}]
               </div>
             </div>
 
@@ -259,11 +259,11 @@ export function MovementDetailsModal({
                 <span className="size-2 rounded-full bg-blue-600 inline-block shrink-0" />
                 Destination Terminal
               </div>
-              <div className="font-black text-sm text-blue-950 truncate" title={movement.destination}>
-                {movement.destination}
+              <div className="font-black text-sm text-blue-950 truncate" title={activeRecord.destination}>
+                {activeRecord.destination}
               </div>
               <div className="text-[10px] text-blue-700 font-mono truncate">
-                Coords: [{movement.to[0].toFixed(4)}, {movement.to[1].toFixed(4)}]
+                Coords: [{activeRecord.to?.[0]?.toFixed(4) ?? '0.0000'}, {activeRecord.to?.[1]?.toFixed(4) ?? '0.0000'}]
               </div>
             </div>
           </div>
@@ -285,7 +285,7 @@ export function MovementDetailsModal({
             isHighlighted ? 'border-emerald-400/80 ring-1 ring-emerald-300/50 shadow-sm' : 'border-slate-200'
           }`}>
             <div className="text-2xl font-black font-mono text-emerald-950">
-              {movement.heads}
+              {activeRecord.heads}
             </div>
             <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
               🐄 Cattle / Heads Moved
@@ -296,7 +296,7 @@ export function MovementDetailsModal({
             isHighlighted ? 'border-blue-400/80 ring-1 ring-blue-300/50 shadow-sm' : 'border-slate-200'
           }`}>
             <div className="text-base font-black text-slate-900 truncate">
-              {movement.species || 'Cattle'}
+              {activeRecord.species || 'Cattle'}
             </div>
             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
               Species Type
@@ -314,22 +314,22 @@ export function MovementDetailsModal({
           <div className="space-y-1.5 text-xs">
             <div className="flex justify-between items-center py-1 border-b border-slate-100 gap-2 min-w-0">
               <span className="text-slate-500 font-medium shrink-0">Shipper / Handler:</span>
-              <span className="font-bold text-slate-900 truncate text-right min-w-0 max-w-[60%]" title={movement.shipper_name || undefined}>
-                {movement.shipper_name || 'Registered Handler'}
+              <span className="font-bold text-slate-900 truncate text-right min-w-0 max-w-[60%]" title={activeRecord.shipper_name || undefined}>
+                {activeRecord.shipper_name || 'Registered Handler'}
               </span>
             </div>
 
             <div className="flex justify-between items-center py-1 border-b border-slate-100 gap-2 min-w-0">
               <span className="text-slate-500 font-medium shrink-0">Transport Purpose:</span>
-              <span className="font-bold text-slate-900 truncate text-right min-w-0 max-w-[60%]" title={movement.purpose || undefined}>
-                {movement.purpose || 'Livestock Movement'}
+              <span className="font-bold text-slate-900 truncate text-right min-w-0 max-w-[60%]" title={activeRecord.purpose || undefined}>
+                {activeRecord.purpose || 'Livestock Movement'}
               </span>
             </div>
 
             <div className="flex justify-between items-center py-1 border-b border-slate-100 gap-2 min-w-0">
               <span className="text-slate-500 font-medium shrink-0">Clearance Certificate:</span>
               <span className="font-bold font-mono text-emerald-900 truncate text-right min-w-0 max-w-[60%]">
-                {movement.control_number || 'N/A'}
+                {activeRecord.control_number || 'N/A'}
               </span>
             </div>
 
@@ -351,15 +351,15 @@ export function MovementDetailsModal({
         </div>
 
         {/* Line Items Breakdown (if available) */}
-        {movement.items_breakdown && movement.items_breakdown.length > 0 && (
+        {activeRecord.items_breakdown && activeRecord.items_breakdown.length > 0 && (
           <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-2 shadow-2xs">
             <h4 className="text-xs font-black text-slate-900 uppercase tracking-wide flex items-center gap-1.5">
               <Layers className="size-3.5 text-slate-700" />
-              Livestock Breakdown ({movement.items_breakdown.length} line items)
+              Livestock Breakdown ({activeRecord.items_breakdown.length} line items)
             </h4>
 
             <div className="divide-y divide-slate-100 border border-slate-100 rounded-lg overflow-hidden text-xs">
-              {movement.items_breakdown.map((item, idx) => (
+              {activeRecord.items_breakdown.map((item, idx) => (
                 <div key={idx} className="p-2 flex justify-between items-center bg-slate-50/50">
                   <div>
                     <span className="font-bold text-slate-900">{item.quantity} × {item.species}</span>

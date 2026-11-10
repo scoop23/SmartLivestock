@@ -52,6 +52,7 @@ interface Giro3DBarangayViewProps {
 
 interface AnimatedPulse {
   headMesh: import('three').Mesh;
+  haloMesh?: import('three').Mesh;
   trailMeshes: import('three').Mesh[];
   curve: import('three').CubicBezierCurve3;
   speed: number;
@@ -338,6 +339,8 @@ export function Giro3DBarangayView({
   const animatedRingsRef = useRef<AnimatedRing[]>([]);
   const pulseAnimFrameRef = useRef<number | null>(null);
   const destinationBeaconsRef = useRef<import('three').Mesh[]>([]);
+  const destinationPillarsRef = useRef<import('three').Mesh[]>([]);
+  const materialsToFadeRef = useRef<{ material: import('three').MeshBasicMaterial; targetOpacity: number; mountTime: number }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [hoverInfo, setHoverInfo] = useState<{ name: string; x: number; y: number } | null>(null);
   const [isSceneReady, setIsSceneReady] = useState(false);
@@ -811,29 +814,8 @@ export function Giro3DBarangayView({
           if (performance.now() < suppressClickUntilRef.current) return;
           if (!instance) return;
 
-          // Barangay polygons win over route meshes crossing the same screen point.
-          if (featureCollection) {
-            const picked = instance.pickObjectsAt(event, { where: [featureCollection] })[0];
-            const pickedFeature = picked?.object.userData.feature as Feature<Geometry> | undefined;
-            if (pickedFeature) {
-              const name = String(pickedFeature.get('name') ?? '');
-              const data = barangaysByNameRef.current[name];
-              if (!data) return;
-              const inScope = data.is_in_scope ?? (
-                !userScope || userScope.can_view_all_barangays || userScope.allowed_barangays.includes(name)
-              );
-              if (!inScope) return;
-              for (const feature of featureByName.values()) feature.set('selected', feature === pickedFeature);
-              featureCollection.updateStyles();
-              refreshBorderColors();
-              onSelectMovementRef.current?.(null);
-              onSelectRef.current(data);
-              syncLabelPositionsRef.current?.();
-              return;
-            }
-          }
-
-          // Ray-pick 3D movement arcs / beacon markers / rings across the Philippines
+          // Priority 1: Ray-pick 3D movement arcs / beacon markers / rings across the Philippines
+          // When a user clicks a movement line, terminal beacon, or landing pad, select the movement permit
           const movementGroup = movementGroupRef.current;
           const three = threeModuleRef.current;
           if (movementGroup && movementGroup.children.length > 0 && three) {
@@ -843,7 +825,7 @@ export function Giro3DBarangayView({
               -((event.clientY - bounds.top) / bounds.height) * 2 + 1
             );
             const raycaster = new three.Raycaster();
-            raycaster.params.Line = { threshold: 40 };
+            raycaster.params.Line = { threshold: 50 };
             raycaster.setFromCamera(mouse, instance.view.camera);
             const intersects = raycaster.intersectObjects(movementGroup.children, true);
             if (intersects.length > 0) {
@@ -865,11 +847,31 @@ export function Giro3DBarangayView({
             }
           }
 
+          // Priority 2: Barangay polygons are picked only when no movement route/beacon was hit
+          if (featureCollection) {
+            const picked = instance.pickObjectsAt(event, { where: [featureCollection] })[0];
+            const pickedFeature = picked?.object.userData.feature as Feature<Geometry> | undefined;
+            if (pickedFeature) {
+              const name = String(pickedFeature.get('name') ?? '');
+              const data = barangaysByNameRef.current[name];
+              if (!data) return;
+              const inScope = data.is_in_scope ?? (
+                !userScope || userScope.can_view_all_barangays || userScope.allowed_barangays.includes(name)
+              );
+              if (!inScope) return;
+              for (const feature of featureByName.values()) feature.set('selected', feature === pickedFeature);
+              featureCollection.updateStyles();
+              refreshBorderColors();
+              onSelectMovementRef.current?.(null);
+              onSelectRef.current(data);
+              syncLabelPositionsRef.current?.();
+              return;
+            }
+          }
+
           // Clicking outside dismisses movement selection and hides destination labels
           onSelectMovementRef.current?.(null);
           syncLabelPositionsRef.current?.();
-
-
         };
         pointerMoveHandler = (event) => {
           if (!instance) return;
@@ -969,6 +971,7 @@ export function Giro3DBarangayView({
       }
       animatedPulsesRef.current = [];
       destinationBeaconsRef.current = [];
+      destinationPillarsRef.current = [];
       for (const [feature, lines] of borderLines) {
         instance?.threeObjects.remove(lines);
         lines.geometry.dispose();
@@ -1209,7 +1212,11 @@ export function Giro3DBarangayView({
       pulseAnimFrameRef.current = null;
     }
     animatedPulsesRef.current = [];
+    animatedRingsRef.current = [];
     destinationBeaconsRef.current = [];
+    destinationPillarsRef.current = [];
+    materialsToFadeRef.current = [];
+    const mountTime = performance.now() * 0.001;
 
     // Clear previous 3D movement meshes
     while (movementGroup.children.length > 0) {
@@ -1235,6 +1242,18 @@ export function Giro3DBarangayView({
       instance.notifyChange();
       return;
     }
+
+    // Helper to extract top extrusion height of a barangay polygon
+    const getBarangayExtrusionHeight = (name: string | null | undefined) => {
+      if (!name) return 25;
+      const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
+      for (const [featName, feat] of featuresByNameRef.current) {
+        if (normalize(featName) === normalize(name)) {
+          return displayedHeightsRef.current.get(feat) ?? 25;
+        }
+      }
+      return 25;
+    };
 
     // Render 3D parabolic arcs, destination beacons, origin anchors, and animated flow pulses
     for (const move of groupMovementRoutes(movements)) {
@@ -1264,152 +1283,307 @@ export function Giro3DBarangayView({
       const isSelected = selectedMovement?.id === move.id || Boolean(move.route_records?.some(record => record.id === selectedMovement?.id));
       const isApproved = move.clearance_status === 'APPROVED';
 
-      // Directional & status color coding matching 2D transport flow styling
-      let hexColor = '#f59e0b'; // Amber for pending/other
+      // Futuristic vibrant darker palettes (deep, richly pigmented cyber tones)
+      let coreColor = '#d97706';  // Vibrant rich amber (amber-600)
+      let glowColor = '#b45309';  // Deep saturated amber glow (amber-700)
+      let accentHex = '#d97706';
+
       if (isSelected) {
-        hexColor = '#facc15'; // Bright Gold for selected
+        coreColor = '#f59e0b';    // Brilliant vibrant solar gold (amber-500)
+        glowColor = '#b45309';    // Rich deep amber glow
+        accentHex = '#f59e0b';
       } else if (isApproved) {
-        if (move.direction === 'INBOUND') hexColor = '#38bdf8'; // Electric Sky Blue
-        else if (move.direction === 'INTERNAL') hexColor = '#10b981'; // Emerald Green
-        else hexColor = '#f43f5e'; // Vibrant Rose / Red for outbound
+        if (move.direction === 'INBOUND') {
+          coreColor = '#0284c7';  // Vibrant deep electric azure / cyan (sky-600)
+          glowColor = '#0369a1';  // Rich deep cobalt glow (sky-700)
+          accentHex = '#0284c7';
+        } else if (move.direction === 'INTERNAL') {
+          coreColor = '#059669';  // Vibrant deep emerald green (emerald-600)
+          glowColor = '#047857';  // Rich deep jade green glow (emerald-700)
+          accentHex = '#059669';
+        } else {
+          coreColor = '#e11d48';  // Vibrant deep laser crimson ruby (rose-600)
+          glowColor = '#be123c';  // Rich deep blood ruby glow (rose-700)
+          accentHex = '#e11d48';
+        }
       }
 
-      // Parabolic apex altitude in 3D WebGL space: higher arc for long-range transport across the Philippines
-      const apexHeight = Math.min(Math.max(dist * 0.16, 2200), 85000);
-      const tubeRadius = isSelected
-        ? Math.min(Math.max(dist * 0.004, 50), 2200)
-        : Math.min(Math.max(dist * 0.0022, 28), 1200);
+      // Smooth flight elevations
+      const startZ = Math.max(28, getBarangayExtrusionHeight(move.origin_barangay) + 16);
+      const endZ = Math.max(28, getBarangayExtrusionHeight(move.destination_barangay) + 16);
 
-      // Control points directly above each endpoint create vertical tangents, then
-      // a smooth bend between barangays. Equal control heights preserve the apex.
-      const controlHeight = 25 + apexHeight * 4 / 3;
+      // Controlled parabolic altitude in 3D WebGL space:
+      // Minimum apex height gives every line clear 3D loft above barangay extrusion
+      const apexHeight = Math.min(Math.max(dist * 0.055, 480), 1600);
+      const midZ = Math.max(startZ, endZ) + apexHeight;
+
+      // Upward launch trajectory from Origin:
+      // CP1 ascends steeply / vertically upward directly out of the origin launch pad (+Z climb)
+      // with minimal horizontal drift (only 5% forward).
+      // This causes the laser tube, glow sheath, and energy pulses to surge straight UPWARD
+      // out of the origin before curving over at the apex and following through to destination!
+      const cp1 = new three.Vector3(
+        startX + dx * 0.05,
+        startY + dy * 0.05,
+        startZ + apexHeight * 0.92
+      );
+      // CP2 crests above the destination sector and follows through smoothly into the landing zone
+      const cp2 = new three.Vector3(
+        startX + dx * 0.82,
+        startY + dy * 0.82,
+        endZ + apexHeight * 0.88
+      );
       const curve = new three.CubicBezierCurve3(
-        new three.Vector3(startX, startY, 25),
-        new three.Vector3(startX, startY, controlHeight),
-        new three.Vector3(endX, endY, controlHeight),
-        new three.Vector3(endX, endY, 25),
+        new three.Vector3(startX, startY, startZ),
+        cp1,
+        cp2,
+        new three.Vector3(endX, endY, endZ),
       );
 
-      // Base atmospheric flight corridor tube
-      const tubeGeom = new three.TubeGeometry(curve, 32, tubeRadius, 6, false);
-      const tubeMat = new three.MeshBasicMaterial({
-        color: hexColor,
-        opacity: 1,
-        transparent: false,
+      // Strictly uniform, consistent girth across ALL routes (selected and unselected)
+      const coreRadius = 24;
+      const glowRadius = 42;
+
+      // 1. Core Luminous Laser Conduit (Smooth 96-segment high-fidelity tube)
+      const coreGeom = new three.TubeGeometry(curve, isSelected ? 128 : 96, coreRadius, 12, false);
+      const targetCoreOpacity = 1.0;
+      const coreMat = new three.MeshBasicMaterial({
+        color: coreColor,
+        opacity: 0.0,
+        transparent: true,
         depthTest: true,
         depthWrite: true,
       });
+      materialsToFadeRef.current.push({ material: coreMat, targetOpacity: targetCoreOpacity, mountTime });
+      const coreMesh = new three.Mesh(coreGeom, coreMat);
+      coreMesh.userData = { movement: move };
+      movementGroup.add(coreMesh);
 
-      const tubeMesh = new three.Mesh(tubeGeom, tubeMat);
-      tubeMesh.userData = { movement: move };
-      movementGroup.add(tubeMesh);
-
-      // Destination terminal beacon (cone pointing down toward target municipality/barangay)
-      const beaconHeight = Math.min(Math.max(dist * 0.04, 300), 9000);
-      const beaconRadius = beaconHeight * 0.35;
-      const coneGeom = new three.ConeGeometry(beaconRadius, beaconHeight, 8);
-      coneGeom.rotateX(Math.PI); // Point downward to ground
-      const coneMat = new three.MeshBasicMaterial({
-        color: hexColor,
-        opacity: isSelected ? 1 : 0.85,
+      // 2. Outer Holographic Glow Sheath (Additive cyber bloom halo)
+      const glowGeom = new three.TubeGeometry(curve, isSelected ? 128 : 96, glowRadius, 10, false);
+      const targetGlowOpacity = isSelected ? 0.55 : 0.38;
+      const glowMat = new three.MeshBasicMaterial({
+        color: glowColor,
+        opacity: 0.0,
         transparent: true,
+        blending: three.AdditiveBlending,
+        side: three.BackSide,
         depthTest: true,
         depthWrite: false,
       });
-      const coneMesh = new three.Mesh(coneGeom, coneMat);
-      coneMesh.position.set(endX, endY, beaconHeight / 2 + 10);
-      coneMesh.userData = { movement: move };
-      movementGroup.add(coneMesh);
-      destinationBeaconsRef.current.push(coneMesh);
+      materialsToFadeRef.current.push({ material: glowMat, targetOpacity: targetGlowOpacity, mountTime });
+      const glowMesh = new three.Mesh(glowGeom, glowMat);
+      glowMesh.userData = { movement: move };
+      movementGroup.add(glowMesh);
 
-      // Ground anchor ring at origin
-      const ringRadius = beaconRadius * 0.3;
-      const ringGeom = new three.RingGeometry(ringRadius * 0.6, ringRadius, 16);
-      const ringMat = new three.MeshBasicMaterial({
-        color: '#10b981',
+      // 3. Directional Flow Chevrons (Forward arrows along the conduit: Origin -> Destination)
+      const arrowFractions = [0.35, 0.65];
+      for (const tFrac of arrowFractions) {
+        const arrowPt = curve.getPointAt(tFrac);
+        const arrowDir = curve.getTangentAt(tFrac).normalize();
+        const arrowGeom = new three.ConeGeometry(coreRadius * 1.7, coreRadius * 3.2, 12);
+        arrowGeom.rotateX(Math.PI / 2); // Align cone apex with forward +Z vector
+        const targetArrowOpacity = isSelected ? 0.95 : 0.82;
+        const arrowMat = new three.MeshBasicMaterial({
+          color: isSelected ? '#ffffff' : coreColor,
+          transparent: true,
+          opacity: 0.0,
+          depthTest: true,
+          depthWrite: false,
+        });
+        materialsToFadeRef.current.push({ material: arrowMat, targetOpacity: targetArrowOpacity, mountTime });
+        const arrowMesh = new three.Mesh(arrowGeom, arrowMat);
+        arrowMesh.position.copy(arrowPt);
+        arrowMesh.quaternion.setFromUnitVectors(new three.Vector3(0, 0, 1), arrowDir);
+        arrowMesh.userData = { movement: move };
+        movementGroup.add(arrowMesh);
+      }
+
+      // 3. Futuristic Destination Terminal:
+      // a) Vertical Holographic Light Pillar (Cyber Laser Column)
+      const beaconHeight = 550;
+      const beaconRadius = 120;
+      const pillarGeom = new three.CylinderGeometry(beaconRadius * 0.2, beaconRadius * 0.55, beaconHeight, 16, 1, true);
+      const pillarMat = new three.MeshBasicMaterial({
+        color: glowColor,
+        opacity: isSelected ? 0.65 : 0.35,
+        transparent: true,
+        blending: three.AdditiveBlending,
+        side: three.DoubleSide,
+        depthTest: true,
+        depthWrite: false,
+      });
+      const pillarMesh = new three.Mesh(pillarGeom, pillarMat);
+      pillarMesh.position.set(endX, endY, endZ + beaconHeight / 2);
+      pillarMesh.userData = { movement: move };
+      movementGroup.add(pillarMesh);
+      destinationPillarsRef.current.push(pillarMesh);
+
+      // b) Rotating Holographic Waypoint Crystal (Hovering Diamond)
+      const crystalRadius = 60;
+      const crystalGeom = new three.OctahedronGeometry(crystalRadius, 0);
+      const crystalMat = new three.MeshBasicMaterial({
+        color: isSelected ? '#ffffff' : coreColor,
+        opacity: isSelected ? 1.0 : 0.85,
+        transparent: true,
+        depthTest: true,
+        depthWrite: true,
+      });
+      const crystalMesh = new three.Mesh(crystalGeom, crystalMat);
+      crystalMesh.position.set(endX, endY, endZ + beaconHeight + crystalRadius);
+      crystalMesh.userData = { movement: move };
+      movementGroup.add(crystalMesh);
+      destinationBeaconsRef.current.push(crystalMesh);
+
+      // c) Destination Ground Landing Reticle
+      const destRingGeom = new three.RingGeometry(beaconRadius * 0.3, beaconRadius * 0.6, 24);
+      const destRingMat = new three.MeshBasicMaterial({
+        color: glowColor,
+        side: three.DoubleSide,
+        opacity: isSelected ? 0.9 : 0.6,
+        transparent: true,
+        blending: three.AdditiveBlending,
+        depthTest: true,
+        depthWrite: false,
+      });
+      const destRingMesh = new three.Mesh(destRingGeom, destRingMat);
+      destRingMesh.position.set(endX, endY, endZ + 2);
+      destRingMesh.userData = { movement: move };
+      movementGroup.add(destRingMesh);
+
+      // d) Destination Expanding Holographic Radar Ripple
+      const destRippleGeom = new three.RingGeometry(beaconRadius * 0.35, beaconRadius * 0.7, 24);
+      const destRippleMat = new three.MeshBasicMaterial({
+        color: isSelected ? '#facc15' : glowColor,
         side: three.DoubleSide,
         opacity: 0.8,
         transparent: true,
+        blending: three.AdditiveBlending,
         depthTest: true,
         depthWrite: false,
       });
-      const ringMesh = new three.Mesh(ringGeom, ringMat);
-      ringMesh.position.set(startX, startY, 15);
-      ringMesh.userData = { movement: move };
-      movementGroup.add(ringMesh);
+      const destRippleMesh = new three.Mesh(destRippleGeom, destRippleMat);
+      destRippleMesh.position.set(endX, endY, endZ + 4);
+      destRippleMesh.userData = { movement: move };
+      movementGroup.add(destRippleMesh);
+      animatedRingsRef.current.push({
+        mesh: destRippleMesh,
+        speed: isSelected ? 0.7 : 0.45,
+        phase: 0.5,
+        maxScale: 1.8,
+      });
 
-      // Origin polygon launch ripple ring
-      const originRippleGeom = new three.RingGeometry(ringRadius * 0.65, ringRadius * 1.05, 24);
+      // 4. Futuristic Origin Terminal:
+      // a) Ground Telemetry Pad
+      const originRadius = 120;
+      const originRingGeom = new three.RingGeometry(originRadius * 0.3, originRadius * 0.65, 24);
+      const originRingMat = new three.MeshBasicMaterial({
+        color: '#10b981',
+        side: three.DoubleSide,
+        opacity: 0.85,
+        transparent: true,
+        blending: three.AdditiveBlending,
+        depthTest: true,
+        depthWrite: false,
+      });
+      const originRingMesh = new three.Mesh(originRingGeom, originRingMat);
+      originRingMesh.position.set(startX, startY, startZ + 2);
+      originRingMesh.userData = { movement: move };
+      movementGroup.add(originRingMesh);
+
+      // b) Origin Expanding Sonar Ripple
+      const originRippleGeom = new three.RingGeometry(originRadius * 0.35, originRadius * 0.75, 24);
       const originRippleMat = new three.MeshBasicMaterial({
         color: isSelected ? '#facc15' : '#38bdf8',
         side: three.DoubleSide,
         opacity: 0.85,
         transparent: true,
+        blending: three.AdditiveBlending,
         depthTest: true,
         depthWrite: false,
       });
       const originRippleMesh = new three.Mesh(originRippleGeom, originRippleMat);
-      originRippleMesh.position.set(startX, startY, 18);
+      originRippleMesh.position.set(startX, startY, startZ + 4);
+      originRippleMesh.userData = { movement: move };
       movementGroup.add(originRippleMesh);
-      if (isSelected) animatedRingsRef.current.push({
+      animatedRingsRef.current.push({
         mesh: originRippleMesh,
-        speed: isSelected ? 0.6 : 0.4,
+        speed: isSelected ? 0.65 : 0.4,
         phase: 0,
-        maxScale: 1.6,
+        maxScale: 1.9,
       });
 
-      // Destination arrival landing ripple ring
-      const destRippleGeom = new three.RingGeometry(beaconRadius * 0.15, beaconRadius * 0.28, 24);
-      const destRippleMat = new three.MeshBasicMaterial({
-        color: hexColor,
-        side: three.DoubleSide,
-        opacity: 0.85,
+      // c) Origin Upward Launch Emitter (Vertical ascension column signaling departure flow)
+      const originLaunchHeight = 320;
+      const originPillarGeom = new three.CylinderGeometry(
+        originRadius * 0.15,
+        originRadius * 0.40,
+        originLaunchHeight,
+        16,
+        1,
+        true
+      );
+      const originPillarMat = new three.MeshBasicMaterial({
+        color: '#10b981',
+        opacity: isSelected ? 0.65 : 0.35,
         transparent: true,
+        blending: three.AdditiveBlending,
+        side: three.DoubleSide,
         depthTest: true,
         depthWrite: false,
       });
-      const destRippleMesh = new three.Mesh(destRippleGeom, destRippleMat);
-      destRippleMesh.position.set(endX, endY, 18);
-      movementGroup.add(destRippleMesh);
-      if (isSelected) animatedRingsRef.current.push({
-        mesh: destRippleMesh,
-        speed: isSelected ? 0.65 : 0.45,
-        phase: 0.5,
-        maxScale: 1.6,
-      });
+      const originPillarMesh = new three.Mesh(originPillarGeom, originPillarMat);
+      originPillarMesh.position.set(startX, startY, startZ + originLaunchHeight / 2);
+      originPillarMesh.userData = { movement: move };
+      movementGroup.add(originPillarMesh);
+      destinationPillarsRef.current.push(originPillarMesh);
 
-      // Animated streaming transport pulses flying along the curve toward the destination
-      const pulseCount = isSelected ? 1 : 0;
+      // 5. Streaming Cyber Energy Packets (Surges upward at origin -> follows through to destination)
+      const pulseCount = isSelected ? 3 : 2;
       for (let pIdx = 0; pIdx < pulseCount; pIdx++) {
         const offset = pIdx / pulseCount;
-        // Slower transport pulses keep routes readable while inspecting barangays.
-        const travelDuration = Math.min(Math.max(Math.sqrt(dist) * 0.03, 6.0), 14.4);
-        const speed = (isSelected ? 1.15 : 1.0) / travelDuration;
+        const travelDuration = Math.min(Math.max(Math.sqrt(dist) * 0.018, 2.8), 6.0);
+        const speed = (isSelected ? 1.3 : 1.0) / travelDuration;
 
-        // Leading glowing pulse head
-        const headRadius = isSelected ? tubeRadius * 2.4 : tubeRadius * 1.8;
+        // Glowing Photon Core Head (Strictly uniform packet sizing)
+        const headRadius = 36;
         const headGeom = new three.SphereGeometry(headRadius, 12, 12);
         const headMat = new three.MeshBasicMaterial({
-          color: isSelected ? '#ffffff' : (move.direction === 'INBOUND' ? '#bae6fd' : '#ffffff'),
+          color: isSelected ? '#ffffff' : coreColor,
           transparent: true,
+          opacity: 0.95,
           depthTest: true,
           depthWrite: false,
-          opacity: 0.95,
         });
         const headMesh = new three.Mesh(headGeom, headMat);
         headMesh.userData = { movement: move };
         movementGroup.add(headMesh);
 
-        // Multiple trailing comet segments
-        const trailMeshes: import('three').Mesh[] = [];
-        const trailScales = [0.8, 0.55, 0.35];
-        const trailOpacities = [0.8, 0.55, 0.3];
+        // Holographic Photon Aura Halo
+        const haloGeom = new three.SphereGeometry(headRadius * 1.6, 12, 12);
+        const haloMat = new three.MeshBasicMaterial({
+          color: glowColor,
+          transparent: true,
+          opacity: isSelected ? 0.7 : 0.45,
+          blending: three.AdditiveBlending,
+          depthTest: true,
+          depthWrite: false,
+        });
+        const haloMesh = new three.Mesh(haloGeom, haloMat);
+        haloMesh.userData = { movement: move };
+        movementGroup.add(haloMesh);
 
-        for (let tIdx = 0; tIdx < 3; tIdx++) {
+        // Trailing Comet Beads
+        const trailMeshes: import('three').Mesh[] = [];
+        const trailScales = [0.8, 0.6, 0.4, 0.25];
+        const trailOpacities = [0.75, 0.55, 0.35, 0.2];
+
+        for (let tIdx = 0; tIdx < trailScales.length; tIdx++) {
           const tGeom = new three.SphereGeometry(headRadius * trailScales[tIdx], 10, 10);
           const tMat = new three.MeshBasicMaterial({
-            color: hexColor,
+            color: glowColor,
             transparent: true,
+            blending: three.AdditiveBlending,
             depthTest: true,
             depthWrite: false,
             opacity: trailOpacities[tIdx],
@@ -1422,6 +1596,7 @@ export function Giro3DBarangayView({
 
         animatedPulsesRef.current.push({
           headMesh,
+          haloMesh,
           trailMeshes,
           curve,
           speed,
@@ -1430,7 +1605,7 @@ export function Giro3DBarangayView({
         });
       }
 
-      // Floating 3D destination label badge (hidden until this line is clicked/selected)
+      // Floating 3D destination label badge (glassmorphism cyber badge)
       const cleanDest = (move.destination || 'Destination').split(',')[0].trim();
       const destKey = `dest-${move.id}-${cleanDest}`;
       const destLabel = document.createElement('div');
@@ -1444,23 +1619,25 @@ export function Giro3DBarangayView({
         zIndex: '30',
         display: 'none', // Only shown when line is clicked/selected
         transform: 'translate(-50%, -130%)',
-        padding: '3px 8px',
-        borderRadius: '9999px',
-        background: 'rgba(15, 23, 42, 0.98)',
-        border: '2px solid #facc15',
-        color: '#fef08a',
-        font: '700 11px/1.2 system-ui, sans-serif',
+        padding: '4px 10px',
+        borderRadius: '8px',
+        background: 'rgba(10, 15, 29, 0.92)',
+        backdropFilter: 'blur(10px)',
+        border: `1.5px solid ${accentHex}`,
+        color: '#f8fafc',
+        font: '600 11px/1.3 system-ui, sans-serif',
         whiteSpace: 'nowrap',
         cursor: 'pointer',
         pointerEvents: 'auto',
-        boxShadow: '0 0 16px rgba(250, 204, 21, 0.65)',
-        transition: 'transform 0.15s ease',
+        boxShadow: `0 0 20px ${accentHex}55, 0 4px 12px rgba(0,0,0,0.6)`,
+        letterSpacing: '0.02em',
+        transition: 'transform 0.15s ease, box-shadow 0.15s ease',
       });
 
       destLabel.innerHTML = `
-        <span style="color: #facc15; margin-right: 3px;">📍</span>
-        <span>${cleanDest}</span>
-        <span style="margin-left: 4px; padding: 1px 4px; border-radius: 4px; background: rgba(250, 204, 21, 0.25); font-family: monospace; font-size: 10px; color: #fef08a;">${move.route_records ? move.route_records.reduce((total, record) => total + record.heads, 0) : move.heads}</span>
+        <span style="color: ${accentHex}; margin-right: 4px; font-size: 11px;">◈</span>
+        <span style="font-weight: 700; letter-spacing: 0.02em;">${cleanDest}</span>
+        <span style="margin-left: 6px; padding: 1px 6px; border-radius: 4px; background: ${accentHex}25; border: 1px solid ${accentHex}50; font-family: monospace; font-size: 10px; font-weight: 700; color: #ffffff;">${move.route_records ? move.route_records.reduce((total, record) => total + record.heads, 0) : move.heads} heads</span>
       `;
 
       destLabel.addEventListener('mouseenter', () => {
@@ -1478,38 +1655,54 @@ export function Giro3DBarangayView({
 
       host.appendChild(destLabel);
       destinationLabelsRef.current.set(destKey, destLabel);
-      destinationAnchorsRef.current.set(destKey, [endX, endY, beaconHeight + 40]);
+      destinationAnchorsRef.current.set(destKey, [endX, endY, endZ + beaconHeight + crystalRadius * 2 + 35]);
     }
 
     // Start forward pulse transport animation loop
-    if (animatedPulsesRef.current.length > 0 || animatedRingsRef.current.length > 0) {
+    if (animatedPulsesRef.current.length > 0 || animatedRingsRef.current.length > 0 || destinationBeaconsRef.current.length > 0) {
       const animatePulses = () => {
         const now = performance.now() * 0.001; // seconds
+
+        // Animate packet stream along curves
         for (const pulse of animatedPulsesRef.current) {
           // Progress parameter t advances towards destination (0 to 1)
           const t = (now * pulse.speed + pulse.offset) % 1.0;
 
           const headPt = pulse.curve.getPointAt(t);
           pulse.headMesh.position.copy(headPt);
+          if (pulse.haloMesh) {
+            pulse.haloMesh.position.copy(headPt);
+          }
 
           for (let i = 0; i < pulse.trailMeshes.length; i++) {
-            const trailT = Math.max(0, t - (0.02 + i * 0.025));
+            const trailT = Math.max(0, t - (0.015 + i * 0.022));
             const trailPt = pulse.curve.getPointAt(trailT);
             pulse.trailMeshes[i].position.copy(trailPt);
           }
 
           // Fade smoothly at departure from origin polygon and arrival at destination
           const fade = t < 0.06 ? t / 0.06 : t > 0.94 ? (1 - t) / 0.06 : 1;
-          (pulse.headMesh.material as import('three').MeshBasicMaterial).opacity = (pulse.isSelected ? 1.0 : 0.92) * fade;
+          (pulse.headMesh.material as import('three').MeshBasicMaterial).opacity = (pulse.isSelected ? 1.0 : 0.9) * fade;
+          if (pulse.haloMesh) {
+            (pulse.haloMesh.material as import('three').MeshBasicMaterial).opacity = (pulse.isSelected ? 0.75 : 0.45) * fade;
+          }
           pulse.trailMeshes.forEach((tm, i) => {
-            (tm.material as import('three').MeshBasicMaterial).opacity = (0.75 - i * 0.2) * fade;
+            (tm.material as import('three').MeshBasicMaterial).opacity = (0.75 - i * 0.16) * fade;
           });
         }
 
-        // Pulse the destination terminal beacons gently
-        const beaconPulse = 1 + 0.14 * Math.sin(now * 3.8);
+        // Animate destination waypoint crystals (rotation + subtle breathing)
+        const beaconPulse = 1 + 0.12 * Math.sin(now * 3.5);
         for (const beacon of destinationBeaconsRef.current) {
+          beacon.rotation.y += 0.025;
+          beacon.rotation.z += 0.012;
           beacon.scale.set(beaconPulse, beaconPulse, beaconPulse);
+        }
+
+        // Animate vertical light columns (pulsing laser beam intensity)
+        const pillarBreath = 0.35 + 0.12 * Math.sin(now * 3.0);
+        for (const pillar of destinationPillarsRef.current) {
+          (pillar.material as import('three').MeshBasicMaterial).opacity = pillarBreath;
         }
 
         // Pulse and expand ripple rings at origin polygon and destination landing
@@ -1518,6 +1711,19 @@ export function Giro3DBarangayView({
           const scale = 1 + cycle * (ring.maxScale - 1);
           ring.mesh.scale.set(scale, scale, 1);
           (ring.mesh.material as import('three').MeshBasicMaterial).opacity = 0.85 * (1 - cycle);
+        }
+
+        // Smoothly fade in newly materialized laser lines & chevrons during timeline cycles (seamless transition)
+        for (let i = materialsToFadeRef.current.length - 1; i >= 0; i--) {
+          const item = materialsToFadeRef.current[i];
+          const progress = Math.min(1.0, (now - item.mountTime) / 0.32);
+          item.material.opacity = item.targetOpacity * progress;
+          if (progress >= 1.0) {
+            if (item.targetOpacity >= 0.99) {
+              item.material.transparent = false;
+            }
+            materialsToFadeRef.current.splice(i, 1);
+          }
         }
 
         // Continuously notify Giro3D to render the animated frame at 60fps
@@ -1539,6 +1745,8 @@ export function Giro3DBarangayView({
       animatedPulsesRef.current = [];
       animatedRingsRef.current = [];
       destinationBeaconsRef.current = [];
+      destinationPillarsRef.current = [];
+      materialsToFadeRef.current = [];
     };
   }, [isSceneReady, activeLayer, showMovementOverlay, movements, selectedMovement, movementDisplayMode, barangaysByName]);
 
