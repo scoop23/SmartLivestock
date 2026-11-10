@@ -16,7 +16,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import api from "@/lib/axios";
-import { executeOrQueueOffline } from "@/lib/offline-sync-queue";
+import { executeOrQueueOffline, isOffline } from "@/lib/offline-sync-queue";
 import { localCalendarDateToday } from "@/lib/livestock-age";
 import { useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
 import {
@@ -323,7 +323,11 @@ export default function ProductionDashboardView({
 
   const diseaseReportsQuery = useQuery<DiseaseReportSummary[]>({
     queryKey: ["farmer-disease-reports-for-recording"],
-    queryFn: async () => (await api.get<DiseaseReportSummary[]>("diseases/cases/")).data,
+    queryFn: async () => {
+      const res = await api.get("diseases/cases/");
+      const data = Array.isArray(res.data) ? res.data : (res.data as any)?.results;
+      return (Array.isArray(data) ? data : []) as DiseaseReportSummary[];
+    },
     enabled: isWizardOpen,
     staleTime: 30_000,
   });
@@ -652,9 +656,40 @@ export default function ProductionDashboardView({
       return;
     }
 
-    const result = await diseaseReportsQuery.refetch();
-    const reports = result.data;
-    const lookupFailed = result.isError || !reports;
+    // When offline, evaluate against cached disease reports without network blockage
+    if (isOffline()) {
+      const cachedReports = diseaseReportsQuery.data ?? [];
+      const relatedAnimalIds = new Set([
+        String(payload.livestock),
+        ...(payload.selected_animals ?? []).map(String),
+      ]);
+      const targetBatchId = clickedInventory?.batchId
+        ?? (clickedInventory?.entryType === "BATCH" ? Number(clickedInventory.id) : null);
+      const verifiedReports = cachedReports.filter((report) =>
+        report.status === "VERIFIED" &&
+        (
+          (report.livestock != null && relatedAnimalIds.has(String(report.livestock)))
+          || (report.batch != null && targetBatchId != null && String(report.batch) === String(targetBatchId))
+        )
+      );
+      if (verifiedReports.length > 0) {
+        setDiseaseWarning({ payload, reports: verifiedReports, lookupFailed: false, blocked: true });
+        return;
+      }
+      submitMutation.mutate(payload);
+      return;
+    }
+
+    let reports: DiseaseReportSummary[] | undefined;
+    let lookupFailed = false;
+    try {
+      const result = await diseaseReportsQuery.refetch();
+      reports = Array.isArray(result.data) ? result.data : undefined;
+      lookupFailed = result.isError || !reports;
+    } catch {
+      lookupFailed = true;
+      reports = Array.isArray(diseaseReportsQuery.data) ? diseaseReportsQuery.data : undefined;
+    }
 
     const relatedAnimalIds = new Set([
       String(payload.livestock),
@@ -676,8 +711,12 @@ export default function ProductionDashboardView({
       return;
     }
     const pendingReports = matchingReports.filter((report) => report.status === "PENDING");
-    if (pendingReports.length > 0 || lookupFailed) {
-      setDiseaseWarning({ payload, reports: pendingReports, lookupFailed, blocked: lookupFailed });
+    if (pendingReports.length > 0) {
+      setDiseaseWarning({ payload, reports: pendingReports, lookupFailed: false, blocked: false });
+      return;
+    }
+    if (lookupFailed) {
+      setDiseaseWarning({ payload, reports: [], lookupFailed: true, blocked: false });
       return;
     }
     submitMutation.mutate(payload);

@@ -38,6 +38,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import api from "@/lib/axios";
+import { executeOrQueueOffline } from "@/lib/offline-sync-queue";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowUpDown,
@@ -134,8 +135,16 @@ export default function ProductionWeightTab({
 
   const logWeightMutation = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
-      const res = await api.post("production/weights/", payload);
-      return res.data;
+      const res = await executeOrQueueOffline<Record<string, unknown>>({
+        endpoint: "production/weights/",
+        method: "POST",
+        data: payload,
+        title: `Weight Log: ${payload.weight} kg`,
+        role: "FARMER",
+        category: "PRODUCTION",
+        fallbackResult: { id: Date.now(), ...payload },
+      });
+      return res;
     },
     onSuccess: () => {
       toast.success("Livestock weight recorded successfully!");

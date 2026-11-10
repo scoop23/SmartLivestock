@@ -577,7 +577,8 @@ export async function fetchUserInventory(includeInactive = false): Promise<Lives
   const res = await api.get<InventoryApiItem[]>("livestock/inventory/", {
     params: { mine: true, include_inactive: includeInactive },
   });
-  return res.data.map(mapInventory);
+  const data = Array.isArray(res.data) ? res.data : (res.data as any)?.results ?? [];
+  return data.map(mapInventory);
 }
 
 export async function createInventoryRecord(payload: CreateInventoryPayload) {

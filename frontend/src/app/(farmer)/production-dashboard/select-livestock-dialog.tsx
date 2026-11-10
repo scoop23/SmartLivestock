@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/components/ui/utils";
 import api from "@/lib/axios";
+import { isOffline } from "@/lib/offline-sync-queue";
 import { useQuery } from "@tanstack/react-query";
 import { formatCalendarDate,formatLivestockAge } from "@/lib/livestock-age";
 import {
@@ -163,9 +164,13 @@ export default function SelectLivestockDialog({
   } | null>(null);
   const diseaseReportsQuery = useQuery<DiseaseReportSummary[]>({
     queryKey: ["farmer-disease-reports-for-recording"],
-    queryFn: async () => (await api.get<DiseaseReportSummary[]>("diseases/cases/")).data,
+    queryFn: async () => {
+      const res = await api.get("diseases/cases/");
+      const data = Array.isArray(res.data) ? res.data : (res.data as any)?.results;
+      return (Array.isArray(data) ? data : []) as DiseaseReportSummary[];
+    },
     enabled: open && (warnOnActiveDisease || excludeSibatVerifiedDisease),
-    staleTime: 0,
+    staleTime: 30_000,
   });
 
   const verifiedReportMatchesItem = (item: LivestockInventoryItem) => {
@@ -175,13 +180,15 @@ export default function SelectLivestockDialog({
       ? items.filter((candidate) => candidate.batchId === batchId)
       : [item]
     ).map((candidate) => String(candidate.id)));
-    return diseaseReportsQuery.data.some((report) => report.status === "VERIFIED" && (
+    const reports = Array.isArray(diseaseReportsQuery.data) ? diseaseReportsQuery.data : [];
+    return reports.some((report) => report.status === "VERIFIED" && (
       (report.livestock != null && animalIds.has(String(report.livestock)))
       || (report.batch != null && batchId != null && report.batch === batchId)
     ));
   };
-  const diseaseLookupPending = excludeSibatVerifiedDisease && diseaseReportsQuery.isLoading;
-  const diseaseLookupFailed = excludeSibatVerifiedDisease && diseaseReportsQuery.isError;
+  const isCurrentlyOffline = isOffline();
+  const diseaseLookupPending = !isCurrentlyOffline && excludeSibatVerifiedDisease && diseaseReportsQuery.isLoading;
+  const diseaseLookupFailed = !isCurrentlyOffline && excludeSibatVerifiedDisease && diseaseReportsQuery.isError;
   const eligibleItems = diseaseLookupPending || diseaseLookupFailed
     ? []
     : items.filter((item) => !verifiedReportMatchesItem(item));
@@ -244,16 +251,55 @@ export default function SelectLivestockDialog({
       return;
     }
 
-    setIsCheckingDiseaseReports(true);
-    const result = await diseaseReportsQuery.refetch();
-    const reports = result.data;
-    const lookupFailed = result.isError || !reports;
-    setIsCheckingDiseaseReports(false);
-
-    if (lookupFailed || !reports) {
-      setDiseaseWarning({ item, reports: [], lookupFailed: true, blocked: excludeSibatVerifiedDisease });
+    if (isCurrentlyOffline) {
+      const reports = Array.isArray(diseaseReportsQuery.data) ? diseaseReportsQuery.data : [];
+      const selectedBatchId = item.batchId ?? (item.entryType === "BATCH" ? Number(item.id) : null);
+      const relatedAnimalIds = new Set(
+        (item.entryType === "BATCH"
+          ? items.filter((candidate) => candidate.batchId === selectedBatchId)
+          : [item]
+        ).map((candidate) => String(candidate.id)),
+      );
+      const matchingReports = reports.filter((report) =>
+        (warnOnActiveDisease || excludeSibatVerifiedDisease ? ["PENDING", "VERIFIED"] : ["PENDING"]).includes(report.status)
+        && (
+          (report.livestock != null && relatedAnimalIds.has(String(report.livestock)))
+          || (report.batch != null && selectedBatchId != null && report.batch === selectedBatchId)
+        ),
+      );
+      const verifiedMatches = excludeSibatVerifiedDisease
+        ? matchingReports.filter((report) => report.status === "VERIFIED")
+        : [];
+      if (verifiedMatches.length > 0) {
+        setDiseaseWarning({ item, reports: verifiedMatches, lookupFailed: false, blocked: true });
+        return;
+      }
+      if (matchingReports.length > 0) {
+        setDiseaseWarning({ item, reports: matchingReports, lookupFailed: false, blocked: false });
+        return;
+      }
+      confirmSelection(item);
       return;
     }
+
+    setIsCheckingDiseaseReports(true);
+    let reports: DiseaseReportSummary[] | undefined;
+    let lookupFailed = false;
+    try {
+      const result = await diseaseReportsQuery.refetch();
+      reports = Array.isArray(result.data) ? result.data : undefined;
+      lookupFailed = result.isError || !reports;
+    } catch {
+      lookupFailed = true;
+      reports = Array.isArray(diseaseReportsQuery.data) ? diseaseReportsQuery.data : undefined;
+    }
+    setIsCheckingDiseaseReports(false);
+
+    if (lookupFailed && (!reports || reports.length === 0)) {
+      setDiseaseWarning({ item, reports: [], lookupFailed: true, blocked: false });
+      return;
+    }
+    const effectiveReports = reports || [];
 
     const selectedBatchId = item.batchId ?? (item.entryType === "BATCH" ? Number(item.id) : null);
     const relatedAnimalIds = new Set(
@@ -262,7 +308,7 @@ export default function SelectLivestockDialog({
         : [item]
       ).map((candidate) => String(candidate.id)),
     );
-    const matchingReports = reports.filter((report) =>
+    const matchingReports = effectiveReports.filter((report) =>
       (warnOnActiveDisease || excludeSibatVerifiedDisease ? ["PENDING", "VERIFIED"] : ["PENDING"]).includes(report.status)
       && (
         (report.livestock != null && relatedAnimalIds.has(String(report.livestock)))

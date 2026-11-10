@@ -46,8 +46,8 @@ const outputTutorialSteps: Record<ProductionType, DriveStep[]> = {
     { element: "#milkTime", popover: { title: "Milking session", description: "Choose the session that matches this collection. Check the date and session to avoid recording the same collection twice." } },
   ],
   meat: [
-    { element: "#meatQty", popover: { title: "Recorded meat yield in kilograms", description: "Enter the actual meat yield for this event. For an individual animal, this entry creates a pending slaughter notice; inventory changes follow the separate MAO approval workflow." } },
-    { element: "#meatPurpose", popover: { title: "Purpose of the meat output", description: "Choose the purpose that matches this slaughter or meat-yield event, such as household use or market distribution." } },
+    { element: "#meatQty", popover: { title: "Recorded meat yield in kilograms", description: "Enter the actual meat yield in kilograms for your farm records." } },
+    { element: "#meatPurpose", popover: { title: "Purpose of the meat output", description: "Choose the purpose that matches this meat yield event, such as household use or market distribution." } },
   ],
   eggs: [
     { element: "#eggQty", popover: { title: "Number of eggs collected", description: "Enter the number of eggs collected for this entry. Count individual eggs, not trays or dozens." } },
@@ -257,7 +257,7 @@ function ProductionWizardContent({
             : [
                 { element: '[data-tour="production-wizard-review"]', popover: { title: "Review the entry", description: "Check the livestock, date, and production values before saving.", side: "top" as const, align: "center" as const } },
                 { element: '[data-tour="production-wizard-certification"]', popover: { title: "Confirm the declaration", description: "Check this confirmation only when the information reflects what you are reporting.", side: "top" as const, align: "center" as const } },
-                { element: '[data-tour="production-wizard-submit"]', popover: { title: "Save farm log", description: productionType === "meat" ? "The meat-yield log is saved in your farm history. A linked individual-animal slaughter notice follows its separate MAO review workflow." : "Save this production entry to your personal farm history after checking the livestock, date, quantity, and unit.", side: "top" as const, align: "center" as const } },
+                { element: '[data-tour="production-wizard-submit"]', popover: { title: "Save farm log", description: "Save this production entry to your personal farm history after checking the livestock, date, quantity, and unit.", side: "top" as const, align: "center" as const } },
               ]),
       ...(step < 3
         ? [{
@@ -760,15 +760,6 @@ function ProductionWizardContent({
                 </section>
               )}
 
-              {productionType === "meat" && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3.5" role="note">
-                  <p className="text-xs leading-relaxed text-amber-950">
-                    {clickedInventory?.entryType === "INDIVIDUAL" && clickedInventory.quantity === 1
-                      ? "This saves your personal meat-yield log and creates a pending official slaughter notice for this animal. The animal stays active until MAO approves the notice."
-                      : "This batch meat-yield entry is a personal log. It does not change individual animal statuses or create an official slaughter notice without exact animal selection."}
-                  </p>
-                </div>
-              )}
               <div data-tour="production-wizard-fields">
                 <ProductionFormFields
                   type={productionType}
@@ -816,14 +807,6 @@ function ProductionWizardContent({
                   }
                 />
                 <ReviewRow label="Production Type" value={meta.label} />
-                {productionType === "meat" && (
-                  <ReviewRow
-                    label="Inventory effect"
-                    value={clickedInventory?.entryType === "INDIVIDUAL" && clickedInventory.quantity === 1
-                      ? "Pending official review; inventory changes only after MAO approval"
-                      : "No individual inventory status change"}
-                  />
-                )}
                 <ReviewRow
                   label="Date"
                   value={formatDate(String(formState.prodDate ?? new Date().toISOString().split("T")[0]))}
@@ -855,9 +838,7 @@ function ProductionWizardContent({
                   htmlFor="certify-production"
                   className="min-w-0 flex-1 text-xs sm:text-sm font-semibold text-slate-800 leading-relaxed cursor-pointer select-none"
                 >
-                  {productionType === "meat" && clickedInventory?.entryType === "INDIVIDUAL" && clickedInventory.quantity === 1
-                    ? "I confirm this meat yield is from the selected animal and understand that the official slaughter notice needs MAO approval before inventory changes."
-                    : "I confirm this farm log reflects the information available to me."}
+                  I confirm this farm log reflects the information available to me.
                 </label>
               </div>
 

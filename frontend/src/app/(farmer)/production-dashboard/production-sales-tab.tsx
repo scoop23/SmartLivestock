@@ -27,6 +27,7 @@ SelectTrigger,
 SelectValue,
 } from "@/components/ui/select";
 import api from "@/lib/axios";
+import { executeOrQueueOffline } from "@/lib/offline-sync-queue";
 import axios from "axios";
 import { useParams, useSearchParams } from "next/navigation";
 import { useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
@@ -471,8 +472,16 @@ export default function ProductionSalesTab({
       if (payload.notes) body.append("notes", payload.notes);
       if (payload.original_certificate_number) body.append("original_certificate_number", payload.original_certificate_number);
       if (intentDocument && intentType === "FOR_SALE") body.append("supporting_document", intentDocument);
-      const res = await api.post("production/dispositions/", body);
-      return res.data;
+      const res = await executeOrQueueOffline<{ id: number; reference: string; references?: string[]; count?: number }>({
+        endpoint: "production/dispositions/",
+        method: "POST",
+        data: body,
+        title: `Auction Preregistration (${payload.intent})`,
+        role: "FARMER",
+        category: "PRODUCTION",
+        fallbackResult: { id: Date.now(), reference: `AP-OFFLINE-${Date.now().toString().slice(-4)}`, count: payload.livestock_ids.length },
+      });
+      return res;
     },
     onSuccess: (data: { id: number; reference: string; references?: string[]; count?: number }) => {
       const count = data.count || selectedAnimalIds.length || 1;

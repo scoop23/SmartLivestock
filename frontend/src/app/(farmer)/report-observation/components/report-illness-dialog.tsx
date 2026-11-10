@@ -19,7 +19,7 @@ SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import api from "@/lib/axios";
-import { executeOrQueueOffline } from "@/lib/offline-sync-queue";
+import { executeOrQueueOffline, isOffline } from "@/lib/offline-sync-queue";
 import { localCalendarDateToday } from "@/lib/livestock-age";
 import { saveAttachedPhoto } from "@/lib/photo-storage";
 import { cowHead } from "@lucide/lab";
@@ -111,6 +111,7 @@ function ReportIllnessDialogContent({
       return (Array.isArray(data) ? data : []) as LinkableDiseaseCase[];
     },
     enabled: open,
+    staleTime: 30_000,
   });
   const {
     data: mortalityRecords = [],
@@ -123,6 +124,7 @@ function ReportIllnessDialogContent({
       return (Array.isArray(data) ? data : []) as PendingMortalityReport[];
     },
     enabled: open,
+    staleTime: 30_000,
   });
   const [selectedInventoryId, setSelectedInventoryId] = useState<string>(() => {
     if (isEditMode && existingReport) {
@@ -238,7 +240,7 @@ function ReportIllnessDialogContent({
     [eligibleAnimals, isEditMode, pendingReportAnimalIds],
   );
   const isCheckingPendingReports =
-    open && (isFetchingDiseaseCases || (reportType === "MORTALITY" && isFetchingMortalityRecords));
+    !isOffline() && open && (isFetchingDiseaseCases || (reportType === "MORTALITY" && isFetchingMortalityRecords));
   const sortedSelectableAnimals = useMemo(
     () => [...selectableAnimals].sort((a, b) => {
       const tagA = a.tagNumber || `Animal #${a.id}`;
@@ -401,39 +403,40 @@ function ReportIllnessDialogContent({
           const endpoint = reportType === "DISEASE"
             ? `diseases/cases/${endpointId}/`
             : `diseases/mortality/${endpointId}/`;
-          response = await executeOrQueueOffline<{ data?: { id?: number | string; photo_url?: string; photo?: string } }>({
+          response = await executeOrQueueOffline<{ id?: number | string; photo_url?: string; photo?: string; data?: { id?: number | string; photo_url?: string; photo?: string } }>({
             endpoint,
             method: "PATCH",
             data: requestData,
             title: `Updated ${reportTitle}`,
             role: "FARMER",
             category: "OBSERVATION",
-            fallbackResult: { data: { id: endpointId, photo_url: photoDataUrl } },
+            fallbackResult: { id: endpointId, photo_url: photoDataUrl },
           });
         } else {
           const endpoint = reportType === "DISEASE" ? "diseases/cases/" : "diseases/mortality/";
-          response = await executeOrQueueOffline<{ data?: { id?: number | string; photo_url?: string; photo?: string } }>({
+          response = await executeOrQueueOffline<{ id?: number | string; photo_url?: string; photo?: string; data?: { id?: number | string; photo_url?: string; photo?: string } }>({
             endpoint,
             method: "POST",
             data: requestData,
             title: reportTitle,
             role: "FARMER",
             category: "OBSERVATION",
-            fallbackResult: { data: { id: syntheticId, photo_url: photoDataUrl } },
+            fallbackResult: { id: syntheticId, photo_url: photoDataUrl },
           });
         }
         submittedCount += reportType === "MORTALITY" ? inventoryGroup.length : 1;
         submittedInventoryIds.push(...inventoryGroup);
-        if (!isEditMode && response.data?.id) {
+        const returnedId = (response as any)?.id ?? (response as any)?.data?.id ?? syntheticId;
+        if (!isEditMode && returnedId) {
           submittedReportIds.push(
-            `${reportType === "DISEASE" ? "DIS" : "MOR"}-${response.data.id}`,
+            `${reportType === "DISEASE" ? "DIS" : "MOR"}-${returnedId}`,
           );
         }
 
-        const activeUrl = response.data?.photo_url || response.data?.photo || photoDataUrl;
-        if (activeUrl && response.data?.id) {
+        const activeUrl = (response as any)?.photo_url || (response as any)?.photo || (response as any)?.data?.photo_url || photoDataUrl;
+        if (activeUrl && returnedId) {
           const reportPrefix = reportType === "DISEASE" ? "DIS" : "MOR";
-          saveAttachedPhoto(`${reportPrefix}-${response.data.id}`, {
+          saveAttachedPhoto(`${reportPrefix}-${returnedId}`, {
             photoUrl: activeUrl,
             photoName: photoName || (isDisease ? "farmer_attached_evidence.jpg" : "mortality_evidence_photo.jpg"),
             timestamp: new Date().toISOString(),

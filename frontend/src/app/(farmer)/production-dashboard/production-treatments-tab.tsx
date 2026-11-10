@@ -36,6 +36,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import api from "@/lib/axios";
+import { executeOrQueueOffline } from "@/lib/offline-sync-queue";
 import { formatCalendarDate, localCalendarDateToday } from "@/lib/livestock-age";
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -255,7 +256,7 @@ export default function ProductionTreatmentsTab({
   const logTreatmentMutation = useMutation({
     mutationFn: async () => {
       if (!selectedLivestockId) throw new Error("Please select an animal");
-      const res = await api.post("production/treatments/", {
+      const payload = {
         livestock: Number(selectedLivestockId),
         treatment_date: treatmentDate,
         treatment_type: treatmentType,
@@ -266,8 +267,17 @@ export default function ProductionTreatmentsTab({
         administered_by: administeredBy,
         notes,
         follow_up_date: followUpDate || null,
+      };
+      const res = await executeOrQueueOffline<Record<string, unknown>>({
+        endpoint: "production/treatments/",
+        method: "POST",
+        data: payload,
+        title: `Treatment: ${medicationName || treatmentType}`,
+        role: "FARMER",
+        category: "PRODUCTION",
+        fallbackResult: { id: Date.now(), ...payload },
       });
-      return res.data;
+      return res;
     },
     onSuccess: () => {
       toast.success("Clinical veterinary treatment recorded successfully!");

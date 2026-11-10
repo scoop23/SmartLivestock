@@ -172,7 +172,16 @@ export default function LoginPage() {
       localStorage.setItem('access', access);
       localStorage.setItem('refresh', refresh);
       await fetchUser();
-      warmOfflineCache(decoded.role, true);
+      
+      // Pre-cache all essential field data immediately so the farmer can use the PWA offline
+      try {
+        await Promise.race([
+          warmOfflineCache(decoded.role, true),
+          new Promise((resolve) => setTimeout(resolve, 2500)),
+        ]);
+      } catch (warmErr) {
+        console.warn('[Login] Offline cache warming notice:', warmErr);
+      }
 
       toast.success('Welcome back!', {
         description: `Signed in successfully as ${decoded.role}.`,

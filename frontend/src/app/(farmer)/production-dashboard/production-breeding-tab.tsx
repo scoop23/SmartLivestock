@@ -282,12 +282,20 @@ export default function ProductionBreedingTab({
 
   const confirmPregnancyMutation = useMutation({
     mutationFn: async ({ id, date, method, notes }: { id: number; date: string; method: string; notes: string }) => {
-      const res = await api.post(`production/breeding/${id}/confirm-pregnancy/`, {
-        confirmation_date: date,
-        confirmation_method: method,
-        notes,
+      const res = await executeOrQueueOffline<Record<string, unknown>>({
+        endpoint: `production/breeding/${id}/confirm-pregnancy/`,
+        method: "POST",
+        data: {
+          confirmation_date: date,
+          confirmation_method: method,
+          notes,
+        },
+        title: `Confirm Pregnancy (#${id})`,
+        role: "FARMER",
+        category: "PRODUCTION",
+        fallbackResult: { id, success: true },
       });
-      return res.data;
+      return res;
     },
     onSuccess: () => {
       toast.success("Pregnancy confirmed and recorded in official registry!");

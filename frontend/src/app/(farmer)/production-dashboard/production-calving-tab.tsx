@@ -189,8 +189,16 @@ export default function ProductionCalvingTab({
       id: number;
       payload: EditableCalvingFields;
     }) => {
-      const res = await api.patch(`production/calving/${id}/`, payload);
-      return res.data;
+      const res = await executeOrQueueOffline<Record<string, unknown>>({
+        endpoint: `production/calving/${id}/`,
+        method: "PATCH",
+        data: payload as unknown as Record<string, unknown>,
+        title: `Corrected Calving (#${id})`,
+        role: "FARMER",
+        category: "CALVING",
+        fallbackResult: { id, ...payload },
+      });
+      return res;
     },
     onSuccess: () => {
       toast.success(`${terms.eventName} record corrected & resubmitted for review.`);

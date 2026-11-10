@@ -15,10 +15,7 @@ import { useUserInventory } from "../livestock-inventory/livestock-inventory";
 import EnterpriseEmptyState from "./components/enterprise-empty-state";
 import type { ProductionType } from "./production-analytics";
 import RecordActivityChooser from "./record-activity-chooser";
-
-const ProductionDashboardView = dynamic(() => import("./production-dashboard-view"), {
-  loading: () => <Skeleton className="h-48 w-full rounded-2xl" />,
-});
+import ProductionDashboardView from "./production-dashboard-view";
 
 type SelectedRecordActivity = {
   id: string;
