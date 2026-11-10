@@ -21,6 +21,7 @@ import {
   ClipboardList,
   Clock,
   Clock3,
+  Database,
   FileSpreadsheet,
   MapPin,
   Megaphone,
@@ -523,6 +524,7 @@ function SibatPortalContent() {
           <div className={`w-full px-4 sm:px-6 lg:px-8 py-6 ${showContent ? "absolute inset-0 z-30 pointer-events-none" : ""}`}>
             <ValidationLoadingScreen
               isLoading={isInitialQueueLoading}
+              role="CBAT"
               title="Loading SIBAT Field Inspection Center"
               subtitle="Connecting your authorized livestock, calving, health, mortality, and census review queues."
               badgeLabel="SIBAT Queue Sync"
@@ -548,6 +550,13 @@ function SibatPortalContent() {
                   sublabel: "Quarterly livestock surveys",
                   icon: <FileSpreadsheet className="size-4" />,
                   loaded: !isLoadingCensus,
+                },
+                {
+                  id: "outbox",
+                  label: "CBAT Offline Outbox Engine",
+                  sublabel: "Local device cache & automatic reconnection sync",
+                  icon: <Database className="size-4" />,
+                  loaded: true,
                 },
               ]}
             />
@@ -914,6 +923,7 @@ export default function SibatPortal() {
 
     <Suspense fallback={
       <ValidationLoadingScreen
+        role="CBAT"
         title="Opening SIBAT Field Inspection Center"
         subtitle="Preparing the authorized review workspace."
         badgeLabel="SIBAT Workspace"

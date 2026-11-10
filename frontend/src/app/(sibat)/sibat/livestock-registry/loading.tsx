@@ -19,6 +19,7 @@ export default function LivestockRegistryLoading() {
       <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
         <ValidationLoadingScreen
           isLoading={true}
+          role="CBAT"
           title="Loading Farmer Records"
           subtitle="Preparing individual livestock, herd submissions, and barangay records..."
           badgeLabel="Livestock Records Sync"

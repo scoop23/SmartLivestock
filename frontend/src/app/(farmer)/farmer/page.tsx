@@ -34,6 +34,7 @@ import { useFarmerDashboardAnalytics } from "./farmer-analytics";
 import FarmerCharts from "./farmer-charts";
 import FarmerStats from "./farmer-stats";
 import { FarmerMarketPriceCard } from "../components/market-price-reference";
+import { warmOfflineCache } from "@/lib/offline-cache-warmer";
 
 export default function FarmerDashboard() {
   const tutorialsEnabled = useAutomaticTutorialsEnabled();
@@ -72,6 +73,13 @@ export default function FarmerDashboard() {
     updateTime();
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Pre-cache all farmer records & pages in background for field PWA offline use
+  useEffect(() => {
+    if (typeof window !== "undefined" && navigator.onLine) {
+      warmOfflineCache("FARMER");
+    }
   }, []);
 
   const startDashboardTour = useCallback(() => {
@@ -487,18 +495,15 @@ export default function FarmerDashboard() {
           <div className={`w-full px-4 sm:px-6 lg:px-8 py-6 ${showContent ? "absolute inset-0 z-30 pointer-events-none" : ""}`}>
             <ValidationLoadingScreen
               isLoading={isLoading}
+              role="FARMER"
               title="Loading Your Farmer Dashboard"
               subtitle="Gathering your livestock, production, health, and recent record updates..."
               badgeLabel="Farmer Dashboard Sync"
               authorityText="SmartLivestock · Padre Garcia, Batangas"
-              items={[
-                {
-                  id: "farmer-dashboard",
-                  label: "Your Farm Overview",
-                  sublabel: "Livestock, production, health, and recent activity",
-                  loaded: !isLoading,
-                },
-              ]}
+              inventoryLoaded={!isLoading}
+              productionLoaded={!isLoading}
+              incidentLoaded={!isLoading}
+              censusLoaded={!isLoading}
             />
           </div>
         )}

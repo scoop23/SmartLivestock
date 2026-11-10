@@ -1747,6 +1747,7 @@ function SibatBatchesVerificationContent() {
         <div className="mx-auto w-full p-4 sm:p-6 lg:px-8 lg:py-8 space-y-6">
           <ValidationLoadingScreen
             isLoading={isInitialLoading}
+            role="CBAT"
             title="Loading Livestock Batches & Herds"
             subtitle="Connecting registered animal batches, head counts, and barangay records..."
             badgeLabel="Livestock Sync"

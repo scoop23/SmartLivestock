@@ -1409,6 +1409,7 @@ export default function LivestockDetailPage() {
         <div className="w-full p-3 sm:p-4 md:p-6">
           <ValidationLoadingScreen
             isLoading={isGlobalLoading}
+            role="FARMER"
             title="Loading Livestock Profile"
             subtitle="Retrieving this animal’s registration details and checking the farmer’s livestock records..."
             badgeLabel="Animal Record Sync"

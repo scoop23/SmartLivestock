@@ -642,6 +642,7 @@ function SibatLivestockRegistryContent() {
         <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
           <ValidationLoadingScreen
             isLoading={isInitialLoading}
+            role="CBAT"
             title="Loading Farmer Records"
             subtitle="Synchronizing individual livestock registrations, herd submissions, and barangay records..."
             badgeLabel="Livestock Records Sync"
@@ -1630,6 +1631,7 @@ export default function SibatLivestockRegistryPage() {
           <div className="mx-auto w-full p-3.5 sm:p-6 lg:px-8">
             <ValidationLoadingScreen
               isLoading={true}
+              role="CBAT"
               title="Loading Livestock Records"
               subtitle="Synchronizing individual livestock registrations, herd submissions, and barangay records..."
               badgeLabel="Livestock Records Sync"
