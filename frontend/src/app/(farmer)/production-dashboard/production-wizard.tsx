@@ -267,6 +267,11 @@ function ProductionWizardContent({
         : []),
     ];
 
+    const eligibleSteps = steps.filter((item) => typeof item.element !== "string" ||
+      Array.from(document.querySelectorAll(item.element)).some((element) => element.getClientRects().length > 0));
+
+    if (eligibleSteps.length === 0) return;
+
     wizardTour.current = startGuidedTutorial({
       showProgress: true,
       animate: true,
@@ -275,8 +280,7 @@ function ProductionWizardContent({
       prevBtnText: "Back",
       doneBtnText: "Finish",
       progressText: "{{current}} of {{total}}",
-      steps: steps.filter((item) => typeof item.element !== "string" ||
-        Array.from(document.querySelectorAll(item.element)).some((element) => element.getClientRects().length > 0)),
+      steps: eligibleSteps,
       onDestroyed: () => { wizardTour.current = undefined; },
     });
   }, [step, productionType]);

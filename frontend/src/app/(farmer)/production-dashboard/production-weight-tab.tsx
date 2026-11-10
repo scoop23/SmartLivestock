@@ -91,10 +91,12 @@ export default function ProductionWeightTab({
   approvedInventories,
   autoOpen = false,
   selectedSpecies,
+  onClose,
 }: {
   approvedInventories: LivestockInventoryItem[];
   autoOpen?: boolean;
   selectedSpecies?: string;
+  onClose?: () => void;
 }) {
   const tutorialsEnabled = useAutomaticTutorialsEnabled();
   const queryClient = useQueryClient();
@@ -149,6 +151,7 @@ export default function ProductionWeightTab({
     onSuccess: () => {
       toast.success("Livestock weight recorded successfully!");
       setIsLogOpen(false);
+      if (autoOpen) onClose?.();
       setSelectedLivestockId("");
       setWeightVal("");
       setNotes("");
@@ -626,7 +629,10 @@ export default function ProductionWeightTab({
       </Card>
 
       {/* Log Weight Dialog */}
-      <Dialog open={isLogOpen} onOpenChange={setIsLogOpen}>
+      <Dialog open={isLogOpen} onOpenChange={(open) => {
+        setIsLogOpen(open);
+        if (!open && autoOpen) onClose?.();
+      }}>
         <DialogContent className="sm:max-w-md p-6 rounded-2xl">
           <DialogHeader className="flex-row items-start justify-between gap-3">
             <div className="space-y-1.5">

@@ -1,6 +1,6 @@
-// SmartLivestock Service Worker — Padre Garcia Biosecurity & Field PWA (v6)
+// SmartLivestock Service Worker — Padre Garcia Biosecurity & Field PWA (v7)
 // Clean Cache Partitioning: Isolates HTML Navigation from Next.js RSC Wire Streams
-const CACHE_VERSION = "v6";
+const CACHE_VERSION = "v7";
 const CACHE_HTML = `smartlivestock-html-${CACHE_VERSION}`;
 const CACHE_RSC = `smartlivestock-rsc-${CACHE_VERSION}`;
 const CACHE_STATIC = `smartlivestock-static-${CACHE_VERSION}`;
@@ -221,16 +221,9 @@ self.addEventListener("fetch", (event) => {
           const pathnameMatch = await rscCache.match(url.pathname, MATCH_OPTIONS);
           if (pathnameMatch) return pathnameMatch;
 
-          // Sub-route fallbacks for RSC
-          if (url.pathname.startsWith("/production-dashboard/")) {
-            const baseMatch = await rscCache.match("/production-dashboard", MATCH_OPTIONS);
-            if (baseMatch) return baseMatch;
-          }
-          if (url.pathname.startsWith("/livestock-inventory/")) {
-            const baseMatch = await rscCache.match("/livestock-inventory", MATCH_OPTIONS);
-            if (baseMatch) return baseMatch;
-          }
-
+          // Note: Never return a parent route's RSC payload for a dynamic child route
+          // (e.g. returning /production-dashboard RSC for /production-dashboard/Cattle)
+          // because Next.js flight reconciler will crash. Returning 503 triggers a clean hard navigation.
           return new Response("", {
             status: 503,
             statusText: "Offline RSC Unavailable",

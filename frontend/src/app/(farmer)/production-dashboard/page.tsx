@@ -4,7 +4,6 @@ import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Info, Sparkles } from "lucide-react";
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { type DriveStep } from "driver.js";
@@ -184,30 +183,25 @@ export default function ProductionDashboardPage() {
           </div>
         ) : approvedInventories.length === 0 && activeIntentInventories.length === 0 ? (
           <EnterpriseEmptyState />
+        ) : selectedActivity ? (
+          <ProductionDashboardView
+            key={`${recordDialogInstance}-${selectedActivity.id}-${selectedActivity.species.join("-")}`}
+            selectedSpecies={selectedActivity.species.length === 1 ? selectedActivity.species[0] : "ALL"}
+            showEnterpriseSwitch={false}
+            initialActivity={selectedActivity.id}
+            initialMode="record"
+            initialEligibleSpecies={selectedActivity.species}
+            onReturnToChooser={() => setSelectedActivity(null)}
+          />
         ) : (
-          <>
-            <RecordActivityChooser
-              inventories={approvedInventories}
-              intentInventories={activeIntentInventories}
-              onRecord={(activity) => {
-                setRecordDialogInstance((instance) => instance + 1);
-                setSelectedActivity(activity);
-              }}
-            />
-            {selectedActivity && (
-              <div className="hidden">
-                <ProductionDashboardView
-                  key={`${recordDialogInstance}-${selectedActivity.id}-${selectedActivity.species.join("-")}`}
-                  selectedSpecies={selectedActivity.species.length === 1 ? selectedActivity.species[0] : "ALL"}
-                  showEnterpriseSwitch={false}
-                  initialActivity={selectedActivity.id}
-                  initialMode="record"
-                  initialEligibleSpecies={selectedActivity.species}
-                  onReturnToChooser={() => setSelectedActivity(null)}
-                />
-              </div>
-            )}
-          </>
+          <RecordActivityChooser
+            inventories={approvedInventories}
+            intentInventories={activeIntentInventories}
+            onRecord={(activity) => {
+              setRecordDialogInstance((instance) => instance + 1);
+              setSelectedActivity(activity);
+            }}
+          />
         )}
       </div>
     </>

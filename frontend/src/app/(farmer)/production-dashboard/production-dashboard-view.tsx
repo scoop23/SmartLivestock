@@ -1302,6 +1302,7 @@ export default function ProductionDashboardView({
           approvedInventories={focusedActivity ? activityInventories : approvedInventories}
           selectedSpecies={selectedSpecies}
           autoOpen={focusedActivity === "breeding" && focusedMode === "record"}
+          onClose={returnToActivityChooser}
         />
       )}
 
@@ -1312,6 +1313,7 @@ export default function ProductionDashboardView({
           existingInventoryTags={existingInventoryTags}
           selectedSpecies={selectedSpecies}
           autoOpen={focusedActivity === "calving" && focusedMode === "record"}
+          onClose={returnToActivityChooser}
         />
       )}
 
@@ -1321,6 +1323,7 @@ export default function ProductionDashboardView({
           approvedInventories={focusedActivity ? activityInventories : filteredInventories}
           selectedSpecies={selectedSpecies || undefined}
           autoOpen={focusedActivity === "weights" && focusedMode === "record"}
+          onClose={returnToActivityChooser}
         />
       )}
 
@@ -1331,6 +1334,7 @@ export default function ProductionDashboardView({
           selectedSpecies={selectedSpecies}
           autoOpen={Boolean(["feedings", "feeding"].includes(focusedActivity ?? "") && focusedMode === "record")}
           initialLivestockId={initialFeedingLivestockId}
+          onClose={returnToActivityChooser}
         />
       )}
 

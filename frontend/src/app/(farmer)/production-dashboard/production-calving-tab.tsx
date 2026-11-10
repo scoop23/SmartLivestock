@@ -125,11 +125,13 @@ export default function ProductionCalvingTab({
   existingInventoryTags = [],
   selectedSpecies,
   autoOpen = false,
+  onClose,
 }: {
   approvedInventories: LivestockInventoryItem[];
   existingInventoryTags?: string[];
   selectedSpecies?: string | null;
   autoOpen?: boolean;
+  onClose?: () => void;
 }) {
   const queryClient = useQueryClient();
   const [isRecordOpen, setIsRecordOpen] = useState(autoOpen);
@@ -172,6 +174,7 @@ export default function ProductionCalvingTab({
     onSuccess: () => {
       toast.success(`${terms.eventName} & birth record logged successfully!`);
       setIsRecordOpen(false);
+      if (autoOpen) onClose?.();
       queryClient.invalidateQueries({ queryKey: ["calving_records"] });
       queryClient.invalidateQueries({ queryKey: ["breeding_records"] });
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
@@ -322,7 +325,10 @@ export default function ProductionCalvingTab({
       {/* Birthing Registration Modal Dialog */}
       <BirthingRegistrationDialog
         open={isRecordOpen}
-        onOpenChange={setIsRecordOpen}
+        onOpenChange={(open) => {
+          setIsRecordOpen(open);
+          if (!open && autoOpen) onClose?.();
+        }}
         terms={terms}
         femaleLivestock={femaleLivestock}
         maleLivestock={maleLivestock}

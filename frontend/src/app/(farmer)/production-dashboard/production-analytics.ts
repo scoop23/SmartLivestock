@@ -384,7 +384,8 @@ export function computeProductionAnalytics(records: ProductionRecordItem[]): Pro
     let verifiedEstimatedValue = 0;
 
     valuedRecords.forEach((record) => {
-      const month = record.recordDate.slice(0, 7);
+      const month = (record.recordDate || "").slice(0, 7);
+      if (!month) return;
       const val = Number(record.valuationSnapshot!.estimated_value) || 0;
       totalEstimatedValue += val;
 

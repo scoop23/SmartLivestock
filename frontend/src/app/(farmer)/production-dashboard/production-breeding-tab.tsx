@@ -117,6 +117,7 @@ interface ProductionBreedingTabProps {
   approvedInventories: LivestockInventoryItem[];
   selectedSpecies?: string | null;
   autoOpen?: boolean;
+  onClose?: () => void;
 }
 
 const statusBadgeClasses: Record<BreedingRecordItem["status"], string> = {
@@ -137,6 +138,7 @@ export default function ProductionBreedingTab({
   approvedInventories,
   selectedSpecies,
   autoOpen = false,
+  onClose,
 }: ProductionBreedingTabProps) {
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(autoOpen);
@@ -378,6 +380,7 @@ export default function ProductionBreedingTab({
     onSuccess: () => {
       toast.success("Breeding & insemination record saved successfully!");
       setIsDialogOpen(false);
+      if (autoOpen) onClose?.();
       queryClient.invalidateQueries({ queryKey: ["breeding_records"] });
       queryClient.invalidateQueries({ queryKey: ["breeding_analytics"] });
     },
@@ -820,7 +823,10 @@ export default function ProductionBreedingTab({
       {/* Modal Dialog for Recording Breeding */}
       <BreedingRegistrationDialog
         open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
+        onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open && autoOpen) onClose?.();
+        }}
         femaleLivestock={femaleLivestock}
         maleLivestock={maleLivestock}
         onSubmit={(payload) => createMutation.mutate(payload)}

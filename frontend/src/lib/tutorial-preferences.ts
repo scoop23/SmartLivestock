@@ -45,7 +45,23 @@ export function startGuidedTutorial(config: Config): ReturnType<typeof driver> |
   const existingButtons = config.showButtons ?? ["next", "previous"];
   const showButtons = Array.from(new Set([...existingButtons, "close" as const]));
 
-  const steps = config.steps?.map((step) => {
+  const rawSteps = config.steps ?? [];
+  const validSteps = rawSteps.filter((step) => {
+    if (!step) return false;
+    if (typeof step.element === "string") {
+      const el = document.querySelector(step.element);
+      if (!el || (el instanceof HTMLElement && el.offsetParent === null && el.getClientRects().length === 0)) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  if (validSteps.length === 0) {
+    return undefined;
+  }
+
+  const steps = validSteps.map((step) => {
     if (!step.popover) return step;
     return {
       ...step,
@@ -130,6 +146,11 @@ export function startGuidedTutorial(config: Config): ReturnType<typeof driver> |
     },
   });
 
-  driverInstance.drive();
-  return driverInstance;
+  try {
+    driverInstance.drive();
+    return driverInstance;
+  } catch (err) {
+    console.warn("[SmartLivestock Tutorial] Failed to start guided tour:", err);
+    return undefined;
+  }
 }

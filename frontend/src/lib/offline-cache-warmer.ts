@@ -137,7 +137,7 @@ export async function warmOfflineCache(role?: string | null, force: boolean = fa
 
       // Store HTML in CACHE_HTML
       if ("caches" in window && contentType.includes("text/html")) {
-        const htmlCache = await caches.open("smartlivestock-html-v6");
+        const htmlCache = await caches.open("smartlivestock-html-v7");
         await htmlCache.put(
           pageUrl,
           new Response(htmlText, {
@@ -162,7 +162,7 @@ export async function warmOfflineCache(role?: string | null, force: boolean = fa
 
       // Warm static chunks into the static cache
       if ("caches" in window && assetUrls.length > 0) {
-        const staticCache = await caches.open("smartlivestock-static-v6");
+        const staticCache = await caches.open("smartlivestock-static-v7");
         assetUrls.slice(0, 30).forEach((assetUrl) => {
           fetch(assetUrl)
             .then((res) => {
@@ -179,7 +179,7 @@ export async function warmOfflineCache(role?: string | null, force: boolean = fa
             cache: "reload",
           });
           if (rscRes.ok) {
-            const rscCache = await caches.open("smartlivestock-rsc-v6");
+            const rscCache = await caches.open("smartlivestock-rsc-v7");
             await rscCache.put(pageUrl, rscRes);
           }
         } catch {

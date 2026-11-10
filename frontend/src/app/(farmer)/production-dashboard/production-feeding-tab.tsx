@@ -101,6 +101,7 @@ interface ProductionFeedingTabProps {
   selectedSpecies?: string | null;
   autoOpen?: boolean;
   initialLivestockId?: string | null;
+  onClose?: () => void;
 }
 
 export default function ProductionFeedingTab({
@@ -109,6 +110,7 @@ export default function ProductionFeedingTab({
   selectedSpecies,
   autoOpen = false,
   initialLivestockId = null,
+  onClose,
 }: ProductionFeedingTabProps) {
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(autoOpen);
@@ -170,6 +172,7 @@ export default function ProductionFeedingTab({
     onSuccess: (data: FeedingRecordItem) => {
       toast.success(`Feeding recorded: ${data.quantity_kg} kg of ${data.feed_name || FEED_TYPE_LABELS[data.feed_type] || "feed"}`);
       setIsDialogOpen(false);
+      if (autoOpen) onClose?.();
       queryClient.invalidateQueries({ queryKey: ["feeding_records"] });
       queryClient.invalidateQueries({ queryKey: ["feeding_analytics"] });
     },
@@ -538,7 +541,10 @@ export default function ProductionFeedingTab({
       {/* ── LOG FEEDING REGISTRATION MODAL ─────────────────────────────────── */}
       <FeedingRegistrationDialog
         open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
+        onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open && autoOpen) onClose?.();
+        }}
         inventories={approvedInventories}
         batches={allBatches}
         initialLivestockId={initialLivestockId}
