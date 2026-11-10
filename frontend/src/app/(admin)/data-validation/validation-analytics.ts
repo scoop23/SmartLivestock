@@ -483,7 +483,9 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
           verifiedRole: inspDetails.verifiedRole,
           tagConfirmed: true,
           confirmedCount: m.death_count || 1,
-          confirmedSymptoms: [m.cause || "Deceased"],
+          confirmedSymptoms: Array.isArray(inspDetails.confirmedSymptoms) && inspDetails.confirmedSymptoms.length > 0
+            ? inspDetails.confirmedSymptoms
+            : [m.cause || "Deceased"],
           severity: "CRITICAL",
           biosecurityAction: "Deep Pit Biosecure Burial",
           remarks: inspDetails.remarks || ((m.status || "").toUpperCase() === "VERIFIED" ? m.review_remarks : undefined) || "Field observation notes not recorded.",

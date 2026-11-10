@@ -17,6 +17,7 @@ import {
 AlertTriangle,
 Calendar,
 Camera,
+Check,
 CheckCircle2,
 ClipboardCheck,
 Clock,
@@ -31,8 +32,10 @@ Thermometer,
 User,
 ZoomIn
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { hasPossibleFmdSigns } from "@/lib/fmd-signs";
+import { evaluateMortalityCategory } from "@/lib/mortality-classification";
 import {
 ValidationIncidentItem,
 getStatusPill,
@@ -93,14 +96,35 @@ function DiseaseMortalityReviewDialogContent({
 }: DiseaseMortalityReviewDialogProps) {
   const [remarks, setRemarks] = useState("");
   const [fmdAssessment, setFmdAssessment] = useState<"" | "SUSPECTED" | "NOT_SUSPECTED">(record?.maoFmdAssessment || "");
-  const [causeCategory, setCauseCategory] = useState("");
-  const [classificationNote, setClassificationNote] = useState("");
+  const [causeCategory, setCauseCategory] = useState(record?.causeClassification?.category || "");
+  const [classificationNote, setClassificationNote] = useState(record?.causeClassification?.note || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const isMortality = (record?.type || "").toLowerCase() === "mortality";
+  const isDisease = (record?.type || "").toLowerCase() === "disease";
+
+  const mortalityEvaluation = useMemo(() => {
+    if (!record || (record.type || "").toLowerCase() !== "mortality") return null;
+    return evaluateMortalityCategory({
+      details: record.details,
+      cause: record.conditionName,
+      conditionName: record.conditionName,
+      symptoms: [...(record.symptoms || []), ...(record.farmerSymptoms || [])],
+      confirmedSymptoms: record.sibatInspection?.confirmedSymptoms,
+    });
+  }, [record]);
+
+  const handleApplyAiSuggestion = () => {
+    if (!mortalityEvaluation) return;
+    setCauseCategory(mortalityEvaluation.category);
+    if (!classificationNote) {
+      setClassificationNote(`AI Triage Suggestion: ${mortalityEvaluation.explanation}`);
+    }
+    toast.success(`Applied AI recommendation: ${mortalityEvaluation.label}`);
+  };
 
   if (!record) return null;
 
-  const isMortality = record.type === "mortality";
-  const isDisease = record.type === "disease";
   const recordStatus = (record.status || "PENDING").toUpperCase();
   const isSibatVerified = recordStatus === "VERIFIED";
   const canMaoReview = isSibatVerified;
@@ -714,6 +738,63 @@ function DiseaseMortalityReviewDialogContent({
 
                   {isMortality && (
                     <div className="space-y-3 rounded-xl border border-indigo-200 bg-indigo-50/60 p-3">
+                      {/* ── AI Recommendation Card ── */}
+                      {mortalityEvaluation && (
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-100/90 via-purple-50/70 to-white shadow-2xs">
+                          <div className="space-y-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-600 text-white text-[10px] font-extrabold uppercase tracking-wider shadow-2xs">
+                                <Sparkles className="size-3 text-amber-300" />
+                                <span>AI Triage Suggestion</span>
+                              </div>
+                              <span className="text-xs font-black text-indigo-950">
+                                {mortalityEvaluation.label}
+                              </span>
+                              {mortalityEvaluation.confidence === "HIGH" && (
+                                <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.2 rounded-full border border-emerald-200">
+                                  High Confidence
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-indigo-900/90 leading-tight">
+                              {mortalityEvaluation.explanation}
+                            </p>
+                            {mortalityEvaluation.matchedClues.length > 0 && (
+                              <div className="flex flex-wrap gap-1 pt-0.5">
+                                {mortalityEvaluation.matchedClues.map((clue, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="text-[10px] font-medium bg-white/80 text-indigo-800 border border-indigo-200/60 px-1.5 py-0.2 rounded"
+                                  >
+                                    {clue}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                            {causeCategory === mortalityEvaluation.category ? (
+                              <Badge className="bg-emerald-600 text-white hover:bg-emerald-600 gap-1 text-[11px] font-bold py-1 px-2.5 shadow-2xs">
+                                <Check className="size-3" />
+                                <span>Applied</span>
+                              </Badge>
+                            ) : (
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={handleApplyAiSuggestion}
+                                disabled={isSubmitting}
+                                className="h-7.5 px-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-2xs cursor-pointer transition-all active:scale-95"
+                              >
+                                <Sparkles className="size-3 mr-1 text-amber-300" />
+                                Apply Suggestion
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="space-y-1.5">
                         <label htmlFor="mortality-review-category" className="block text-xs font-bold text-slate-800">
                           Mortality cause category (optional)
