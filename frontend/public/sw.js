@@ -16,8 +16,16 @@ const PRECACHE_HTML_SHELLS = [
   "/sibat/livestock-registry",
   "/sibat-validation",
   "/production-dashboard",
+  "/production-dashboard/history",
   "/report-observation",
   "/livestock-inventory",
+  "/livestock-inventory/all",
+  "/livestock-inventory/batches",
+  "/livestock-inventory/history",
+  "/market-prices",
+  "/farmer-announcement",
+  "/farmer-scheduling",
+  "/alerts",
   OFFLINE_URL,
 ];
 

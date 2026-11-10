@@ -47,8 +47,15 @@ export async function warmOfflineCache(role?: string | null, force: boolean = fa
 
   const farmerEndpoints = [
     ...baseEndpoints,
+    { url: "livestock/inventory/", params: { mine: true, include_inactive: false } },
+    { url: "livestock/inventory/", params: { mine: true, include_inactive: true } },
+    { url: "livestock/inventory/", params: { mine: true } },
+    { url: "livestock/batches/", params: { mine: true, include_roster: true } },
+    { url: "production/records/", params: { mine: true } },
     { url: "production/breeding/" },
+    { url: "production/breeding/analytics/" },
     { url: "production/feedings/" },
+    { url: "production/feedings/analytics/" },
     { url: "production/weights/" },
     { url: "production/treatments/" },
     { url: "production/dispositions/" },
@@ -74,9 +81,16 @@ export async function warmOfflineCache(role?: string | null, force: boolean = fa
   const farmerPages = [
     "/farmer",
     "/production-dashboard",
+    "/production-dashboard/history",
     "/report-observation",
     "/livestock-inventory",
+    "/livestock-inventory/all",
+    "/livestock-inventory/batches",
+    "/livestock-inventory/history",
     "/market-prices",
+    "/farmer-announcement",
+    "/farmer-scheduling",
+    "/alerts",
   ];
 
   const sibatPages = [

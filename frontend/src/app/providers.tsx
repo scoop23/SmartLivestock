@@ -27,6 +27,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
             staleTime: 60 * 1000,
             refetchOnWindowFocus: false,
             retry: 1,
+            networkMode: "offlineFirst",
           },
         },
       });
