@@ -458,6 +458,10 @@ class Command(BaseCommand):
             help="Give owned synthetic disease reports a repeatable mix of individual and multi-head herd events, without replacing reports.",
         )
         parser.add_argument(
+            "--prepare-forecast", action="store_true",
+            help="Repair historical availability on owned synthetic disease/mortality reports only; never creates, updates, or deletes monthly coverage reports. Use --dry-run to preview.",
+        )
+        parser.add_argument(
             "--repair-timestamps", action="store_true",
             help="Repair simulated historical timestamps on explicitly owned demo rows without recreating them.",
         )
@@ -480,6 +484,13 @@ class Command(BaseCommand):
         dry_run = options["dry_run"]
         scenario = options.get("scenario", "realistic")
         assert_safe_seed_database(clean=clean, dry_run=dry_run)
+        if options["prepare_forecast"]:
+            if clean or options["repair_timestamps"] or options["enrich_disease_heads"]:
+                raise CommandError("Use --prepare-forecast separately from cleanup and other repair modes.")
+            with transaction.atomic():
+                self._repair_demo_timestamps(dry_run=dry_run, preserve_coverage=True)
+            self.stdout.write("Monthly coverage reports were not changed. Forecasts still require existing complete reporting coverage and sufficient usable historical windows; missing coverage remains unknown.")
+            return
         if options["enrich_disease_heads"]:
             if clean or options["repair_timestamps"]:
                 raise CommandError("Use --enrich-disease-heads separately from --clean and --repair-timestamps.")
@@ -1290,7 +1301,7 @@ class Command(BaseCommand):
             )
         self.stdout.write(f"{'Would enrich' if dry_run else 'Enriched'} owned synthetic disease data: {counts}")
 
-    def _repair_demo_timestamps(self, *, dry_run):
+    def _repair_demo_timestamps(self, *, dry_run, preserve_coverage=False):
         """Repair only ledger-owned marked demo events and unmixed owned coverage."""
         owned = SurveillanceDemoOwnership.objects.filter(identifier__startswith=PREFIX)
         counts = {}
@@ -1301,7 +1312,7 @@ class Command(BaseCommand):
             rows = model.objects.filter(
                 pk__in=owned.filter(object_type=kind).values("object_id"),
                 review_remarks__contains=marker, status="APPROVED",
-                inspection_details__verificationMode="SYNTHETIC_DEMO",
+                inspection_details__verificationMode__in=["SYNTHETIC_DEMO", "FIELD_VERIFICATION"],
             )
             counts[kind] = rows.count()
             if not dry_run:
@@ -1317,6 +1328,10 @@ class Command(BaseCommand):
                         reviewed_at=demo_time(row.record_date, 17),
                         inspection_details=details,
                     )
+        if preserve_coverage:
+            self.stdout.write(f"{'Would repair' if dry_run else 'Repaired'} owned synthetic report timestamps: {counts}")
+            self.stdout.write("Simulated historical availability only, not evidence of actual historical reviews. Counts and coverage confirmations are preserved.")
+            return
         counts["coverage"] = 0
         counts["coverage_skipped_mixed"] = 0
         for report in SurveillanceCoverageReport.objects.filter(

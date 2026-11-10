@@ -224,7 +224,7 @@ class Command(BaseCommand):
             or LivestockType.objects.filter(name__icontains="cow").first()
         )
         if not cattle_type and not options["carabao_only"]:
-            raise CommandError("A Cattle/Cow LivestockType is required for synthetic slaughter events.")
+            raise CommandError("A Cattle/Cow LivestockType is required for synthetic livestock sales.")
         farmer_emails = options["farmer_email"] or []
         if isinstance(farmer_emails, str):
             farmer_emails = [farmer_emails]
@@ -293,8 +293,8 @@ class Command(BaseCommand):
                 )
         self.stdout.write(self.style.SUCCESS(
             f"Seeded the synthetic '{scenario}' forecast-quality scenario: "
-            f"{created['milk']} milk session rows, {created['farmer_meat']} farmer meat events, "
-            f"{created['slaughter']} slaughter events, and {created['sales']} approved/pending ownership transfer events."
+            f"{created['farmer_meat']} farmer meat events, "
+            f"and {created['sales']} approved/pending ownership transfer events."
         ))
         if options["carabao_only"]:
             self.stdout.write("Added synthetic approved Carabao sales in both Registered and External sources. Registered animals are Sold. Existing cattle and farm-production records were preserved. Example profile: Murrah Buffalo, Male, exact age 36 months, exact weight 450 kg. The poor scenario intentionally has only two weeks of history.")
@@ -303,8 +303,7 @@ class Command(BaseCommand):
         elif scenario == "ideal":
             self.stdout.write(
                 "The ideal scenario includes 104 complete recorded weeks for livestock sales and cattle/carabao price profiles "
-                "(7 cattle breeds, 4 carabao breeds, both sexes, and seasonal weekly volume variation) along with 36 months of dairy milk "
-                "production logs and slaughter meat inspection yields."
+                "(7 cattle breeds, 4 carabao breeds, both sexes, and seasonal weekly volume variation) along with 36 months of farmer meat production events."
             )
         self.stdout.write(
             "Synthetic livestock transfer prices are generated from recorded weight, age, sex, and breed. "
@@ -752,12 +751,7 @@ class Command(BaseCommand):
         auction_user = auction_user or user
         self._cattle_trait_rng = Random(20261105)
         months = self._months_back(MONTHS)
-        production_rows = []
         meat_rows = []
-        slaughter_rows = []
-        dairy_animals = []
-        for farm_index, seller in enumerate(sellers):
-            dairy_animals.extend(self._dairy_inventory_rows(marker, user, seller, cattle_type, farm_index, months[0]))
 
         for month_index, month in enumerate(months):
             next_month = shift_month(month, 1)
@@ -767,21 +761,6 @@ class Command(BaseCommand):
             for farm_index, seller in enumerate(sellers):
                 farmer_user = seller.user
                 farm_scale = 0.92 + farm_index * 0.08
-                for day_number in range(1, days + 1):
-                    production_day = date(month.year, month.month, day_number)
-                    # Two daily sessions are a plausible small-farm demonstration.
-                    # A few deterministic missed logs and bounded day-to-day changes
-                    # avoid presenting a perfectly repeating machine-generated series.
-                    if (day_number * 13 + month.month * 7 + month_index * 5 + farm_index * 11) % 37 == 0:
-                        continue
-                    for session_index, (session, base) in enumerate((("MORNING", 43), ("AFTERNOON", 31))):
-                        variation = ((day_number * 17 + month.month * 11 + month_index * 3 + session_index * 7 + farm_index * 5) % 17 - 8) * 0.65
-                        production_rows.append(self._production_row(
-                            marker=marker, user=farmer_user, farmer=seller, day=production_day, kind="MILK",
-                            amount=round(max(12, (base + variation) * farm_scale * annual * trend), 2),
-                            status=ProductionRecord.ProductionStatus.RECORDED,
-                            session=session, note="synthetic twice-daily farm log with seasonal and day-to-day variation",
-                        ))
                 meat_days = (10, 24) if month.month in {3, 6, 9, 12} else (17,)
                 for event_index, day_number in enumerate(meat_days):
                     event_day = date(month.year, month.month, min(day_number, days))
@@ -792,21 +771,8 @@ class Command(BaseCommand):
                         status=ProductionRecord.ProductionStatus.RECORDED,
                         note="farmer-reported event yield in kilograms",
                     ))
-            slaughter_days = (9, 23) if month.month in {2, 5, 8, 11} else (14,)
-            for event_index, day_number in enumerate(slaughter_days):
-                event_day = date(month.year, month.month, min(day_number, days))
-                heads = 2 + ((month_index + 2 * event_index) % 5)
-                weight_per_head = 175 + ((month_index * 3 + month.month * 2 + event_index * 5) % 43)
-                weight = round(heads * weight_per_head, 2)
-                slaughter_rows.append(self._slaughter_row(
-                    marker=marker, user=user, cattle_type=cattle_type, day=event_day,
-                    heads=heads, kg=weight, status=SlaughterRecord.StatusType.APPROVED,
-                    review_time=aware_at(event_day, 17), note="measured carcass weight and head count",
-                ))
 
-        self._create_rows(ProductionRecord, production_rows + meat_rows)
-        self._create_rows(SlaughterRecord, slaughter_rows)
-        self._create_rows(LivestockInventory, dairy_animals)
+        self._create_rows(ProductionRecord, meat_rows)
 
         # Seed separate, explicitly synthetic cattle and carabao profile histories.
         sales_result = self._seed_price_profiles(marker, user, sellers, cattle_type, auction_user)
@@ -817,9 +783,9 @@ class Command(BaseCommand):
         sales_result["sales"] += carabao_result["sales"]
 
         return {
-            "milk": len(production_rows),
+            "milk": 0,
             "farmer_meat": len(meat_rows),
-            "slaughter": len(slaughter_rows),
+            "slaughter": 0,
             "sales": sales_result["sales"],
         }
 
@@ -828,39 +794,18 @@ class Command(BaseCommand):
         self._cattle_trait_rng = Random(20261106)
         months = self._months_back(MONTHS)
         observed_indexes = (0, 4, 8, 12, 16, 20, 24, 28, 32, 35)
-        production_rows = []
         meat_rows = []
-        slaughter_rows = []
-        dairy_animals = []
-        for farm_index, seller in enumerate(sellers):
-            dairy_animals.extend(self._dairy_inventory_rows(marker, user, seller, cattle_type, farm_index, months[0]))
         for observed_number, month_index in enumerate(observed_indexes):
             seller = sellers[observed_number % len(sellers)]
             farmer_user = seller.user
             month = months[month_index]
             event_day = date(month.year, month.month, 12)
             recorded = ProductionRecord.ProductionStatus.RECORDED
-            # Sparse milk reporting: some dates omit a session label, and one
-            # observation is deliberately extreme to show an outlier warning.
-            for session_number, session in enumerate(("MORNING", None)):
-                production_rows.append(self._production_row(
-                    marker=marker, user=farmer_user, farmer=seller, day=event_day + timedelta(days=session_number), kind="MILK",
-                    amount=(48 if session_number == 0 else 21), status=recorded,
-                    session=session,
-                    note="sparse session entry with deliberately incomplete monthly coverage",
-                ))
             meat_kg = 2400 if observed_number == 6 else 95 + observed_number * 31
             meat_rows.append(self._production_row(
                 marker=marker, user=farmer_user, farmer=seller, day=event_day, kind="MEAT", amount=meat_kg,
                 status=recorded,
                 note="sparse event history with a suspicious high observation",
-            ))
-            slaughter_review = None if observed_number % 3 == 0 else aware_at(event_day + timedelta(days=50), 17)
-            slaughter_rows.append(self._slaughter_row(
-                marker=marker, user=user, cattle_type=cattle_type, day=event_day,
-                heads=3 + observed_number, kg=(None if observed_number % 2 == 0 else 620 + observed_number * 55),
-                status=SlaughterRecord.StatusType.APPROVED, review_time=slaughter_review,
-                note="sparse event history; some carcass weights or review timestamps missing",
             ))
 
         # Unapproved rows are visible to the workflow diagnostics but excluded
@@ -869,19 +814,13 @@ class Command(BaseCommand):
             seller = sellers[pending_index % len(sellers)]
             month = months[pending_index]
             pending_day = date(month.year, month.month, 22)
-            production_rows.append(self._production_row(
+            meat_rows.append(self._production_row(
                 marker=marker, user=seller.user, farmer=seller, day=pending_day, kind="MEAT",
                 amount=180 + pending_index, status=ProductionRecord.ProductionStatus.PENDING,
                 note="pending approval; correctly excluded from approved-only forecast data",
             ))
-            slaughter_rows.append(self._slaughter_row(
-                marker=marker, user=user, cattle_type=cattle_type, day=pending_day,
-                heads=5, kg=None, status=SlaughterRecord.StatusType.PENDING,
-                note="pending approval; correctly excluded from forecast data",
-            ))
 
-        self._create_rows(ProductionRecord, production_rows + meat_rows)
-        self._create_rows(SlaughterRecord, slaughter_rows)
+        self._create_rows(ProductionRecord, meat_rows)
 
         today = timezone.localdate()
         current_week_start = today - timedelta(days=today.weekday())
@@ -941,12 +880,12 @@ class Command(BaseCommand):
                 rng=external_rng,
                 include_price=index % 3 != 0,
             ))
-        self._create_rows(LivestockInventory, dairy_animals + sale_animals)
+        self._create_rows(LivestockInventory, sale_animals)
         self._create_rows(LivestockOwnershipTransfer, sale_rows)
         self._create_sale_dispositions(marker, sale_rows)
         carabao_type, _ = LivestockType.objects.get_or_create(name="Carabao")
         carabao_result = self._seed_price_profiles(
             marker, user, sellers, carabao_type, auction_user, species_code="CAR", weeks=2,
         )
-        return {"milk": len(production_rows), "farmer_meat": len(meat_rows),
-                "slaughter": len(slaughter_rows), "sales": len(sale_rows) + carabao_result["sales"]}
+        return {"milk": 0, "farmer_meat": len(meat_rows),
+                "slaughter": 0, "sales": len(sale_rows) + carabao_result["sales"]}
