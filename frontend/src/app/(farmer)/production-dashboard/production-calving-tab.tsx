@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { KpiCard } from "@/components/ui/kpi-card";
 import api from "@/lib/axios";
 import { useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
-import { Baby,HeartPulse,Plus,Scale,Sparkles } from "lucide-react";
+import { cowHead } from "@lucide/lab";
+import { HeartPulse,Icon,Plus,Scale,Sparkles } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import type { LivestockInventoryItem } from "../livestock-inventory/page";
@@ -243,7 +244,7 @@ export default function ProductionCalvingTab({
         <KpiCard
           title={`Total ${terms.offspringPlural}`}
           value={totalCalves.toString()}
-          icon={<Baby className="size-4.5" />}
+          icon={<Icon iconNode={cowHead} className="size-4.5" />}
           badge="Live births"
           variant="emerald"
         />

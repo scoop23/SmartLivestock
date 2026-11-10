@@ -20,7 +20,8 @@ SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { localCalendarDateToday } from "@/lib/livestock-age";
-import { Baby,Calendar,Check,Dna,RotateCcw,Scale,Tag } from "lucide-react";
+import { cowHead } from "@lucide/lab";
+import { Calendar,Check,Dna,Icon,RotateCcw,Scale,Tag } from "lucide-react";
 import { useEffect,useState } from "react";
 import type { BirthingSpeciesTerminology,CalvingRecordItem } from "../production-calving-tab";
 
@@ -115,7 +116,7 @@ function CalvingResubmitDialogContent({
           {/* Dam reference (read-only on edit) */}
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
-              <Baby className="size-3.5 text-emerald-600" />
+              <Icon iconNode={cowHead} className="size-3.5 text-emerald-600" />
               {terms.damName}
             </Label>
             <Input

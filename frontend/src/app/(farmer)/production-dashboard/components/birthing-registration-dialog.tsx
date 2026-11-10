@@ -21,7 +21,8 @@ SelectValue,
 import { Textarea } from "@/components/ui/textarea";
 import { localCalendarDateToday } from "@/lib/livestock-age";
 import { nextSequentialLivestockTag, normalizeLivestockTagPrefix } from "@/lib/livestock-tag";
-import { Baby,Calendar,Check,Dna,Scale,Sparkles,Tag } from "lucide-react";
+import { cowHead } from "@lucide/lab";
+import { Calendar,Check,Dna,Icon,Scale,Sparkles,Tag } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { type DriveStep } from "driver.js";
 import "driver.js/dist/driver.css";
@@ -218,7 +219,7 @@ export default function BirthingRegistrationDialog({
           <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="size-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-800">
-              <Baby className="size-5" />
+              <Icon iconNode={cowHead} className="size-5" />
             </div>
             <div>
               <DialogTitle className="text-lg font-bold">

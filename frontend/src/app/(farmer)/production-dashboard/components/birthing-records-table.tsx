@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card,CardContent } from "@/components/ui/card";
 import { formatCalendarDate } from "@/lib/livestock-age";
-import { Baby,Calendar,Dna,HeartPulse,ListChecks,PencilLine,Scale,Tag } from "lucide-react";
+import { cowHead } from "@lucide/lab";
+import { Calendar,Dna,HeartPulse,Icon,ListChecks,PencilLine,Scale,Tag } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import CalvingProgressDialog from "./calving-progress-dialog";
@@ -49,7 +50,7 @@ export default function BirthingRecordsTable({
       <Card className="border-slate-200 shadow-xs rounded-2xl overflow-hidden bg-white">
         <CardContent className="p-12 text-center space-y-3">
           <div className="size-12 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center mx-auto">
-            <Baby className="size-6" />
+            <Icon iconNode={cowHead} className="size-6" />
           </div>
           <h4 className="text-base font-bold text-slate-800">
             No {terms.eventName} Records Logged Yet
