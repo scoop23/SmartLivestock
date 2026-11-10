@@ -188,9 +188,7 @@ export function UserProfileView() {
 
   // Notification Preferences
   const [notifSettings, setNotifSettings] = useState({
-    smsBiosecurity: true,
-    smsQuarantineAlerts: true,
-    smsAuctionPrices: false,
+    vaccinationCampaignReminders: true,
     emailAuditCertification: true,
     emailWeeklyDigest: true,
     emailMonthlyCensus: false,
@@ -663,22 +661,6 @@ export function UserProfileView() {
             </span>
 
             <div className="space-y-2">
-              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-rose-50/40 border border-rose-100/80">
-                <div>
-                  <h4 className="text-xs font-bold text-slate-900">Quarantine Outbreak SMS Broadcasts</h4>
-                  <p className="text-[11px] text-slate-500">
-                    Instant mobile text alert if foot-and-mouth or ASF is detected within Padre Garcia.
-                  </p>
-                </div>
-                <Switch
-                  checked={notifSettings.smsQuarantineAlerts}
-                  onCheckedChange={(val) => {
-                    setNotifSettings({ ...notifSettings, smsQuarantineAlerts: val });
-                    toast.success(`Quarantine SMS alerts ${val ? "enabled" : "disabled"}`);
-                  }}
-                />
-              </div>
-
               <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200/80">
                 <div>
                   <h4 className="text-xs font-bold text-slate-900">Municipal Vaccination Campaign Reminders</h4>
@@ -687,9 +669,9 @@ export function UserProfileView() {
                   </p>
                 </div>
                 <Switch
-                  checked={notifSettings.smsBiosecurity}
+                  checked={notifSettings.vaccinationCampaignReminders}
                   onCheckedChange={(val) => {
-                    setNotifSettings({ ...notifSettings, smsBiosecurity: val });
+                    setNotifSettings({ ...notifSettings, vaccinationCampaignReminders: val });
                     toast.success(`Vaccination campaign notices ${val ? "enabled" : "disabled"}`);
                   }}
                 />
