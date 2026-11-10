@@ -222,19 +222,123 @@ function getLinks(role: SidebarProps['role'], userRole?: string): SidebarLink[] 
   }
 }
 
-function getRoleBadge(role: SidebarProps['role']): { label: string; bg: string; text: string } {
-  switch (role) {
-    case 'farmer':
-      return { label: 'Livestock Raiser', bg: 'bg-emerald-400/20', text: 'text-emerald-300' };
-    case 'sibat':
-      return { label: 'Field Reviewer', bg: 'bg-amber-400/20', text: 'text-amber-300' };
-    case 'auction':
-      return { label: 'Auction Staff', bg: 'bg-sky-400/20', text: 'text-sky-300' };
-    case 'slaughterhouse':
-      return { label: 'Slaughterhouse Staff', bg: 'bg-rose-400/20', text: 'text-rose-200' };
-    default:
-      return { label: 'MAO Admin', bg: 'bg-white/20', text: 'text-white' };
+interface RoleProfileTheme {
+  buttonBg: string;
+  focusRing: string;
+  avatarBg: string;
+  avatarBorder: string;
+  avatarText: string;
+  nameText: string;
+  nameHover: string;
+  emailText: string;
+  chevronText: string;
+  chevronActive: string;
+  popoverGradient: string;
+  badgeBg: string;
+  badgeText: string;
+  badgeLabel: string;
+}
+
+function getRoleProfileTheme(roleOrUserRole?: string | null): RoleProfileTheme {
+  const normalized = (roleOrUserRole || '').toUpperCase();
+
+  // 1. CBAT / SIBAT — Bluish
+  if (normalized === 'CBAT' || normalized === 'SIBAT') {
+    return {
+      buttonBg: 'bg-sky-500/20 hover:bg-sky-500/30 border-sky-400/40 text-sky-100',
+      focusRing: 'focus:ring-sky-400/50',
+      avatarBg: 'bg-gradient-to-br from-sky-500 to-blue-600',
+      avatarBorder: 'border-sky-300/50',
+      avatarText: 'text-white',
+      nameText: 'text-white',
+      nameHover: 'group-hover:text-sky-200',
+      emailText: 'text-sky-200/80',
+      chevronText: 'text-sky-200/60 group-hover:text-white',
+      chevronActive: 'text-sky-300',
+      popoverGradient: 'bg-gradient-to-br from-sky-900 via-blue-900 to-indigo-950',
+      badgeBg: 'bg-sky-400/25',
+      badgeText: 'text-sky-200',
+      badgeLabel: 'CBAT / SIBAT Officer',
+    };
   }
+
+  // 2. MAO / ADMIN — Light Emeraldish
+  if (normalized === 'MAO' || normalized === 'ADMIN') {
+    return {
+      buttonBg: 'bg-emerald-400/20 hover:bg-emerald-400/30 border-emerald-300/40 text-emerald-50',
+      focusRing: 'focus:ring-emerald-400/50',
+      avatarBg: 'bg-gradient-to-br from-emerald-400 to-teal-500',
+      avatarBorder: 'border-emerald-200/60',
+      avatarText: 'text-white',
+      nameText: 'text-white',
+      nameHover: 'group-hover:text-emerald-200',
+      emailText: 'text-emerald-200/80',
+      chevronText: 'text-emerald-200/60 group-hover:text-white',
+      chevronActive: 'text-emerald-300',
+      popoverGradient: 'bg-gradient-to-br from-emerald-600 via-teal-700 to-emerald-900',
+      badgeBg: 'bg-emerald-400/25',
+      badgeText: 'text-emerald-100',
+      badgeLabel: normalized === 'ADMIN' ? 'System Admin' : 'MAO Officer',
+    };
+  }
+
+  // 3. AUCTION — Violetish
+  if (normalized === 'AUCTION') {
+    return {
+      buttonBg: 'bg-violet-500/20 hover:bg-violet-500/30 border-violet-400/40 text-violet-100',
+      focusRing: 'focus:ring-violet-400/50',
+      avatarBg: 'bg-gradient-to-br from-violet-600 to-purple-700',
+      avatarBorder: 'border-violet-300/50',
+      avatarText: 'text-white',
+      nameText: 'text-white',
+      nameHover: 'group-hover:text-violet-200',
+      emailText: 'text-violet-200/80',
+      chevronText: 'text-violet-200/60 group-hover:text-white',
+      chevronActive: 'text-violet-300',
+      popoverGradient: 'bg-gradient-to-br from-purple-900 via-violet-900 to-indigo-950',
+      badgeBg: 'bg-violet-400/25',
+      badgeText: 'text-violet-200',
+      badgeLabel: 'Auction Staff',
+    };
+  }
+
+  // 4. SLAUGHTERHOUSE — Rubyyish
+  if (normalized === 'SLAUGHTERHOUSE' || normalized === 'SLAUGHTERHOUSESTAFF') {
+    return {
+      buttonBg: 'bg-rose-500/20 hover:bg-rose-500/30 border-rose-400/40 text-rose-100',
+      focusRing: 'focus:ring-rose-400/50',
+      avatarBg: 'bg-gradient-to-br from-rose-600 to-red-700',
+      avatarBorder: 'border-rose-300/50',
+      avatarText: 'text-white',
+      nameText: 'text-white',
+      nameHover: 'group-hover:text-rose-200',
+      emailText: 'text-rose-200/80',
+      chevronText: 'text-rose-200/60 group-hover:text-white',
+      chevronActive: 'text-rose-300',
+      popoverGradient: 'bg-gradient-to-br from-rose-950 via-red-950 to-stone-900',
+      badgeBg: 'bg-rose-400/25',
+      badgeText: 'text-rose-200',
+      badgeLabel: 'Slaughterhouse Staff',
+    };
+  }
+
+  // 5. FARMER — Dark Greenish (Default)
+  return {
+    buttonBg: 'bg-[#0a2312]/70 hover:bg-[#0a2312]/90 border-emerald-800/50 text-emerald-100',
+    focusRing: 'focus:ring-emerald-600/50',
+    avatarBg: 'bg-gradient-to-br from-[#1b4332] to-[#0f281e]',
+    avatarBorder: 'border-emerald-600/50',
+    avatarText: 'text-emerald-100',
+    nameText: 'text-white',
+    nameHover: 'group-hover:text-emerald-300',
+    emailText: 'text-emerald-300/70',
+    chevronText: 'text-emerald-300/60 group-hover:text-white',
+    chevronActive: 'text-emerald-400',
+    popoverGradient: 'bg-gradient-to-br from-[#1b4332] via-[#0f281e] to-[#08150f]',
+    badgeBg: 'bg-emerald-950/60',
+    badgeText: 'text-emerald-300',
+    badgeLabel: 'Livestock Raiser',
+  };
 }
 
 function SidebarNav({
@@ -269,7 +373,12 @@ function SidebarNav({
   const { user } = useAuth();
   const isCbatUser = user?.role?.toUpperCase() === 'CBAT';
   const canManageSystemSettings = ['MAO', 'ADMIN'].includes(user?.role?.toUpperCase() ?? '');
-  const roleBadge = getRoleBadge(role);
+  const profileTheme = getRoleProfileTheme(user?.role || role);
+  const [avatarImageError, setAvatarImageError] = useState(false);
+
+  useEffect(() => {
+    setAvatarImageError(false);
+  }, [user?.profileImage]);
 
   const userDisplayName = user?.firstName
     ? `${user.firstName} ${user.lastName || ''}`.trim()
@@ -345,8 +454,8 @@ function SidebarNav({
               </span>
             </div>
             <div className="flex items-center gap-1 mt-0.5">
-              <span className={cn("text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md", roleBadge.bg, roleBadge.text)}>
-                {roleBadge.label}
+              <span className={cn("text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md", profileTheme.badgeBg, profileTheme.badgeText)}>
+                {profileTheme.badgeLabel}
               </span>
             </div>
           </div>
@@ -585,15 +694,27 @@ function SidebarNav({
               type="button"
               data-tour={role === 'farmer' ? 'farmer-sidebar-profile' : undefined}
               className={cn(
-                "group w-full h-12 min-h-12 shrink-0 flex items-center justify-between p-2 rounded-xl bg-white/5 hover:bg-white/12 border border-white/10 transition-all cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-emerald-400/40",
+                "group w-full h-12 min-h-12 shrink-0 flex items-center justify-between p-2 rounded-xl border transition-all cursor-pointer text-left focus:outline-none focus:ring-2",
+                profileTheme.buttonBg,
+                profileTheme.focusRing,
                 collapsed ? "justify-center p-1.5" : "gap-2"
               )}
               title={`${userDisplayName}${user?.email ? ` · ${user.email}` : ""} · Profile & Options`}
             >
               <div className={cn("flex items-center min-w-0", collapsed ? "justify-center gap-0" : "gap-2.5")}>
-                <div className="size-7 rounded-full bg-emerald-600 border border-emerald-300/40 text-white font-black text-xs flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition-transform overflow-hidden">
-                  {user?.profileImage ? (
-                    <img src={user.profileImage} alt={userDisplayName} className="size-full object-cover" />
+                <div className={cn(
+                  "size-7 rounded-full border font-black text-xs flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition-transform overflow-hidden",
+                  profileTheme.avatarBg,
+                  profileTheme.avatarBorder,
+                  profileTheme.avatarText
+                )}>
+                  {user?.profileImage && !avatarImageError ? (
+                    <img
+                      src={user.profileImage}
+                      alt={userDisplayName}
+                      className="size-full object-cover"
+                      onError={() => setAvatarImageError(true)}
+                    />
                   ) : (
                     userInitials
                   )}
@@ -605,10 +726,10 @@ function SidebarNav({
                     collapsed ? "opacity-0 w-0 max-w-0 pointer-events-none" : "opacity-100 max-w-[130px]"
                   )}
                 >
-                  <span className="block truncate whitespace-nowrap text-xs font-bold leading-tight text-white group-hover:text-emerald-200 transition-colors">
+                  <span className={cn("block truncate whitespace-nowrap text-xs font-bold leading-tight transition-colors", profileTheme.nameText, profileTheme.nameHover)}>
                     {userDisplayName}
                   </span>
-                  <span className="block truncate whitespace-nowrap text-[10px] text-emerald-200/60">
+                  <span className={cn("block truncate whitespace-nowrap text-[10px]", profileTheme.emailText)}>
                     {user?.email || 'Padre Garcia'}
                   </span>
                 </div>
@@ -616,8 +737,8 @@ function SidebarNav({
 
               {!collapsed && (
                 <div className="flex items-center gap-1 shrink-0">
-                  <span className="p-1 rounded-md text-emerald-200/60 group-hover:text-white transition-colors">
-                    <ChevronDown className={cn("size-3.5 transition-transform duration-200", profilePopoverOpen ? "rotate-180 text-emerald-300" : "")} />
+                  <span className={cn("p-1 rounded-md transition-colors", profileTheme.chevronText)}>
+                    <ChevronDown className={cn("size-3.5 transition-transform duration-200", profilePopoverOpen ? cn("rotate-180", profileTheme.chevronActive) : "")} />
                   </span>
                 </div>
               )}
@@ -638,11 +759,21 @@ function SidebarNav({
             )}
           >
             {/* Popover Header with Avatar & Department */}
-            <div className="p-3.5 bg-gradient-to-br from-emerald-800 via-[#2D5A27] to-[#1c3c18] text-white">
+            <div className={cn("p-3.5 text-white", profileTheme.popoverGradient)}>
               <div className="flex items-center gap-3">
-                <div className="size-10 rounded-full bg-white/20 border border-white/30 text-white font-black text-sm flex items-center justify-center shrink-0 shadow-xs overflow-hidden">
-                  {user?.profileImage ? (
-                    <img src={user.profileImage} alt={userDisplayName} className="size-full object-cover" />
+                <div className={cn(
+                  "size-10 rounded-full border font-black text-sm flex items-center justify-center shrink-0 shadow-xs overflow-hidden",
+                  profileTheme.avatarBg,
+                  profileTheme.avatarBorder,
+                  profileTheme.avatarText
+                )}>
+                  {user?.profileImage && !avatarImageError ? (
+                    <img
+                      src={user.profileImage}
+                      alt={userDisplayName}
+                      className="size-full object-cover"
+                      onError={() => setAvatarImageError(true)}
+                    />
                   ) : (
                     userInitials
                   )}
@@ -651,14 +782,14 @@ function SidebarNav({
                   <span className="text-xs font-bold text-white whitespace-normal break-words">
                     {userDisplayName}
                   </span>
-                  <span className="text-[11px] text-emerald-200/80 break-all">
+                  <span className="text-[11px] text-white/80 break-all">
                     {user?.email || 'padregarcia@gov.ph'}
                   </span>
                   <div className="mt-1 flex items-center gap-1.5">
-                    <span className={cn("text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md", roleBadge.bg, roleBadge.text)}>
-                      {roleBadge.label}
+                    <span className={cn("text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md", profileTheme.badgeBg, profileTheme.badgeText)}>
+                      {profileTheme.badgeLabel}
                     </span>
-                    <span className="text-[10px] text-emerald-200/70 font-medium">Padre Garcia</span>
+                    <span className="text-[10px] text-white/70 font-medium">Padre Garcia</span>
                   </div>
                 </div>
               </div>
