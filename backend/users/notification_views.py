@@ -60,13 +60,19 @@ def _field_officer_notification_queryset(user, queryset):
     )
 
 
-def reviewer_recipients_for_barangay(barangay_id, *, include_cbat=False):
+def reviewer_recipients_for_barangay(barangay_id, *, include_cbat=False, role_name=None):
     """Current authorized officers, each returned once even if scopes overlap."""
     scope = Q(access_scope=User.AccessScope.ALL_BARANGAYS)
     if barangay_id is not None:
         scope |= Q(assigned_barangay_id=barangay_id)
+    if role_name == "CBAT":
+        roles = ["CBAT"]
+    elif role_name == "SIBAT":
+        roles = ["SIBAT", "CBAT"] if include_cbat else ["SIBAT"]
+    else:
+        roles = ["SIBAT", "CBAT"] if include_cbat else ["SIBAT"]
     return User.objects.filter(
-        scope, role__role_name__in=["SIBAT", "CBAT"], is_active=True,
+        scope, role__role_name__in=roles, is_active=True,
         account_status=User.AccountStatus.APPROVED,
     ).distinct()
 
@@ -142,7 +148,7 @@ def notify_role(
     )
     if role_name in {"SIBAT", "CBAT"} and not municipal_broadcast:
         # Missing farmer location must never accidentally broadcast to all officers.
-        recipients = reviewer_recipients_for_barangay(barangay_id, include_cbat=include_cbat)
+        recipients = reviewer_recipients_for_barangay(barangay_id, include_cbat=include_cbat, role_name=role_name)
     notifications = [
         Notification(
             user=user,

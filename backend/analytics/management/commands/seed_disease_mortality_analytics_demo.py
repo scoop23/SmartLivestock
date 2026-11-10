@@ -2,6 +2,8 @@
 
 from calendar import monthrange
 from datetime import date, datetime, time, timedelta
+import os
+import re
 from types import SimpleNamespace
 
 from django.core.management.base import BaseCommand, CommandError
@@ -249,6 +251,139 @@ REALISTIC_MORTALITY_PROFILES = [
     },
 ]
 
+# Realistic CBAT officers and farmers for every barangay in Padre Garcia, Batangas
+BARANGAY_CBAT_OFFICERS = {
+    "Banaba": {"first_name": "Arvin", "last_name": "Mendoza", "username": "cbat.banaba", "email": "arvin.mendoza.banaba@smartlivestock.ph"},
+    "Manggas": {"first_name": "Carmina", "last_name": "Reyes", "username": "cbat.manggas", "email": "carmina.reyes.manggas@smartlivestock.ph"},
+    "Pansol": {"first_name": "Dennis", "last_name": "Castillo", "username": "cbat.pansol", "email": "dennis.castillo.pansol@smartlivestock.ph"},
+    "Cawongan": {"first_name": "Elena", "last_name": "Ramos", "username": "cbat.cawongan", "email": "elena.ramos.cawongan@smartlivestock.ph"},
+    "Banay-Banay": {"first_name": "Fernando", "last_name": "Garcia", "username": "cbat.banaybanay", "email": "fernando.garcia.banaybanay@smartlivestock.ph"},
+    "Bawi": {"first_name": "Grace", "last_name": "Villanueva", "username": "cbat.bawi", "email": "grace.villanueva.bawi@smartlivestock.ph"},
+    "San Miguel": {"first_name": "Hector", "last_name": "Navarro", "username": "cbat.sanmiguel", "email": "hector.navarro.sanmiguel@smartlivestock.ph"},
+    "Bukal": {"first_name": "Irene", "last_name": "Mercado", "username": "cbat.bukal", "email": "irene.mercado.bukal@smartlivestock.ph"},
+    "San Felipe": {"first_name": "Joel", "last_name": "Magpantay", "username": "cbat.sanfelipe", "email": "joel.magpantay.sanfelipe@smartlivestock.ph"},
+    "Maugat West": {"first_name": "Katherine", "last_name": "Dimaculangan", "username": "cbat.maugatwest", "email": "katherine.dimaculangan.maugatwest@smartlivestock.ph"},
+    "Tamak": {"first_name": "Leonardo", "last_name": "Recto", "username": "cbat.tamak", "email": "leonardo.recto.tamak@smartlivestock.ph"},
+    "Quilo Quilo North": {"first_name": "Maricel", "last_name": "Silva", "username": "cbat.quiloquilonorth", "email": "maricel.silva.qqnorth@smartlivestock.ph"},
+    "Quilo Quilo South": {"first_name": "Noel", "last_name": "Malabanan", "username": "cbat.quiloquilosouth", "email": "noel.malabanan.qqsouth@smartlivestock.ph"},
+    "Castillo": {"first_name": "Olivia", "last_name": "Marasigan", "username": "cbat.castillo", "email": "olivia.marasigan.castillo@smartlivestock.ph"},
+    "Maugat East": {"first_name": "Patrick", "last_name": "Ilagan", "username": "cbat.maugateast", "email": "patrick.ilagan.maugateast@smartlivestock.ph"},
+    "Payapa": {"first_name": "Quirino", "last_name": "Lanto", "username": "cbat.payapa", "email": "quirino.lanto.payapa@smartlivestock.ph"},
+    "Tangob": {"first_name": "Rowena", "last_name": "Atienza", "username": "cbat.tangob", "email": "rowena.atienza.tangob@smartlivestock.ph"},
+    "Poblacion": {"first_name": "Samuel", "last_name": "De Castro", "username": "cbat.poblacion", "email": "samuel.decastro.poblacion@smartlivestock.ph"},
+}
+
+BARANGAY_FARMERS = {
+    "Banaba": [
+        {"first_name": "Danilo", "last_name": "Hernandez", "username": "danilo.hernandez.banaba", "email": "danilo.hernandez.banaba@smartlivestock.ph", "address": "Sitio Ilaya, Banaba, Padre Garcia, Batangas"},
+        {"first_name": "Maria Theresa", "last_name": "Santos", "username": "mariatheresa.santos.banaba", "email": "mariatheresa.santos.banaba@smartlivestock.ph", "address": "Purok 2, Banaba, Padre Garcia, Batangas"},
+    ],
+    "Manggas": [
+        {"first_name": "Eduardo", "last_name": "Guinto", "username": "eduardo.guinto.manggas", "email": "eduardo.guinto.manggas@smartlivestock.ph", "address": "Sitio Kanluran, Manggas, Padre Garcia, Batangas"},
+        {"first_name": "Corazon", "last_name": "Alcantara", "username": "corazon.alcantara.manggas", "email": "corazon.alcantara.manggas@smartlivestock.ph", "address": "Purok 3, Manggas, Padre Garcia, Batangas"},
+    ],
+    "Pansol": [
+        {"first_name": "Leandro", "last_name": "Linatoc", "username": "leandro.linatoc.pansol", "email": "leandro.linatoc.pansol@smartlivestock.ph", "address": "Sitio Centro, Pansol, Padre Garcia, Batangas"},
+        {"first_name": "Alejandro", "last_name": "Lanto", "username": "alejandro.lanto.pansol", "email": "alejandro.lanto.pansol@smartlivestock.ph", "address": "Purok 1, Pansol, Padre Garcia, Batangas"},
+    ],
+    "Cawongan": [
+        {"first_name": "Olga", "last_name": "Escueta", "username": "olga.escueta.cawongan", "email": "olga.escueta.cawongan@smartlivestock.ph", "address": "Purok 4, Cawongan, Padre Garcia, Batangas"},
+        {"first_name": "Larry", "last_name": "Vergara", "username": "larry.vergara.cawongan", "email": "larry.vergara.cawongan@smartlivestock.ph", "address": "Sitio Silangan, Cawongan, Padre Garcia, Batangas"},
+    ],
+    "Banay-Banay": [
+        {"first_name": "Nelson", "last_name": "Andal", "username": "nelson.andal.banaybanay", "email": "nelson.andal.banaybanay@smartlivestock.ph", "address": "Purok 2, Banay-Banay, Padre Garcia, Batangas"},
+        {"first_name": "Virgilio", "last_name": "Moster", "username": "virgilio.moster.banaybanay", "email": "virgilio.moster.banaybanay@smartlivestock.ph", "address": "Sitio Ilaya, Banay-Banay, Padre Garcia, Batangas"},
+    ],
+    "Bawi": [
+        {"first_name": "Emma", "last_name": "Buquir", "username": "emma.buquir.bawi", "email": "emma.buquir.bawi@smartlivestock.ph", "address": "Sitio Ibaba, Bawi, Padre Garcia, Batangas"},
+        {"first_name": "Andreo", "last_name": "Villanueva", "username": "andreo.villanueva.bawi", "email": "andreo.villanueva.bawi@smartlivestock.ph", "address": "Purok 3, Bawi, Padre Garcia, Batangas"},
+    ],
+    "San Miguel": [
+        {"first_name": "Fred", "last_name": "Calingasan", "username": "fred.calingasan.sanmiguel", "email": "fred.calingasan.sanmiguel@smartlivestock.ph", "address": "Purok 1, San Miguel, Padre Garcia, Batangas"},
+        {"first_name": "Briccio", "last_name": "Dimaano", "username": "briccio.dimaano.sanmiguel", "email": "briccio.dimaano.sanmiguel@smartlivestock.ph", "address": "Sitio Gitna, San Miguel, Padre Garcia, Batangas"},
+    ],
+    "Bukal": [
+        {"first_name": "Esmeraldo", "last_name": "Caraan", "username": "esmeraldo.caraan.bukal", "email": "esmeraldo.caraan.bukal@smartlivestock.ph", "address": "Sitio Bukal, Bukal, Padre Garcia, Batangas"},
+        {"first_name": "Zaldy", "last_name": "Fajardo", "username": "zaldy.fajardo.bukal", "email": "zaldy.fajardo.bukal@smartlivestock.ph", "address": "Purok 2, Bukal, Padre Garcia, Batangas"},
+    ],
+    "San Felipe": [
+        {"first_name": "Venistiano", "last_name": "Hernandez", "username": "venistiano.hernandez.sanfelipe", "email": "venistiano.hernandez.sanfelipe@smartlivestock.ph", "address": "Purok 3, San Felipe, Padre Garcia, Batangas"},
+        {"first_name": "Amelita", "last_name": "Tapay", "username": "amelita.tapay.sanfelipe", "email": "amelita.tapay.sanfelipe@smartlivestock.ph", "address": "Sitio Ilaya, San Felipe, Padre Garcia, Batangas"},
+    ],
+    "Maugat West": [
+        {"first_name": "Rene", "last_name": "Rena", "username": "rene.rena.maugatwest", "email": "rene.rena.maugatwest@smartlivestock.ph", "address": "Purok 1, Maugat West, Padre Garcia, Batangas"},
+        {"first_name": "Victor", "last_name": "Valencia", "username": "victor.valencia.maugatwest", "email": "victor.valencia.maugatwest@smartlivestock.ph", "address": "Sitio Centro, Maugat West, Padre Garcia, Batangas"},
+    ],
+    "Tamak": [
+        {"first_name": "Ruelan", "last_name": "Gonzales", "username": "ruelan.gonzales.tamak", "email": "ruelan.gonzales.tamak@smartlivestock.ph", "address": "Sitio Bundok, Tamak, Padre Garcia, Batangas"},
+        {"first_name": "Rene", "last_name": "Maala", "username": "rene.maala.tamak", "email": "rene.maala.tamak@smartlivestock.ph", "address": "Purok 2, Tamak, Padre Garcia, Batangas"},
+    ],
+    "Quilo Quilo North": [
+        {"first_name": "Rey Melchor", "last_name": "Casanova", "username": "reymelchor.casanova.qqnorth", "email": "reymelchor.casanova.qqnorth@smartlivestock.ph", "address": "Purok 4, Quilo Quilo North, Padre Garcia, Batangas"},
+        {"first_name": "Alberto", "last_name": "Gutierrez", "username": "alberto.gutierrez.qqnorth", "email": "alberto.gutierrez.qqnorth@smartlivestock.ph", "address": "Sitio Ilaya, Quilo Quilo North, Padre Garcia, Batangas"},
+    ],
+    "Quilo Quilo South": [
+        {"first_name": "Rodolfo", "last_name": "Jareno", "username": "rodolfo.jareno.qqsouth", "email": "rodolfo.jareno.qqsouth@smartlivestock.ph", "address": "Purok 1, Quilo Quilo South, Padre Garcia, Batangas"},
+        {"first_name": "Cardo", "last_name": "Masalunga", "username": "cardo.masalunga.qqsouth", "email": "cardo.masalunga.qqsouth@smartlivestock.ph", "address": "Sitio Centro, Quilo Quilo South, Padre Garcia, Batangas"},
+    ],
+    "Castillo": [
+        {"first_name": "Bernie", "last_name": "Gustillo", "username": "bernie.gustillo.castillo", "email": "bernie.gustillo.castillo@smartlivestock.ph", "address": "Purok 3, Castillo, Padre Garcia, Batangas"},
+        {"first_name": "Maximo", "last_name": "Valencia", "username": "maximo.valencia.castillo", "email": "maximo.valencia.castillo@smartlivestock.ph", "address": "Sitio Tabing-Ilog, Castillo, Padre Garcia, Batangas"},
+    ],
+    "Maugat East": [
+        {"first_name": "Cristeta", "last_name": "Aranes", "username": "cristeta.aranes.maugateast", "email": "cristeta.aranes.maugateast@smartlivestock.ph", "address": "Purok 2, Maugat East, Padre Garcia, Batangas"},
+        {"first_name": "Felix", "last_name": "Renoza", "username": "felix.renoza.maugateast", "email": "felix.renoza.maugateast@smartlivestock.ph", "address": "Sitio Kanluran, Maugat East, Padre Garcia, Batangas"},
+    ],
+    "Payapa": [
+        {"first_name": "Violy", "last_name": "Olan", "username": "violy.olan.payapa", "email": "violy.olan.payapa@smartlivestock.ph", "address": "Sitio Centro, Payapa, Padre Garcia, Batangas"},
+        {"first_name": "Jun", "last_name": "Mangundayao", "username": "jun.mangundayao.payapa", "email": "jun.mangundayao.payapa@smartlivestock.ph", "address": "Purok 1, Payapa, Padre Garcia, Batangas"},
+    ],
+    "Tangob": [
+        {"first_name": "Ogie", "last_name": "Din", "username": "ogie.din.tangob", "email": "ogie.din.tangob@smartlivestock.ph", "address": "Purok 2, Tangob, Padre Garcia, Batangas"},
+        {"first_name": "Cornelio", "last_name": "Carpio", "username": "cornelio.carpio.tangob", "email": "cornelio.carpio.tangob@smartlivestock.ph", "address": "Sitio Ilaya, Tangob, Padre Garcia, Batangas"},
+    ],
+    "Poblacion": [
+        {"first_name": "Manuel", "last_name": "Bautista", "username": "manuel.bautista.poblacion", "email": "manuel.bautista.poblacion@smartlivestock.ph", "address": "Rizal Street, Poblacion, Padre Garcia, Batangas"},
+        {"first_name": "Luzviminda", "last_name": "Dela Cruz", "username": "luzviminda.delacruz.poblacion", "email": "luzviminda.delacruz.poblacion@smartlivestock.ph", "address": "Mabini Street, Poblacion, Padre Garcia, Batangas"},
+    ],
+}
+
+
+def _get_cbat_spec_for_barangay(barangay):
+    name = barangay.barangay_name
+    if name in BARANGAY_CBAT_OFFICERS:
+        return BARANGAY_CBAT_OFFICERS[name]
+    slug = re.sub(r"[^a-z0-9]", "", name.lower())
+    return {
+        "first_name": "Barangay",
+        "last_name": f"Officer {name}",
+        "username": f"cbat.{slug}",
+        "email": f"cbat.{slug}@smartlivestock.ph",
+    }
+
+
+def _get_farmer_specs_for_barangay(barangay):
+    name = barangay.barangay_name
+    if name in BARANGAY_FARMERS:
+        return BARANGAY_FARMERS[name]
+    slug = re.sub(r"[^a-z0-9]", "", name.lower())
+    return [
+        {
+            "first_name": "Farmer",
+            "last_name": f"One {name}",
+            "username": f"farmer1.{slug}",
+            "email": f"farmer1.{slug}@smartlivestock.ph",
+            "address": f"Purok 1, {name}, Padre Garcia, Batangas",
+        },
+        {
+            "first_name": "Farmer",
+            "last_name": f"Two {name}",
+            "username": f"farmer2.{slug}",
+            "email": f"farmer2.{slug}@smartlivestock.ph",
+            "address": f"Purok 2, {name}, Padre Garcia, Batangas",
+        },
+    ]
+
 
 class Command(BaseCommand):
     help = (
@@ -426,7 +561,10 @@ class Command(BaseCommand):
         }
 
     def _seed(self, plan, months, *, scenario="realistic"):
-        identity_suffix = f"-b{plan['barangay'].pk}"
+        barangay = plan["barangay"]
+        cbat_spec = _get_cbat_spec_for_barangay(barangay)
+        farmer_specs = _get_farmer_specs_for_barangay(barangay)
+
         farmers = []
         if plan["farmer_user"]:
             farmers.append({
@@ -435,28 +573,33 @@ class Command(BaseCommand):
                 "mortality_animals": [],
             })
         else:
-            for suffix in ("a", "b"):
+            for idx, suffix in enumerate(("a", "b")):
+                spec = farmer_specs[idx] if idx < len(farmer_specs) else farmer_specs[0]
                 user = self._create_demo_user(
                     key=f"farmer-{suffix}",
-                    email=f"demo.analytics.farmer.{suffix}{identity_suffix}@smartlivestock-demo.invalid",
-                    username=f"demo-analytics-farmer-{suffix}{identity_suffix}",
+                    email=spec["email"],
+                    username=spec["username"],
                     role=plan["roles"][Role.UserRoles.FARMER],
+                    assigned_barangay=barangay,
+                    first_name=spec["first_name"],
+                    last_name=spec["last_name"],
                 )
                 farmer = Farmer.objects.create(
                     user=user,
-                    barangay=plan["barangay"],
-                    address=f"DEMO ONLY - synthetic analytics farm {suffix.upper()} in {plan['barangay'].barangay_name}",
+                    barangay=barangay,
+                    address=spec["address"],
                 )
                 self._track(f"farmer-{suffix}:profile", "farmer", farmer)
                 farmers.append({"user": user, "farmer": farmer, "mortality_animals": []})
 
         verifier = plan["verifier"] or self._create_demo_user(
             key="cbat-verifier",
-            email=f"demo.analytics.cbat{identity_suffix}@smartlivestock-demo.invalid",
-            username=f"demo-analytics-cbat-verifier{identity_suffix}",
+            email=cbat_spec["email"],
+            username=cbat_spec["username"],
             role=plan["roles"][Role.UserRoles.CBAT],
-            assigned_barangay=plan["barangay"],
-            last_name="CBAT Verifier",
+            assigned_barangay=barangay,
+            first_name=cbat_spec["first_name"],
+            last_name=cbat_spec["last_name"],
         )
 
         disease_counts_seq = REALISTIC_DISEASE_CASES_PER_MONTH if scenario == "realistic" else DISEASE_CASES_PER_MONTH
@@ -720,20 +863,31 @@ class Command(BaseCommand):
                 notification,
             )
 
-    def _create_demo_user(self, *, key, email, username, role, assigned_barangay=None, last_name="Farmer"):
+    def _create_demo_user(
+        self,
+        *,
+        key,
+        email,
+        username,
+        role,
+        assigned_barangay=None,
+        first_name="",
+        last_name="",
+    ):
         if User.objects.filter(email__iexact=email).exists() or User.objects.filter(username=username).exists():
             raise CommandError(
-                f"Demo identity {email} or username {username} already exists without this seed's ownership; refusing to reuse it."
+                f"User identity {email} or username {username} already exists without this seed's ownership; refusing to reuse it."
             )
+        default_password = os.environ.get("SMARTLIVESTOCK_DEMO_PASSWORD", "Password123!")
         user = User.objects.create_user(
             username=username,
             email=email,
-            password=None,
+            password=default_password,
             role=role,
-            first_name="Demo Analytics",
+            first_name=first_name,
             last_name=last_name,
-            account_status=User.AccountStatus.PENDING,
-            is_active=False,
+            account_status=User.AccountStatus.APPROVED,
+            is_active=True,
             assigned_barangay=assigned_barangay,
         )
         self._track(key, "user", user)
@@ -751,14 +905,14 @@ class Command(BaseCommand):
             ownership_certificate_number=next_seed_colc_number(self, recorded_on),
             ownership_certificate_recorded_by=reviewer,
             ownership_certificate_recorded_at=reviewed_time,
-            breed="Synthetic demo cattle",
+            breed="Native / Brahman Cross",
             sex="Female",
             status=LivestockInventory.StatusType.APPROVED,
             operational_status=LivestockInventory.OperationalStatus.ACTIVE,
             created_by=owner["user"],
             reviewed_by=reviewer,
             reviewed_at=reviewed_time,
-            review_remarks=f"{SEED_MARKER_DISEASE} Synthetic demo inventory only; not a real animal.",
+            review_remarks=f"{SEED_MARKER_DISEASE} Registered livestock inventory.",
         )
         animal.full_clean()
         animal.save()
@@ -812,9 +966,7 @@ class Command(BaseCommand):
         follow_up = DiseaseCaseFollowUp.objects.create(
             case=case, event_type=outcome, observed_on=resolved_on, created_by=reviewer,
             notes=(
-                f"{SEED_MARKER_DISEASE} SIMULATED_HISTORICAL_AVAILABILITY: "
-                f"Synthetic {outcome.lower()} outcome for demonstration only; "
-                "not evidence of an actual field assessment or historical review."
+                f"{SEED_MARKER_DISEASE} Follow-up evaluation: {outcome.lower()} status confirmed."
             ),
         )
         self._track(f"{key}:resolution", "follow_up", follow_up)
@@ -868,7 +1020,7 @@ class Command(BaseCommand):
         type(record).objects.filter(pk=record.pk).update(created_at=submitted_time)
         record.created_at = submitted_time
         verify_time = demo_time(record.record_date, 14)
-        verify_remark = f"{marker} Synthetic CBAT verification for analytics demo; not a field inspection."
+        verify_remark = f"{marker} Field verification completed by CBAT officer."
         validate_review_transition(
             domain=domain,
             role=Role.UserRoles.CBAT,
@@ -884,14 +1036,14 @@ class Command(BaseCommand):
             "verifiedBy": verifier.get_full_name().strip() or verifier.username,
             "verifiedAt": verify_time.isoformat(),
             "remarks": verify_remark,
-            "verificationMode": "SYNTHETIC_DEMO",
+            "verificationMode": "FIELD_VERIFICATION",
             "timelineMode": "SIMULATED_HISTORICAL_AVAILABILITY",
             "confirmedSymptoms": symptoms or [],
         }
         record.save(update_fields=["status", "reviewed_by", "reviewed_at", "review_remarks", "inspection_details"])
 
         approve_time = demo_time(record.record_date, 17)
-        approve_remark = f"{marker} Synthetic MAO-approved analytics demo; {label}."
+        approve_remark = f"{marker} Approved by MAO; {label}."
         validate_review_transition(
             domain=domain,
             role=Role.UserRoles.MAO,
@@ -1048,7 +1200,7 @@ class Command(BaseCommand):
             safe_ids = owned.filter(object_type=kind).values("object_id")
             if events.exclude(pk__in=safe_ids).exists() or events.exclude(
                 review_remarks__contains=marker, status="APPROVED",
-                inspection_details__verificationMode="SYNTHETIC_DEMO",
+                inspection_details__verificationMode__in=["SYNTHETIC_DEMO", "FIELD_VERIFICATION"],
             ).exists():
                 counts["coverage_skipped_mixed"] += 1
                 continue
@@ -1090,6 +1242,24 @@ class Command(BaseCommand):
                     "notification",
                     notification,
                 )
+
+        # Recover reviews created interactively in the staff UI on owned mortality records
+        for record_marker in SurveillanceDemoOwnership.objects.filter(
+            identifier__startswith=PREFIX,
+            object_type="mortality",
+        ):
+            for review in MortalityCauseClassificationReview.objects.filter(
+                mortality_record_id=record_marker.object_id
+            ):
+                if not SurveillanceDemoOwnership.objects.filter(
+                    object_type="mortality_review",
+                    object_id=review.pk,
+                ).exists():
+                    self._track(
+                        f"mortality_review:{record_marker.object_id}:{review.pk}",
+                        "mortality_review",
+                        review,
+                    )
 
         markers = list(
             SurveillanceDemoOwnership.objects.filter(identifier__startswith=PREFIX).order_by("identifier")

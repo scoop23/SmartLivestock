@@ -60,10 +60,10 @@ class FarmerLogWorkflowTests(APITestCase):
         self.assertFalse(Notification.objects.filter(related_entity_type="production_record", related_entity_id=result.data["id"]).exists())
         self.client.force_authenticate(user=self.sibat_user)
         self.assertEqual(self.client.post(f"/production/records/{result.data['id']}/review/", {"status": "VERIFIED"}).status_code, 404)
-        self.assertEqual(len(self.client.get("/production/records/").data), 0)
+        self.assertEqual(self.client.get("/production/records/").status_code, 403)
         self.client.force_authenticate(user=self.mao_user)
         self.assertEqual(self.client.post(f"/production/records/{result.data['id']}/review/", {"status": "APPROVED"}).status_code, 404)
-        self.assertEqual(len(self.client.get("/production/records/").data), 0)
+        self.assertEqual(self.client.get("/production/records/").status_code, 403)
 
     def test_duplicate_milk_session_and_other_owner_are_rejected(self):
         self.assertEqual(self.submit(self.cow, "MILK", "8", "LITERS", milking_session="MORNING").status_code, 201)
@@ -85,7 +85,7 @@ class FarmerLogWorkflowTests(APITestCase):
         self.assertTrue(Notification.objects.filter(
             user=self.sibat_user, related_entity_type="slaughter_record", related_entity_id=slaughter.pk,
         ).exists())
-        self.assertTrue(Notification.objects.filter(
+        self.assertFalse(Notification.objects.filter(
             user=self.cbat_user, related_entity_type="slaughter_record", related_entity_id=slaughter.pk,
         ).exists())
         self.assertFalse(Notification.objects.filter(

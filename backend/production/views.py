@@ -82,7 +82,7 @@ def _notify_production_route(record: ProductionRecord, actor: User, *, is_resubm
             message=f"{farmer_name} reported a slaughter notice for {record.slaughter.quantity} animal(s). This is unverified and read-only for field officers.",
             link="/sibat",
             barangay_id=barangay_id,
-            include_cbat=True,
+            include_cbat=False,
             related_entity_type="slaughter_record", related_entity_id=record.slaughter_id,
         )
         notify_role(
