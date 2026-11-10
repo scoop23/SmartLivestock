@@ -60,6 +60,7 @@ import {
   Shield,
   ShieldPlus,
   Settings2,
+  Smartphone,
   Sparkles,
   Stethoscope,
   TrendingUp,
@@ -749,6 +750,23 @@ function SidebarNav({
                 <div className="flex flex-col text-left">
                   <span>Help & Hotlines</span>
                   <span className="text-[10px] text-slate-400 font-normal">Emergency contacts & guide</span>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setProfilePopoverOpen(false);
+                  window.dispatchEvent(new CustomEvent("smartlivestock:trigger-pwa-install"));
+                }}
+                className="w-full min-h-11 flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-emerald-950 hover:bg-emerald-50 transition-colors group cursor-pointer text-left"
+              >
+                <div className="size-7 rounded-lg bg-emerald-100/70 text-emerald-800 flex items-center justify-center shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                  <Smartphone className="size-3.5" />
+                </div>
+                <div className="flex flex-col text-left">
+                  <span>Install Mobile App</span>
+                  <span className="text-[10px] text-slate-400 font-normal">Add PWA to home screen</span>
                 </div>
               </button>
             </div>

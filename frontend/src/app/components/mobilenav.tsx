@@ -15,6 +15,7 @@ Icon,
 LogOut,
 Megaphone,
 Package,
+Smartphone,
 TrendingUp,
 } from "lucide-react";
 import { usePathname,useRouter } from "next/navigation";
@@ -111,6 +112,20 @@ export default function MobileNav() {
             </nav>
 
             <Separator className="bg-white/10 mx-3 my-1" />
+
+            <div className="px-3 pb-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  window.dispatchEvent(new CustomEvent("smartlivestock:trigger-pwa-install"));
+                }}
+                className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-md text-sm font-medium text-emerald-200 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+              >
+                <Smartphone className="size-4 shrink-0" />
+                <span className="truncate">Install Mobile App</span>
+              </button>
+            </div>
 
             <div className="px-3 pb-3">
               <button

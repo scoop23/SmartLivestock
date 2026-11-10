@@ -1,7 +1,8 @@
 "use client";
 
-import { PrivacyConsentModal } from "@/app/components/privacy-consent-modal";
 import { IncomingNotificationToastListener } from "@/app/components/incoming-notification-toast-listener";
+import { PrivacyConsentModal } from "@/app/components/privacy-consent-modal";
+import { PwaInstaller } from "@/components/pwa-installer";
 import { Toaster } from "@/components/ui/sonner";
 import { AccessibilitySettingsProvider } from "@/contexts/accessibility-settings-context";
 import { AuthProvider } from "@/contexts/auth-context";
@@ -37,6 +38,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <IncomingNotificationToastListener />
+          <PwaInstaller />
           <Toaster
             id="incoming-notifications"
             position="top-right"
