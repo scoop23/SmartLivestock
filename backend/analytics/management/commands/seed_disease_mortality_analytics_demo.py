@@ -11,7 +11,12 @@ from django.utils import timezone
 
 from analytics.models import SurveillanceCoverageReport, SurveillanceDemoOwnership
 from analytics.seed_markers import SEED_MARKER_DISEASE, SEED_MARKER_MORTALITY
-from diseases.models import DiseaseCase, DiseaseCaseFollowUp, MortalityRecord
+from diseases.models import (
+    DiseaseCase,
+    DiseaseCaseFollowUp,
+    MortalityCauseClassificationReview,
+    MortalityRecord,
+)
 from diseases.serializer import DiseaseCaseSerializer, MortalityRecordSerializer
 from livestock.models import Barangay, Farmer, LivestockBatch, LivestockInventory, LivestockType
 from livestock.reconciliation import reconcile_approved_mortality
@@ -30,6 +35,7 @@ OBJECT_MODELS = {
     "disease": DiseaseCase,
     "follow_up": DiseaseCaseFollowUp,
     "mortality": MortalityRecord,
+    "mortality_review": MortalityCauseClassificationReview,
     "coverage": SurveillanceCoverageReport,
     "notification": Notification,
 }
@@ -39,19 +45,221 @@ MONTHS = 24
 def demo_time(day, hour):
     """Explicit simulated availability, never evidence of real historical review."""
     return timezone.make_aware(datetime.combine(day, time(hour)), timezone.get_current_timezone())
-# Deliberately increasing synthetic reporting, with early quiet months.
-# This is a demonstration scenario, not evidence of a real disease trend.
+
+
+# Increasing scenario: deliberately increasing synthetic reporting, with early quiet months.
 DISEASE_CASES_PER_MONTH = (0, 1, 0, 1, 1, 2, 1, 2, 2, 3, 2, 3, 3, 4, 3, 4, 4, 5, 4, 5, 6, 6, 7, 8)
 MORTALITY_RECORDS_PER_MONTH = (0, 1, 0, 0, 1, 0, 2, 0, 1, 0, 0, 1, 0, 1, 0, 2, 0, 1, 0, 1, 0, 1, 0, 0)
+
+# Realistic scenario: natural seasonal/outbreak waves where cases peak during wet/monsoon
+# seasons and decline into troughs where prior cases recover and close ("goes low meaning recovery and closed").
+REALISTIC_DISEASE_CASES_PER_MONTH = (
+    1, 0, 1, 2, 4, 6, 8, 7, 5, 2, 1, 0,
+    1, 1, 2, 3, 5, 7, 9, 8, 6, 3, 1, 1,
+)
+REALISTIC_MORTALITY_RECORDS_PER_MONTH = (
+    1, 0, 1, 1, 2, 3, 4, 3, 2, 1, 1, 0,
+    1, 1, 2, 2, 3, 4, 5, 3, 2, 1, 1, 0,
+)
+
+REALISTIC_DISEASE_PROFILES = [
+    {
+        "name": "High fever, labored breathing, and coughing (suspected pneumonia)",
+        "symptoms": ["Fever", "Coughing", "Nasal discharge", "Labored breathing"],
+    },
+    {
+        "name": "Swollen hot udder, painful milking, and abnormal milk clots (mastitis)",
+        "symptoms": ["Swollen udder", "Abnormal milk", "Fever", "Decreased appetite"],
+    },
+    {
+        "name": "Excessive drooling, mouth ulcers, and lameness with foot sores",
+        "symptoms": ["Drooling", "Mouth lesions", "Foot sores", "Lameness"],
+    },
+    {
+        "name": "Acute high fever, throat swelling, and severe lethargy (suspected hemorrhagic septicemia)",
+        "symptoms": ["High fever", "Swollen throat", "Lethargy", "Respiratory distress"],
+    },
+    {
+        "name": "Watery diarrhea, dehydration, and dull coat (suspected enteritis)",
+        "symptoms": ["Diarrhea", "Dehydration", "Lethargy"],
+    },
+    {
+        "name": "Red swollen eyes with corneal opacity and tearing (infectious pinkeye)",
+        "symptoms": ["Eye discharge", "Corneal cloudiness", "Photophobia"],
+    },
+    {
+        "name": "Acute abdominal distension on left flank and labored breathing (severe bloat)",
+        "symptoms": ["Abdominal distension", "Restlessness", "Labored breathing"],
+    },
+    {
+        "name": "Severe heat stress, panting, and elevated body temperature during dry spell",
+        "symptoms": ["Panting", "Excessive salivation", "High temperature"],
+    },
+]
+
+REALISTIC_MORTALITY_PROFILES = [
+    # SUSPECTED_INFECTIOUS
+    {
+        "cause": "Severe bacterial pneumonia and acute respiratory failure",
+        "category": MortalityCauseClassificationReview.Category.SUSPECTED_INFECTIOUS,
+        "note": "MAO confirmed suspected infectious respiratory pathology.",
+        "link_prior_disease": True,
+        "disease_name": "High fever, labored breathing, and coughing (suspected pneumonia)",
+        "symptoms": ["Fever", "Coughing", "Labored breathing"],
+    },
+    {
+        "cause": "Acute hemorrhagic septicemia with throat swelling and high fever",
+        "category": MortalityCauseClassificationReview.Category.SUSPECTED_INFECTIOUS,
+        "note": "Acute systemic infectious signs observed in field.",
+        "link_prior_disease": True,
+        "disease_name": "Acute high fever, throat swelling, and severe lethargy (suspected hemorrhagic septicemia)",
+        "symptoms": ["High fever", "Swollen throat", "Lethargy"],
+    },
+    {
+        "cause": "Severe toxic mastitis with high fever and systemic collapse",
+        "category": MortalityCauseClassificationReview.Category.SUSPECTED_INFECTIOUS,
+        "note": "Toxic coliform mastitis complication.",
+        "link_prior_disease": True,
+        "disease_name": "Swollen hot udder, painful milking, and abnormal milk clots (mastitis)",
+        "symptoms": ["Swollen udder", "Abnormal milk", "Fever"],
+    },
+    {
+        "cause": "Severe viral diarrhea with acute dehydration and circulatory collapse",
+        "category": MortalityCauseClassificationReview.Category.SUSPECTED_INFECTIOUS,
+        "note": "Severe infectious enteritis and dehydration.",
+        "link_prior_disease": True,
+        "disease_name": "Watery diarrhea, dehydration, and dull coat (suspected enteritis)",
+        "symptoms": ["Diarrhea", "Dehydration", "Lethargy"],
+    },
+    {
+        "cause": "Suspected blackleg infection with rapid muscle swelling and high fever",
+        "category": MortalityCauseClassificationReview.Category.SUSPECTED_INFECTIOUS,
+        "note": "Clostridial infectious disease suspected from field evidence.",
+        "link_prior_disease": False,
+        "symptoms": ["High fever", "Muscle swelling", "Lameness"],
+    },
+    # INJURY_ACCIDENT
+    {
+        "cause": "Severe leg fracture and internal trauma after falling into deep drainage canal",
+        "category": MortalityCauseClassificationReview.Category.INJURY_ACCIDENT,
+        "note": "Physical injury confirmed by CBAT inspection and photos.",
+        "link_prior_disease": False,
+        "symptoms": ["Bone fracture", "Trauma", "Internal injury"],
+    },
+    {
+        "cause": "Traumatic vehicle collision on municipal road during grazing transit",
+        "category": MortalityCauseClassificationReview.Category.INJURY_ACCIDENT,
+        "note": "Accidental vehicular impact.",
+        "link_prior_disease": False,
+        "symptoms": ["Blunt force trauma", "Lacerations", "Shock"],
+    },
+    {
+        "cause": "Strangulation asphyxiation from tether rope entanglement around pasture tree",
+        "category": MortalityCauseClassificationReview.Category.INJURY_ACCIDENT,
+        "note": "Mechanical asphyxiation accident.",
+        "link_prior_disease": False,
+        "symptoms": ["Asphyxiation", "Neck trauma", "Accidental injury"],
+    },
+    {
+        "cause": "Deep goring puncture wound to abdomen from aggressive bull",
+        "category": MortalityCauseClassificationReview.Category.INJURY_ACCIDENT,
+        "note": "Severe pasture fighting trauma.",
+        "link_prior_disease": False,
+        "symptoms": ["Goring wound", "Abdominal puncture", "Hemorrhage"],
+    },
+    {
+        "cause": "Hardware disease; traumatic reticulopericarditis from swallowed sharp wire",
+        "category": MortalityCauseClassificationReview.Category.INJURY_ACCIDENT,
+        "note": "Foreign body penetration confirmed during post-mortem inspection.",
+        "link_prior_disease": False,
+        "symptoms": ["Heart failure", "Foreign object trauma"],
+    },
+    # REPRODUCTIVE_PERINATAL
+    {
+        "cause": "Severe calving dystocia; uterine rupture and internal hemorrhage during delivery",
+        "category": MortalityCauseClassificationReview.Category.REPRODUCTIVE_PERINATAL,
+        "note": "Perinatal complications during obstructed labor.",
+        "link_prior_disease": False,
+        "symptoms": ["Calving dystocia", "Uterine rupture", "Hemorrhage"],
+    },
+    {
+        "cause": "Complete uterine prolapse and shock following difficult birth",
+        "category": MortalityCauseClassificationReview.Category.REPRODUCTIVE_PERINATAL,
+        "note": "Post-calving uterine prolapse and acute shock.",
+        "link_prior_disease": False,
+        "symptoms": ["Uterine prolapse", "Hypovolemic shock"],
+    },
+    {
+        "cause": "Severe post-partum hypocalcemia (milk fever) complicated by downer cow syndrome",
+        "category": MortalityCauseClassificationReview.Category.REPRODUCTIVE_PERINATAL,
+        "note": "Periparturient metabolic complication.",
+        "link_prior_disease": False,
+        "symptoms": ["Downer cow recumbency", "Hypocalcemia", "Calving weakness"],
+    },
+    {
+        "cause": "Retained placenta complicated by acute septic metritis 4 days post-calving",
+        "category": MortalityCauseClassificationReview.Category.REPRODUCTIVE_PERINATAL,
+        "note": "Perinatal infection following dystocia.",
+        "link_prior_disease": False,
+        "symptoms": ["Retained placenta", "Metritis", "Foul discharge"],
+    },
+    # OTHER_REPORTED_CAUSE
+    {
+        "cause": "Acute ruminal bloat after grazing excessive fresh wet legume forage",
+        "category": MortalityCauseClassificationReview.Category.OTHER_REPORTED_CAUSE,
+        "note": "Acute dietary frothy bloat.",
+        "link_prior_disease": False,
+        "symptoms": ["Ruminal bloat", "Abdominal distension", "Asphyxiation"],
+    },
+    {
+        "cause": "Heat stroke and acute cardiopulmonary arrest during midday dry spell",
+        "category": MortalityCauseClassificationReview.Category.OTHER_REPORTED_CAUSE,
+        "note": "Severe environmental hyperthermia.",
+        "link_prior_disease": False,
+        "symptoms": ["Heat stroke", "Hyperthermia", "Panting"],
+    },
+    {
+        "cause": "Sudden lightning strike in open field during severe thunderstorm",
+        "category": MortalityCauseClassificationReview.Category.OTHER_REPORTED_CAUSE,
+        "note": "Lightning strike confirmed by scorch marks and field report.",
+        "link_prior_disease": False,
+        "symptoms": ["Lightning scorch marks", "Sudden death"],
+    },
+    {
+        "cause": "Suspected toxic weed ingestion leading to acute neuromuscular paralysis",
+        "category": MortalityCauseClassificationReview.Category.OTHER_REPORTED_CAUSE,
+        "note": "Plant toxicity suspected.",
+        "link_prior_disease": False,
+        "symptoms": ["Neuromuscular paralysis", "Salivation", "Toxicosis"],
+    },
+    # UNDETERMINED
+    {
+        "cause": "Found dead in pasture without prior observed symptoms or trauma",
+        "category": MortalityCauseClassificationReview.Category.UNDETERMINED,
+        "note": "Unobserved sudden death with inconclusive field evidence.",
+        "link_prior_disease": False,
+        "symptoms": ["Inconclusive findings"],
+    },
+]
 
 
 class Command(BaseCommand):
     help = (
-        "Create 24 months of increasing synthetic disease reports with simulated resolutions and irregular mortality events "
-        "across every existing barangay, with mixed individual/herd disease reports and two inactive demo farmers per barangay."
+        "Create 24 months of synthetic disease reports with simulated resolutions and mortality events "
+        "across every existing barangay, supporting realistic wave fluctuations and mortality classifier seeding."
     )
 
     def add_arguments(self, parser):
+        parser.add_argument(
+            "--scenario",
+            choices=["realistic", "increasing"],
+            default="realistic",
+            help=(
+                "Reporting pattern scenario: 'realistic' (default) generates natural wave fluctuations "
+                "with seasonal outbreaks, quiet recovery/closure periods, and seeded mortality classifications; "
+                "'increasing' preserves the historical monotonically climbing demonstration."
+            ),
+        )
         parser.add_argument(
             "--enrich-disease-heads", action="store_true",
             help="Give owned synthetic disease reports a repeatable mix of individual and multi-head herd events, without replacing reports.",
@@ -77,6 +285,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         clean = options["clean"]
         dry_run = options["dry_run"]
+        scenario = options.get("scenario", "realistic")
         assert_safe_seed_database(clean=clean, dry_run=dry_run)
         if options["enrich_disease_heads"]:
             if clean or options["repair_timestamps"]:
@@ -101,12 +310,17 @@ class Command(BaseCommand):
                 f"({MONTHS} complete calendar months)."
             )
             if not clean:
+                self.stdout.write(f"Scenario: {scenario}")
+                disease_seq = REALISTIC_DISEASE_CASES_PER_MONTH if scenario == "realistic" else DISEASE_CASES_PER_MONTH
+                mortality_seq = REALISTIC_MORTALITY_RECORDS_PER_MONTH if scenario == "realistic" else MORTALITY_RECORDS_PER_MONTH
                 self.stdout.write(f"Scope: all {Barangay.objects.count()} existing barangays; existing coverage confirmations are preserved.")
                 self.stdout.write(
-                    f"Disease reports per barangay by month: {DISEASE_CASES_PER_MONTH}. "
-                    "Rotate recovered after 21 days, closed after 45 days, and unresolved; "
-                    "future resolutions are not created. Follow-ups are owned synthetic fixtures."
+                    f"Disease reports per barangay by month: {disease_seq}. "
+                    "Low periods feature high rates of recovered and closed follow-ups. "
+                    f"Mortality records per barangay by month: {mortality_seq}."
                 )
+                if scenario == "realistic":
+                    self.stdout.write("Mortality cause classification reviews will be seeded for the decision tree classifier.")
             self.stdout.write("No database changes were made.")
             return
 
@@ -126,9 +340,11 @@ class Command(BaseCommand):
                 if verifier and verifier.assigned_barangay_id != barangay.pk and verifier.access_scope != "ALL_BARANGAYS":
                     local_plan["verifier"] = None
                 self.barangay_key = f"barangay-{barangay.pk}:"
-                self._seed(local_plan, months)
+                self._seed(local_plan, months, scenario=scenario)
             self._enrich_disease_heads(dry_run=False)
-            self.stdout.write(self.style.SUCCESS(f"Completed synthetic analytics seed across {len(barangays)} barangays."))
+            self.stdout.write(self.style.SUCCESS(
+                f"Completed synthetic analytics seed ({scenario} scenario) across {len(barangays)} barangays."
+            ))
 
     @staticmethod
     def _completed_months(today):
@@ -201,7 +417,7 @@ class Command(BaseCommand):
             "farmer_user": farmer_user, "farmer_profile": farmer_profile,
         }
 
-    def _seed(self, plan, months):
+    def _seed(self, plan, months, *, scenario="realistic"):
         identity_suffix = f"-b{plan['barangay'].pk}"
         farmers = []
         if plan["farmer_user"]:
@@ -235,10 +451,18 @@ class Command(BaseCommand):
             last_name="CBAT Verifier",
         )
 
+        disease_counts_seq = REALISTIC_DISEASE_CASES_PER_MONTH if scenario == "realistic" else DISEASE_CASES_PER_MONTH
+        mortality_counts_seq = REALISTIC_MORTALITY_RECORDS_PER_MONTH if scenario == "realistic" else MORTALITY_RECORDS_PER_MONTH
+
         disease_count = 0
         mortality_count = 0
+        review_count = 0
         for month_index, month_end in enumerate(months):
-            for event_index in range(DISEASE_CASES_PER_MONTH[month_index]):
+            num_disease = disease_counts_seq[month_index]
+            prev_disease = disease_counts_seq[month_index - 1] if month_index > 0 else num_disease
+            is_low_or_declining = num_disease <= 2 or num_disease < prev_disease
+
+            for event_index in range(num_disease):
                 owner_index = (month_index + event_index) % len(farmers)
                 owner = farmers[owner_index]
                 disease_count += 1
@@ -248,6 +472,22 @@ class Command(BaseCommand):
                     livestock_type=plan["cattle"],
                     reviewer=plan["reviewer"],
                 )
+                if scenario == "realistic":
+                    d_profile = REALISTIC_DISEASE_PROFILES[(month_index * 3 + event_index) % len(REALISTIC_DISEASE_PROFILES)]
+                    d_name = d_profile["name"]
+                    d_symptoms = d_profile["symptoms"]
+                    if is_low_or_declining:
+                        # In low/trough months, cases resolve cleanly (80% recovered, 20% closed, 0% open)
+                        resolution_outcome = 0 if (event_index % 5 < 4) else 1
+                    else:
+                        # In peak months, some remain open/under treatment
+                        peak_mod = event_index % 4
+                        resolution_outcome = 0 if peak_mod < 2 else (1 if peak_mod == 2 else 2)
+                else:
+                    d_name = "DEMO synthetic cattle illness observation (not a diagnosis)"
+                    d_symptoms = []
+                    resolution_outcome = (month_index + event_index) % 3
+
                 case = self._create_approved_disease(
                     key=f"disease:{month_end:%Y-%m}:{event_index + 1}",
                     farmer_user=owner["user"],
@@ -255,16 +495,19 @@ class Command(BaseCommand):
                     record_date=self._event_day(month_end, month_index, event_index, offset=3),
                     verifier=verifier,
                     reviewer=plan["reviewer"],
+                    disease_name=d_name,
+                    symptoms=d_symptoms,
                 )
                 self._seed_disease_resolution(
                     case=case,
                     key=f"disease:{month_end:%Y-%m}:{event_index + 1}",
-                    outcome_index=(month_index + event_index) % 3,
+                    outcome_index=resolution_outcome,
                     reviewer=plan["reviewer"],
                 )
                 self._track_notifications("disease_case", f"disease:{month_end:%Y-%m}:{event_index + 1}")
 
-            for event_index in range(MORTALITY_RECORDS_PER_MONTH[month_index]):
+            num_mortality = mortality_counts_seq[month_index]
+            for event_index in range(num_mortality):
                 owner_index = (month_index + event_index) % len(farmers)
                 owner = farmers[owner_index]
                 mortality_count += 1
@@ -275,15 +518,68 @@ class Command(BaseCommand):
                     reviewer=plan["reviewer"],
                 )
                 owner["mortality_animals"].append(mortality_animal)
-                self._create_approved_mortality(
+                mortality_date = self._event_day(month_end, month_index, event_index, offset=11)
+
+                if scenario == "realistic":
+                    m_profile = REALISTIC_MORTALITY_PROFILES[
+                        (month_index * 2 + event_index + plan["barangay"].pk) % len(REALISTIC_MORTALITY_PROFILES)
+                    ]
+                    m_cause = m_profile["cause"]
+                    m_category = m_profile["category"]
+                    m_note = m_profile["note"]
+                    m_symptoms = m_profile.get("symptoms", [])
+                    source_case = None
+
+                    if m_profile.get("link_prior_disease"):
+                        prior_day = max(1, mortality_date.day - (4 + (event_index % 3)))
+                        prior_date = date(month_end.year, month_end.month, prior_day)
+                        prior_case = self._create_approved_disease(
+                            key=f"mortality-prior-disease:{month_end:%Y-%m}:{event_index + 1}",
+                            farmer_user=owner["user"],
+                            animal=mortality_animal,
+                            record_date=prior_date,
+                            verifier=verifier,
+                            reviewer=plan["reviewer"],
+                            disease_name=m_profile.get("disease_name", "High fever, labored breathing, and coughing (suspected pneumonia)"),
+                            symptoms=m_symptoms,
+                        )
+                        source_case = prior_case
+                else:
+                    m_cause = "DEMO synthetic mortality event (cause not established)"
+                    m_category = MortalityCauseClassificationReview.Category.UNDETERMINED
+                    m_note = "Demo synthetic mortality record."
+                    m_symptoms = []
+                    source_case = None
+
+                record = self._create_approved_mortality(
                     key=f"mortality:{month_end:%Y-%m}:{event_index + 1}",
                     farmer_user=owner["user"],
                     animal=mortality_animal,
-                    record_date=self._event_day(month_end, month_index, event_index, offset=11),
+                    record_date=mortality_date,
                     verifier=verifier,
                     reviewer=plan["reviewer"],
+                    cause=m_cause,
+                    source_disease_case=source_case,
+                    symptoms=m_symptoms,
                 )
                 self._track_notifications("mortality_record", f"mortality:{month_end:%Y-%m}:{event_index + 1}")
+
+                # Staff confirmed cause classification label:
+                # Seed labels for months <= 20 to establish a rich training set,
+                # leaving the recent ~3 months unlabelled for the live prediction queue.
+                should_label = (month_index <= 20)
+                if should_label:
+                    review = MortalityCauseClassificationReview.objects.create(
+                        mortality_record=record,
+                        category=m_category,
+                        reviewer=plan["reviewer"],
+                        note=m_note,
+                    )
+                    MortalityCauseClassificationReview.objects.filter(pk=review.pk).update(
+                        reviewed_at=demo_time(mortality_date, 18),
+                    )
+                    self._track(f"mortality:{month_end:%Y-%m}:{event_index + 1}:review", "mortality_review", review)
+                    review_count += 1
 
         self._seed_coverage_confirmations(plan, months)
         self.stdout.write(self.style.SUCCESS("Disease and mortality event analytics demo is ready."))
@@ -294,7 +590,8 @@ class Command(BaseCommand):
         )
         self.stdout.write(
             f"{farmer_summary} in {plan['barangay'].barangay_name}; "
-            f"{disease_count} approved disease cases and {mortality_count} approved mortality records from "
+            f"{disease_count} approved disease cases, {mortality_count} approved mortality records, "
+            f"and {review_count} staff classification training labels from "
             f"{months[0]:%b %Y} through {months[-1]:%b %Y}."
         )
         self.stdout.write(
@@ -453,11 +750,15 @@ class Command(BaseCommand):
         self._track(key, "livestock", animal)
         return animal
 
-    def _create_approved_disease(self, *, key, farmer_user, animal, record_date, verifier, reviewer):
+    def _create_approved_disease(
+        self, *, key, farmer_user, animal, record_date, verifier, reviewer,
+        disease_name=None, symptoms=None,
+    ):
+        name = disease_name or "DEMO synthetic cattle illness observation (not a diagnosis)"
         serializer = DiseaseCaseSerializer(
             data={
                 "livestock": animal.pk,
-                "name": "DEMO synthetic cattle illness observation (not a diagnosis)",
+                "name": name,
                 "affected_count": 1,
                 "record_date": record_date,
             },
@@ -474,7 +775,8 @@ class Command(BaseCommand):
             verifier=verifier,
             reviewer=reviewer,
             marker=SEED_MARKER_DISEASE,
-            label="synthetic disease observation; not a confirmed or diagnosed case",
+            label="synthetic disease observation; not a confirmed or diagnosed case" if "DEMO synthetic" in name else name,
+            symptoms=symptoms,
         )
         return case
 
@@ -504,14 +806,21 @@ class Command(BaseCommand):
         )
         DiseaseCase.objects.filter(pk=case.pk).update(clinical_status=outcome)
 
-    def _create_approved_mortality(self, *, key, farmer_user, animal, record_date, verifier, reviewer):
+    def _create_approved_mortality(
+        self, *, key, farmer_user, animal, record_date, verifier, reviewer,
+        cause=None, source_disease_case=None, symptoms=None,
+    ):
+        cause_text = cause or "DEMO synthetic mortality event (cause not established)"
+        data = {
+            "livestocks": [animal.pk],
+            "death_count": 1,
+            "cause": cause_text,
+            "record_date": record_date,
+        }
+        if source_disease_case:
+            data["source_disease_case"] = source_disease_case.pk
         serializer = MortalityRecordSerializer(
-            data={
-                "livestocks": [animal.pk],
-                "death_count": 1,
-                "cause": "DEMO synthetic mortality event (cause not established)",
-                "record_date": record_date,
-            },
+            data=data,
             context={"request": SimpleNamespace(user=farmer_user)},
         )
         serializer.is_valid(raise_exception=True)
@@ -525,13 +834,16 @@ class Command(BaseCommand):
             verifier=verifier,
             reviewer=reviewer,
             marker=SEED_MARKER_MORTALITY,
-            label="synthetic mortality event; cause not established",
+            label="synthetic mortality event; cause not established" if "DEMO synthetic" in cause_text else cause_text,
+            symptoms=symptoms,
         )
         reconcile_approved_mortality(record)
+        return record
 
     @staticmethod
     def _approve_with_verification(
         *, domain, record, verified_status, approved_status, verifier, reviewer, marker, label,
+        symptoms=None,
     ):
         # Synthetic events simulate submission and review on the event date.
         # QuerySet.update restores auto_now_add without issuing new notifications.
@@ -557,6 +869,7 @@ class Command(BaseCommand):
             "remarks": verify_remark,
             "verificationMode": "SYNTHETIC_DEMO",
             "timelineMode": "SIMULATED_HISTORICAL_AVAILABILITY",
+            "confirmedSymptoms": symptoms or [],
         }
         record.save(update_fields=["status", "reviewed_by", "reviewed_at", "review_remarks", "inspection_details"])
 
@@ -574,6 +887,7 @@ class Command(BaseCommand):
             "maoRemarks": approve_remark,
             "maoReviewedBy": reviewer.get_full_name().strip() or reviewer.username,
             "maoReviewedAt": approve_time.isoformat(),
+            "confirmedSymptoms": symptoms or [],
         })
         record.status = approved_status
         record.reviewed_by = reviewer
@@ -604,11 +918,14 @@ class Command(BaseCommand):
         counts = {"reports": 0, "individual_reports": 0, "herd_reports": 0, "affected_heads": 0}
         herds = {}
         for case in rows:
+            ident = identifiers.get(case.pk, "")
+            if "mortality-prior-disease" in ident:
+                continue
             target = case.livestock or case.batch
             if target is None or case.record_date is None:
                 raise CommandError(f"Owned disease report #{case.pk} has no valid animal/herd or date.")
             # Event position comes from the stable seed key, not database IDs.
-            event_index = int(identifiers[case.pk].rsplit(":", 1)[1]) - 1
+            event_index = int(ident.rsplit(":", 1)[1]) - 1
             month_index = case.record_date.year * 12 + case.record_date.month
             affected = pattern[(month_index + event_index + target.farmer.barangay_id) % len(pattern)]
             # Never convert a previously enriched herd back to an individual.
@@ -795,7 +1112,18 @@ class Command(BaseCommand):
                             f"#{related_id} is related but is not owned by this seed. No rows were deleted."
                         )
 
-        for object_type in ("notification", "coverage", "follow_up", "mortality", "disease", "livestock", "herd", "farmer", "user"):
+        for object_type in (
+            "notification",
+            "coverage",
+            "mortality_review",
+            "mortality",
+            "follow_up",
+            "disease",
+            "livestock",
+            "herd",
+            "farmer",
+            "user",
+        ):
             model = OBJECT_MODELS[object_type]
             ids = owned_ids.get(model, set())
             if ids:

@@ -832,7 +832,14 @@ def review_mortality_record(request, pk):
     if "cause_category" in request.data:
         if role_name not in {"MAO", "ADMIN"} or new_status != MortalityRecord.MortalityRecordStatus.APPROVED:
             raise PermissionDenied("Cause classifications can be saved only with MAO/Admin approval.")
-        if "AI_SEED" in (record.review_remarks or ""):
+        from analytics.models import SurveillanceDemoOwnership
+        is_seed = "AI_SEED" in (record.review_remarks or "")
+        is_demo_surveillance = is_seed and SurveillanceDemoOwnership.objects.filter(
+            identifier__startswith="disease-mortality-analytics-v1:",
+            object_type="mortality",
+            object_id=record.pk,
+        ).exists()
+        if is_seed and not is_demo_surveillance:
             return Response({"cause_category": "Synthetic reports cannot receive training labels."}, status=400)
 
         class ClassificationInput(serializers.Serializer):

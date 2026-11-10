@@ -143,7 +143,18 @@ def mortality_cause_classification(request):
     values = input_serializer.validated_data
 
     with transaction.atomic():
-        real_record = Q(review_remarks__isnull=True) | ~Q(review_remarks__contains="AI_SEED")
+        from analytics.models import SurveillanceDemoOwnership
+        demo_ids = set(
+            SurveillanceDemoOwnership.objects.filter(
+                identifier__startswith="disease-mortality-analytics-v1:",
+                object_type="mortality",
+            ).values_list("object_id", flat=True)
+        )
+        real_record = (
+            Q(review_remarks__isnull=True)
+            | ~Q(review_remarks__contains="AI_SEED")
+            | Q(pk__in=demo_ids)
+        )
         record = get_object_or_404(
             MortalityRecord.objects.select_for_update().filter(
                 status=MortalityRecord.MortalityRecordStatus.APPROVED,

@@ -9,6 +9,7 @@ from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.pipeline import Pipeline
 from sklearn.tree import DecisionTreeClassifier
 
+from analytics.models import SurveillanceDemoOwnership
 from diseases.models import MortalityCauseClassificationReview, MortalityRecord
 
 
@@ -17,11 +18,24 @@ MIN_RECORDS_PER_CATEGORY = 10
 REVIEW_QUEUE_LIMIT = 30
 
 
+def _eligible_records_filter():
+    demo_ids = set(
+        SurveillanceDemoOwnership.objects.filter(
+            identifier__startswith="disease-mortality-analytics-v1:",
+            object_type="mortality",
+        ).values_list("object_id", flat=True)
+    )
+    return (
+        Q(review_remarks__isnull=True)
+        | ~Q(review_remarks__contains="AI_SEED")
+        | Q(pk__in=demo_ids)
+    )
+
+
 def _real_approved_records():
-    real_record = Q(review_remarks__isnull=True) | ~Q(review_remarks__contains="AI_SEED")
     return MortalityRecord.objects.filter(
         status=MortalityRecord.MortalityRecordStatus.APPROVED,
-    ).filter(real_record).select_related(
+    ).filter(_eligible_records_filter()).select_related(
         "livestock__livestock_type",
         "batch__livestock_type",
         "source_disease_case",
@@ -141,6 +155,12 @@ def mortality_classification_dashboard():
     record_by_id = {record.pk: record for record in records}
     record_ids = list(record_by_id)
 
+    demo_ids = set(
+        SurveillanceDemoOwnership.objects.filter(
+            identifier__startswith="disease-mortality-analytics-v1:",
+            object_type="mortality",
+        ).values_list("object_id", flat=True)
+    )
     latest_labels = {}
     labels = MortalityCauseClassificationReview.objects.filter(
         mortality_record_id__in=record_ids,
@@ -148,6 +168,7 @@ def mortality_classification_dashboard():
     ).filter(
         Q(mortality_record__review_remarks__isnull=True)
         | ~Q(mortality_record__review_remarks__contains="AI_SEED")
+        | Q(mortality_record_id__in=demo_ids)
     ).order_by("mortality_record_id", "-reviewed_at", "-id")
     for label in labels:
         latest_labels.setdefault(label.mortality_record_id, label)
