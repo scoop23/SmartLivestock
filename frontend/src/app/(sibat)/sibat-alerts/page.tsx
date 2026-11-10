@@ -117,6 +117,7 @@ function SibatAlertsContent() {
         ? "Unapproved reports"
         : null
   );
+  const [dateFilter, setDateFilter] = useState(() => searchParams.get("date") ?? "");
   const [reportMonthFilter, setReportMonthFilter] = useState(() => searchParams.get("month") ?? "");
   const [typeFilter, setTypeFilter] = useState<"ALL" | "DISEASE" | "MORTALITY">(() => {
     const p = searchParams.get("recordType")?.toUpperCase() || searchParams.get("type")?.toUpperCase();
@@ -127,6 +128,7 @@ function SibatAlertsContent() {
     const p = searchParams.get("recordType")?.toUpperCase() || searchParams.get("type")?.toUpperCase();
     const search = searchParams.get("search") ?? "";
     const statusParam = searchParams.get("status")?.toUpperCase();
+    const date = searchParams.get("date") ?? "";
     const month = searchParams.get("month") ?? "";
     startTransition(() => {
       if (p === "MORTALITY" || p === "DISEASE") {
@@ -137,6 +139,7 @@ function SibatAlertsContent() {
       setQuery(search);
       if (statusParam === "ALL") setStatusFilter("All statuses");
       else if (statusParam === "UNAPPROVED") setStatusFilter("Unapproved reports");
+      setDateFilter(date);
       setReportMonthFilter(month);
     });
   }, [searchParams]);
@@ -300,8 +303,18 @@ function SibatAlertsContent() {
 
       if (!matchSearch) return false;
 
-      if (reportMonthFilter && d.eventDate?.slice(0, 7) !== reportMonthFilter) {
-        return false;
+      if (dateFilter) {
+        const recDate = d.eventDate || d.reportedDate || d.reportedAt?.slice(0, 10);
+        if (recDate !== dateFilter) {
+          return false;
+        }
+      }
+
+      if (reportMonthFilter) {
+        const recMonth = (d.eventDate || d.reportedDate || d.reportedAt)?.slice(0, 7);
+        if (recMonth !== reportMonthFilter) {
+          return false;
+        }
       }
 
       if (status === "All statuses") return true;
@@ -327,7 +340,7 @@ function SibatAlertsContent() {
 
       return s === "APPROVED";
     });
-  }, [scopedRecords, query, status, typeFilter, reportMonthFilter]);
+  }, [scopedRecords, query, status, typeFilter, dateFilter, reportMonthFilter]);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -336,7 +349,7 @@ function SibatAlertsContent() {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [query, typeFilter, status, reportMonthFilter]);
+  }, [query, typeFilter, status, dateFilter, reportMonthFilter]);
 
   const totalItems = filtered.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
@@ -577,18 +590,49 @@ function SibatAlertsContent() {
               </Select>
             </div>
 
-            <div className="w-full shrink-0 sm:w-36">
+            {/* Date Filter Input */}
+            <div className="relative w-full shrink-0 sm:w-44">
+              <Calendar className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
               <Input
-                type="month"
-                aria-label="Filter reports by month"
-                value={reportMonthFilter}
-                onChange={(event) => handleReportMonthFilterChange(event.target.value)}
-                className="h-10 w-full rounded-lg border-slate-200 bg-white text-xs font-bold text-slate-800 transition-all"
+                type="date"
+                aria-label="Filter reports by date"
+                title="Filter reports by date"
+                value={dateFilter}
+                onChange={(event) => {
+                  const val = event.target.value;
+                  setDateFilter(val);
+                  if (val) setReportMonthFilter("");
+                  setCurrentPage(1);
+                  const url = new URL(window.location.href);
+                  if (val) {
+                    url.searchParams.set("date", val);
+                    url.searchParams.delete("month");
+                  } else {
+                    url.searchParams.delete("date");
+                  }
+                  router.replace(`${pathname}${url.search}${url.hash}`, { scroll: false });
+                }}
+                className="h-10 w-full rounded-lg border-slate-200 bg-white pl-9 pr-7 text-xs font-bold text-slate-800 transition-all focus-visible:ring-[#1A365D]/30 cursor-pointer"
               />
+              {dateFilter && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDateFilter("");
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete("date");
+                    router.replace(`${pathname}${url.search}${url.hash}`, { scroll: false });
+                  }}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 size-5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center cursor-pointer transition-colors"
+                  title="Clear date"
+                >
+                  <X className="size-3.5" />
+                </button>
+              )}
             </div>
 
             {/* Secondary actions / reset */}
-            {(query || status !== "Needs Review" || typeFilter !== "ALL" || reportMonthFilter) && (
+            {(query || status !== "Needs Review" || typeFilter !== "ALL" || dateFilter || reportMonthFilter) && (
               <Button
                 variant="outline"
                 size="sm"
@@ -596,6 +640,7 @@ function SibatAlertsContent() {
                   setQuery("");
                   setStatus("Needs Review");
                   setTypeFilter("ALL");
+                  setDateFilter("");
                   setReportMonthFilter("");
                   setCurrentPage(1);
                   const url = new URL(window.location.href);
@@ -604,6 +649,7 @@ function SibatAlertsContent() {
                   url.searchParams.delete("search");
                   url.searchParams.delete("status");
                   url.searchParams.delete("month");
+                  url.searchParams.delete("date");
                   router.replace(`${pathname}${url.search}${url.hash}`, { scroll: false });
                 }}
                 className="h-10 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-100 hover:text-slate-900 gap-1.5 shrink-0 transition-all duration-200 active:scale-95 cursor-pointer group"
@@ -617,8 +663,8 @@ function SibatAlertsContent() {
           </CardContent>
         </Card>
 
-        {/* ── Results Summary Counter ── */}
-        <div className="flex items-center justify-between px-1">
+        {/* ── Results Summary Counter & Active Filter Pills ── */}
+        <div className="flex items-center justify-between px-1 flex-wrap gap-2">
           <div>
             <h2 className="text-base font-bold text-slate-900">Reports</h2>
             <p className="mt-0.5 text-xs text-slate-500">
@@ -630,11 +676,49 @@ function SibatAlertsContent() {
                   )} of ${totalItems} reports`}
             </p>
           </div>
-          {status !== "Needs Review" && (
-            <Badge variant="outline" className="text-[10px] font-bold text-slate-500 bg-white">
-              Filter: {status}
-            </Badge>
-          )}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {dateFilter && (
+              <Badge variant="outline" className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border-emerald-300 gap-1 pl-2 pr-1.5 py-0.5">
+                <span>Date: {dateFilter}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDateFilter("");
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete("date");
+                    router.replace(`${pathname}${url.search}${url.hash}`, { scroll: false });
+                  }}
+                  className="text-emerald-700 hover:text-emerald-950 font-bold ml-0.5 cursor-pointer"
+                  title="Clear date filter"
+                >
+                  ×
+                </button>
+              </Badge>
+            )}
+            {reportMonthFilter && (
+              <Badge variant="outline" className="text-[10px] font-bold text-sky-800 bg-sky-50 border-sky-300 gap-1 pl-2 pr-1.5 py-0.5">
+                <span>Month: {reportMonthFilter}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReportMonthFilter("");
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete("month");
+                    router.replace(`${pathname}${url.search}${url.hash}`, { scroll: false });
+                  }}
+                  className="text-sky-700 hover:text-sky-950 font-bold ml-0.5 cursor-pointer"
+                  title="Clear month filter"
+                >
+                  ×
+                </button>
+              </Badge>
+            )}
+            {status !== "Needs Review" && (
+              <Badge variant="outline" className="text-[10px] font-bold text-slate-500 bg-white">
+                Filter: {status}
+              </Badge>
+            )}
+          </div>
         </div>
 
         {/* ── Report List ── */}
@@ -821,7 +905,7 @@ function SibatAlertsContent() {
                   <p className="text-xs text-slate-500 max-w-sm font-medium">
                     Try changing your search or status filter.
                   </p>
-                  {(query || status !== "Needs Review" || typeFilter !== "ALL") && (
+                  {(query || status !== "Needs Review" || typeFilter !== "ALL" || dateFilter || reportMonthFilter) && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -829,7 +913,17 @@ function SibatAlertsContent() {
                         setQuery("");
                         setStatus("Needs Review");
                         setTypeFilter("ALL");
+                        setDateFilter("");
+                        setReportMonthFilter("");
                         setCurrentPage(1);
+                        const url = new URL(window.location.href);
+                        url.searchParams.delete("recordType");
+                        url.searchParams.delete("type");
+                        url.searchParams.delete("search");
+                        url.searchParams.delete("status");
+                        url.searchParams.delete("month");
+                        url.searchParams.delete("date");
+                        router.replace(`${pathname}${url.search}${url.hash}`, { scroll: false });
                       }}
                       className="rounded-xl text-xs font-bold gap-1.5 mt-1 transition-all duration-200 hover:bg-slate-100 active:scale-95 group/reset"
                     >

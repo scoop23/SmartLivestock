@@ -239,8 +239,12 @@ function CompactSingleBarangayCard({
             type="month"
             value={reportMonth}
             max={previousMonthValue()}
-            onChange={(event) => setReportMonth(event.target.value)}
-            className="h-7 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700"
+            required
+            onChange={(event) => setReportMonth(event.target.value || previousMonthValue())}
+            onBlur={(event) => {
+              if (!event.target.value) setReportMonth(previousMonthValue());
+            }}
+            className="h-7 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 [&::-webkit-clear-button]:hidden"
           />
         </div>
       </div>
@@ -531,8 +535,12 @@ export function SurveillanceCoveragePanel() {
                 type="month"
                 value={reportMonth}
                 max={previousMonthValue()}
-                onChange={(event) => setReportMonth(event.target.value)}
-                className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs font-bold text-slate-800"
+                required
+                onChange={(event) => setReportMonth(event.target.value || previousMonthValue())}
+                onBlur={(event) => {
+                  if (!event.target.value) setReportMonth(previousMonthValue());
+                }}
+                className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs font-bold text-slate-800 [&::-webkit-clear-button]:hidden"
               />
             </label>
           </div>
