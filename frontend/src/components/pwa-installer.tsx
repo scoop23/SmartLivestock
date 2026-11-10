@@ -38,6 +38,7 @@ export function PwaInstaller() {
   const [showBanner, setShowBanner] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
   const [isIos, setIsIos] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
   const [showIosDialog, setShowIosDialog] = useState(false);
 
   // 1. Register Service Worker on client mount
@@ -55,6 +56,10 @@ export function PwaInstaller() {
     const userAgent = window.navigator.userAgent.toLowerCase();
     const isIosDevice = /iphone|ipad|ipod/.test(userAgent) && !(window as unknown as { MSStream?: unknown }).MSStream;
     setIsIos(isIosDevice);
+
+    const isMobileDevice = /android|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+    const isSmallScreen = window.matchMedia("(max-width: 768px)").matches;
+    setIsDesktop(!isMobileDevice && !isSmallScreen);
 
     // Register Service Worker and purge any legacy corrupted caches
     if ("serviceWorker" in navigator) {
@@ -168,7 +173,7 @@ export function PwaInstaller() {
       if (isIos) {
         setShowIosDialog(true);
       } else {
-        toast.info("To install on Chrome/Edge: tap the install icon in the address bar or browser menu.");
+        toast.info(isDesktop ? "To install on Chrome/Edge: click the install icon in the address bar or browser menu." : "To install on Chrome/Edge: tap the install icon in the address bar or browser menu.");
       }
       return;
     }
@@ -177,7 +182,7 @@ export function PwaInstaller() {
       await deferredPrompt.prompt();
       const choice = await deferredPrompt.userChoice;
       if (choice.outcome === "accepted") {
-        toast.success("Installing SmartLivestock to your home screen…");
+        toast.success(isDesktop ? "Installing SmartLivestock to your desktop…" : "Installing SmartLivestock to your home screen…");
         setShowBanner(false);
       }
       setDeferredPrompt(null);
@@ -251,7 +256,7 @@ export function PwaInstaller() {
                 className="flex-1 h-9 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-950/40 cursor-pointer flex items-center justify-center gap-1.5"
               >
                 <Download className="size-3.5" />
-                <span>Install Mobile App</span>
+                <span>{isDesktop ? "Install Desktop App" : "Install Mobile App"}</span>
               </Button>
 
               <Button

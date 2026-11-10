@@ -52,6 +52,7 @@ import {
   Map,
   MapPin,
   Megaphone,
+  Monitor,
   Newspaper,
   Phone,
   Pin,
@@ -375,10 +376,25 @@ function SidebarNav({
   const canManageSystemSettings = ['MAO', 'ADMIN'].includes(user?.role?.toUpperCase() ?? '');
   const profileTheme = getRoleProfileTheme(user?.role || role);
   const [avatarImageError, setAvatarImageError] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
 
   useEffect(() => {
     setAvatarImageError(false);
   }, [user?.profileImage]);
+
+  useEffect(() => {
+    const isMobileUA = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const isSmallScreen = window.matchMedia("(max-width: 768px)").matches;
+    setIsDesktop(!isMobileUA && !isSmallScreen);
+
+    const mediaQuery = window.matchMedia("(max-width: 768px)");
+    const handleMediaChange = (e: MediaQueryListEvent) => {
+      setIsDesktop(!isMobileUA && !e.matches);
+    };
+
+    mediaQuery.addEventListener("change", handleMediaChange);
+    return () => mediaQuery.removeEventListener("change", handleMediaChange);
+  }, []);
 
   const userDisplayName = user?.firstName
     ? `${user.firstName} ${user.lastName || ''}`.trim()
@@ -893,11 +909,13 @@ function SidebarNav({
                 className="w-full min-h-11 flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-emerald-950 hover:bg-emerald-50 transition-colors group cursor-pointer text-left"
               >
                 <div className="size-7 rounded-lg bg-emerald-100/70 text-emerald-800 flex items-center justify-center shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                  <Smartphone className="size-3.5" />
+                  {isDesktop ? <Monitor className="size-3.5" /> : <Smartphone className="size-3.5" />}
                 </div>
                 <div className="flex flex-col text-left">
-                  <span>Install Mobile App</span>
-                  <span className="text-[10px] text-slate-400 font-normal">Add PWA to home screen</span>
+                  <span>{isDesktop ? "Install Desktop App" : "Install Mobile App"}</span>
+                  <span className="text-[10px] text-slate-400 font-normal">
+                    {isDesktop ? "Add PWA to your desktop" : "Add PWA to home screen"}
+                  </span>
                 </div>
               </button>
             </div>
