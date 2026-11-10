@@ -1,6 +1,29 @@
 "use client";
 
 import { httpError } from "@/lib/http-error";
+
+function formatApiError(err: unknown, defaultMsg: string = "Check your inputs."): string {
+  const axiosErr = httpError(err);
+  if (!axiosErr?.response) {
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      return "Saved offline. Will sync automatically when connection is restored.";
+    }
+    return axiosErr?.message || defaultMsg;
+  }
+  const data = axiosErr.response.data as Record<string, unknown> | string;
+  if (typeof data === "string") return data;
+  if (data && typeof data === "object") {
+    if (typeof data.error === "string") return data.error;
+    if (typeof data.detail === "string") return data.detail;
+    const firstKey = Object.keys(data)[0];
+    const val = (data as Record<string, unknown>)[firstKey];
+    if (Array.isArray(val) && typeof val[0] === "string") {
+      return `${firstKey.replace(/_/g, " ")}: ${val[0]}`;
+    }
+    if (typeof val === "string") return `${firstKey.replace(/_/g, " ")}: ${val}`;
+  }
+  return defaultMsg;
+}
 import { formatAgeClassification, formatCalendarDate, formatLivestockAge } from "@/lib/livestock-age";
 import { LivestockBreedField } from "@/components/livestock-breed-field";
 import { Button } from "@/components/ui/button";
@@ -420,7 +443,7 @@ function SibatReviewDialogContent({
         onOptimisticUpdate?.(previousState);
       }
       toast.error("Failed to update record details", {
-        description: httpError(err)?.response?.data?.error || "Check your inputs.",
+        description: formatApiError(err, "Check your inputs."),
       });
     }
   };

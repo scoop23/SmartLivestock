@@ -967,8 +967,18 @@ export function useUpdateSubmissionData() {
       data: Record<string, unknown>;
     }) => {
       const endpoint = isBatch ? `livestock/batches/${id}/` : `livestock/inventory/${id}/`;
-      const response = await api.patch(endpoint, data);
-      return response.data;
+      const title = isBatch ? `Updated herd #${id} details` : `Updated animal #${id} specs`;
+
+      const response = await executeOrQueueOffline({
+        endpoint,
+        method: "PATCH",
+        data,
+        title,
+        role: "CBAT",
+        category: "REGISTRATION",
+        fallbackResult: { success: true, offline: true, id, isBatch, data },
+      });
+      return response;
     },
     onMutate: async ({ id, isBatch, data }) => {
       // 1. Cancel outgoing queries

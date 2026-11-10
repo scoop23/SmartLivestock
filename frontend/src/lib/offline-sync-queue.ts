@@ -14,7 +14,7 @@ export interface OfflineQueuedItem {
   id: string;
   title: string;
   role: "CBAT" | "SIBAT" | "FARMER" | "MAO" | "ADMIN";
-  category: "VERIFICATION" | "OBSERVATION" | "PRODUCTION" | "CALVING" | "GENERAL";
+  category: "VERIFICATION" | "OBSERVATION" | "PRODUCTION" | "CALVING" | "REGISTRATION" | "GENERAL";
   endpoint: string;
   method: "POST" | "PUT" | "PATCH";
   payload: Record<string, unknown>;
