@@ -242,11 +242,12 @@ function AdminHerdSplitCard({
   return (
     <Card
       onClick={onSelect}
-      className={`group cursor-pointer overflow-hidden rounded-2xl border transition-all duration-200 flex flex-col sm:flex-row justify-between backdrop-blur-xs ${
+      className={cn(
+        "group cursor-pointer overflow-hidden rounded-2xl border transition-all duration-200 flex flex-col sm:flex-row justify-between backdrop-blur-xs hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98]",
         isSelected
           ? "border-emerald-600 bg-emerald-50/60 ring-2 ring-emerald-500/30 shadow-md"
-          : "border-slate-200/90 bg-white/95 hover:border-emerald-400 hover:shadow-md"
-      }`}
+          : "border-slate-200/90 bg-white/95 hover:border-emerald-400"
+      )}
     >
       {/* ── LEFT HERO IMAGE SECTION ── */}
       <div className="relative aspect-[21/9] sm:aspect-auto sm:w-48 md:w-52 lg:w-56 sm:self-stretch min-h-[150px] sm:min-h-full shrink-0 overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800">
@@ -1024,20 +1025,26 @@ function LivestockRecordsContent() {
         </div>
 
         {/* ── Top Navigation Tabs (Herd Registry & Individual Animals ONLY, no add button) ── */}
-        <div className="flex items-center justify-between border-b border-slate-200/90 pb-2">
-          <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/90 pb-3">
+          <div className="flex items-center gap-1.5 p-1 bg-slate-100/90 rounded-2xl border border-slate-200/80 shadow-2xs w-fit">
             <button
               type="button"
               onClick={() => handleTabChange("herd")}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
+              className={cn(
+                "group relative flex items-center gap-2 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 cursor-pointer select-none active:scale-95",
                 activeTab === "herd"
-                  ? "bg-[#1E4D2B] text-white shadow-sm ring-1 ring-emerald-950/20"
-                  : "bg-white/80 text-slate-700 hover:text-slate-950 hover:bg-white border border-slate-200"
-              }`}
+                  ? "bg-[#1E4D2B] text-white shadow-md ring-1 ring-emerald-950/20 font-black scale-[1.01]"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-white/70 font-semibold"
+              )}
             >
-              <Users className="w-4 h-4" />
+              <Users className={cn("size-4 transition-transform duration-200 group-hover:scale-110", activeTab === "herd" ? "text-emerald-200" : "text-slate-400")} />
               <span>Herd Registry</span>
-              <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${activeTab === "herd" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"}`}>
+              <span
+                className={cn(
+                  "text-[10px] sm:text-xs font-mono font-bold px-2 py-0.5 rounded-full transition-all duration-200",
+                  activeTab === "herd" ? "bg-white/20 text-white" : "bg-white text-slate-600 shadow-2xs"
+                )}
+              >
                 {kpis.totalHerds}
               </span>
             </button>
@@ -1045,15 +1052,25 @@ function LivestockRecordsContent() {
             <button
               type="button"
               onClick={() => handleTabChange("individual")}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
+              className={cn(
+                "group relative flex items-center gap-2 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 cursor-pointer select-none active:scale-95",
                 activeTab === "individual"
-                  ? "bg-[#1E4D2B] text-white shadow-sm ring-1 ring-emerald-950/20"
-                  : "bg-white/80 text-slate-700 hover:text-slate-950 hover:bg-white border border-slate-200"
-              }`}
+                  ? "bg-[#1E4D2B] text-white shadow-md ring-1 ring-emerald-950/20 font-black scale-[1.01]"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-white/70 font-semibold"
+              )}
             >
-              {showHistory ? <History className="w-4 h-4 text-amber-400" /> : <Tag className="w-4 h-4" />}
+              {showHistory ? (
+                <History className={cn("size-4 transition-transform duration-300 group-hover:-rotate-45", activeTab === "individual" ? "text-amber-300" : "text-amber-500")} />
+              ) : (
+                <Tag className={cn("size-4 transition-transform duration-200 group-hover:scale-110", activeTab === "individual" ? "text-emerald-200" : "text-slate-400")} />
+              )}
               <span>{showHistory ? "Animal History" : "Individual Animals"}</span>
-              <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${activeTab === "individual" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"}`}>
+              <span
+                className={cn(
+                  "text-[10px] sm:text-xs font-mono font-bold px-2 py-0.5 rounded-full transition-all duration-200",
+                  activeTab === "individual" ? "bg-white/20 text-white" : "bg-white text-slate-600 shadow-2xs"
+                )}
+              >
                 {totalIndividualCount}
               </span>
             </button>
@@ -1310,7 +1327,10 @@ function LivestockRecordsContent() {
 
         {/* ── TAB 1: HERD REGISTRY ── */}
         {activeTab === "herd" && (
-          <>
+          <div
+            key={`herd-${viewMode}-${herdPage}`}
+            className="space-y-4 animate-in fade-in-50 slide-in-from-bottom-2 duration-300 fill-mode-both"
+          >
             {isBatchLoading ? (
               <div className="p-12 text-center bg-white/95 rounded-2xl border border-slate-200 shadow-2xs">
                 <RefreshCw className="w-7 h-7 mx-auto text-emerald-600 animate-spin mb-3" />
@@ -1427,7 +1447,7 @@ function LivestockRecordsContent() {
                         return (
                           <TableRow
                             key={batch.id}
-                            className="hover:bg-emerald-50/30 transition-colors cursor-pointer"
+                            className="group hover:bg-emerald-50/60 active:bg-emerald-100/50 active:scale-[0.998] transition-all duration-150 cursor-pointer"
                             onClick={() => openDrilldown(batch)}
                           >
                             <TableCell className="font-mono text-xs font-bold text-slate-900 px-4 py-3.5">
@@ -1530,13 +1550,13 @@ function LivestockRecordsContent() {
                 </div>
               </div>
             )}
-          </>
+          </div>
         )}
 
         {/* ── TAB 2: INDIVIDUAL ANIMALS ── */}
         {activeTab === "individual" && (
           <div
-            key={showHistory ? "history" : "current"}
+            key={`individual-${showHistory ? "history" : "current"}-${individualPage}`}
             className="bg-white/95 backdrop-blur-xs rounded-2xl border border-slate-200 shadow-2xs overflow-hidden animate-in fade-in-50 slide-in-from-bottom-2 duration-300 fill-mode-both"
           >
             {showHistory ? (
@@ -1612,7 +1632,7 @@ function LivestockRecordsContent() {
                       {paginatedIndividualAnimals.map((item) => (
                         <TableRow
                           key={item.id}
-                          className="hover:bg-emerald-50/30 transition-colors cursor-pointer"
+                          className="group hover:bg-emerald-50/60 active:bg-emerald-100/50 active:scale-[0.998] transition-all duration-150 cursor-pointer"
                           onClick={() => openAnimalReview(item, false)}
                         >
                           <TableCell className="px-4 py-3.5">
