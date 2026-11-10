@@ -1,4 +1,5 @@
-import axios,{ AxiosError,InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { getApiCache, saveApiCache } from './offline-api-cache';
 
 declare module 'axios' {
   export interface InternalAxiosRequestConfig {
@@ -94,10 +95,25 @@ const processQueue = (error: unknown, token: string | null = null) => {
 };
 
 // Intercept responses:
-// 1. Refresh expired access tokens on 401 with concurrent queueing.
-// 2. Request-local failover if primary backend is unreachable without mutating global baseURL.
+// 1. Save successful GET responses to offline cache for PWA resilience.
+// 2. Refresh expired access tokens on 401 with concurrent queueing.
+// 3. Serve offline cached data if network is unavailable.
+// 4. Request-local failover if primary backend is unreachable without mutating global baseURL.
 api.interceptors.response.use(
   (response) => {
+    // 1. Cache successful GET responses for instant offline reload
+    if (
+      response.status === 200 &&
+      response.config.method?.toLowerCase() === 'get' &&
+      typeof window !== 'undefined'
+    ) {
+      saveApiCache(
+        response.config.url || '',
+        response.config.params,
+        response.data,
+        response.config.baseURL
+      );
+    }
     return response;
   },
 
@@ -187,12 +203,41 @@ api.interceptors.response.use(
       }
     }
 
-    // --- 2. Request-Local Automatic Failover if Primary is Unreachable ---
+    // --- 2. Offline Fallback for GET requests ---
     const isNetworkOrServerError =
       !error.response ||
       error.code === 'ERR_NETWORK' ||
       error.code === 'ECONNABORTED' ||
-      [502, 503, 504].includes(error.response?.status);
+      [502, 503, 504].includes(error.response?.status) ||
+      (typeof navigator !== 'undefined' && !navigator.onLine);
+
+    if (
+      isNetworkOrServerError &&
+      ['get', 'head'].includes((originalRequest.method || 'get').toLowerCase()) &&
+      typeof window !== 'undefined'
+    ) {
+      const cachedData = getApiCache(
+        originalRequest.url || '',
+        originalRequest.params,
+        originalRequest.baseURL
+      );
+
+      if (cachedData !== null) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`[SmartLivestock PWA] Serving offline cached data for: ${originalRequest.url}`);
+        }
+        return Promise.resolve({
+          data: cachedData,
+          status: 200,
+          statusText: 'OK (Offline Cache)',
+          headers: {
+            'content-type': 'application/json',
+            'x-smartlivestock-offline': 'true',
+          },
+          config: originalRequest,
+        });
+      }
+    }
 
     const currentBaseUrl = originalRequest.baseURL || api.defaults.baseURL || PRIMARY_API_URL;
     const targetFallbackUrl = FALLBACK_API_URL;

@@ -56,8 +56,27 @@ export function PwaInstaller() {
     const isIosDevice = /iphone|ipad|ipod/.test(userAgent) && !(window as unknown as { MSStream?: unknown }).MSStream;
     setIsIos(isIosDevice);
 
-    // Register Service Worker
+    // Register Service Worker and purge any legacy corrupted caches
     if ("serviceWorker" in navigator) {
+      if ("caches" in window) {
+        caches.keys().then((keys) => {
+          keys.forEach((key) => {
+            if (
+              key === "smartlivestock-pwa-v1" ||
+              key === "smartlivestock-pwa-v2" ||
+              key === "smartlivestock-pwa-v3" ||
+              key.includes("v1") ||
+              key.includes("v2") ||
+              key.includes("v3") ||
+              key.includes("v4")
+            ) {
+              console.log("[SmartLivestock PWA] Client purging legacy cache partition:", key);
+              caches.delete(key);
+            }
+          });
+        }).catch(() => {});
+      }
+
       const registerSW = () => {
         navigator.serviceWorker
           .register("/sw.js", { scope: "/" })

@@ -2,6 +2,8 @@
 
 import { httpError } from "@/lib/http-error";
 import api from "@/lib/axios";
+import { clearApiCache } from "@/lib/offline-api-cache";
+import { warmOfflineCache } from "@/lib/offline-cache-warmer";
 import { jwtDecode } from "jwt-decode";
 import {
 createContext,
@@ -151,6 +153,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
       }
       setAccessToken(latestToken);
+      warmOfflineCache(userPayload.role);
     } catch (error: unknown) {
       if (httpError(error)?.response?.status === 401) {
         console.warn("Session expired. Clearing invalid token.");
@@ -208,6 +211,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       localStorage.removeItem("access");
       localStorage.removeItem("refresh");
       localStorage.removeItem(PROFILE_STORAGE_KEY);
+      clearApiCache();
       window.location.replace("/login");
     }
     setUser(null);

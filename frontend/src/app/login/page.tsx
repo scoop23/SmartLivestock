@@ -40,6 +40,7 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/auth-context';
 import api from '@/lib/axios';
 import { IDENTITY_TOKEN_KEY } from '@/lib/identity-verification';
+import { warmOfflineCache } from '@/lib/offline-cache-warmer';
 import { establishDocumentRevisionSession } from '@/lib/registration-documents';
 import { isAxiosError } from 'axios';
 
@@ -171,6 +172,7 @@ export default function LoginPage() {
       localStorage.setItem('access', access);
       localStorage.setItem('refresh', refresh);
       await fetchUser();
+      warmOfflineCache(decoded.role, true);
 
       toast.success('Welcome back!', {
         description: `Signed in successfully as ${decoded.role}.`,
