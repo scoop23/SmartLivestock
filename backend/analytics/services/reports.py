@@ -558,6 +558,8 @@ def build_report(report_type, params, user):
     is_field_reviewer = role in ("SIBAT", "CBAT")
     if role not in (MAO, ADMIN, "SIBAT", "CBAT"):
         raise PermissionDenied("Only MAO, Admin, and assigned SIBAT/CBAT reviewers can generate reports.")
+    if is_field_reviewer and report_type in ("slaughter", "movement", "inspection"):
+        raise PermissionDenied("Field biosecurity reviewers (SIBAT/CBAT) cannot generate slaughter, movement, or inspection reports.")
     if report_type not in REPORT_TITLES:
         raise ValidationError({"report_type": "Select a supported report type."})
     start, end = _date(params.get("date_from"), "date_from"), _date(params.get("date_to"), "date_to")

@@ -735,7 +735,12 @@ export function OfficialReportsWorkspace({
 }: OfficialReportsWorkspaceProps) {
   const isBarangayWorkspace = variant === "sibat";
   const reportOptions = isBarangayWorkspace
-    ? REPORT_OPTIONS.filter((option) => option.value !== "movement" && option.value !== "inspection")
+    ? REPORT_OPTIONS.filter(
+        (option) =>
+          option.value !== "movement" &&
+          option.value !== "inspection" &&
+          option.value !== "slaughter"
+      )
     : REPORT_OPTIONS;
   const now = new Date();
 
@@ -859,7 +864,7 @@ export function OfficialReportsWorkspace({
         </div>
         <div
           className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${
-            isBarangayWorkspace ? "lg:grid-cols-3 xl:grid-cols-3" : "lg:grid-cols-3 xl:grid-cols-6"
+            isBarangayWorkspace ? "lg:grid-cols-2 xl:grid-cols-2" : "lg:grid-cols-3 xl:grid-cols-5"
           }`}
         >
           {reportOptions.map((option) => {
