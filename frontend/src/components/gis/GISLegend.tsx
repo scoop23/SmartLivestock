@@ -81,16 +81,10 @@ export function GISLegend({
           { color: '#10b981', label: 'No disease reports shown' },
         ];
       }
-      if (diseaseSubMode === 'surveillance') {
-        return [
-          { color: '#ef4444', label: 'Red — Recent approved report needs follow-up' },
-          { color: '#f97316', label: 'Orange — Barangay centers within 3.5 km; extra monitoring' },
-          { color: '#10b981', label: 'Green — No recent report shown on this map' },
-        ];
-      }
       return [
-        { color: '#ef4444', label: 'Active Reported Cases' },
-        { color: '#f8fafc', label: 'No Active Reports' },
+        { color: '#ef4444', label: 'Red — Approved disease report' },
+        { color: '#f97316', label: 'Orange — Precautionary buffer (Haversine algorithm)' },
+        { color: '#10b981', label: 'Green — No recent report shown' },
       ];
     }
 

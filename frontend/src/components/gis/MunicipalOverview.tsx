@@ -101,13 +101,15 @@ export function MunicipalOverview({
   const userRole = (user?.role || userScope?.role || '').toUpperCase();
   const isFarmer = userRole === 'FARMER' || userScope?.role === 'FARMER';
   const isCbat = ['CBAT', 'SIBAT'].includes(userRole) || ['CBAT', 'SIBAT'].includes((userScope?.role || '').toUpperCase());
-  const isAuction = userScope?.role === 'AUCTION';
+  const isAuction = userRole === 'AUCTION' || (userScope?.role || '').toUpperCase() === 'AUCTION';
   const isSlaughter = userScope?.role === 'SLAUGHTERHOUSESTAFF';
   const isSibat = userScope?.role === 'SIBAT' || isCbat;
 
   const showMilk = !isCbat && (!userScope || userScope.allowed_layers.includes('milk'));
   const showFarmerMeat = !isCbat && (!userScope || userScope.allowed_layers.includes('farmer_meat'));
   const showMovement = !isFarmer && !isCbat && Boolean(userScope?.allowed_layers?.includes('movement'));
+  const showDisease = !isAuction && (!userScope?.allowed_layers || userScope.allowed_layers.includes('disease'));
+  const showMortality = !isAuction && (!userScope?.allowed_layers || userScope.allowed_layers.includes('mortality'));
 
   const overviewTitle =
     userScope?.title ||
@@ -254,20 +256,22 @@ export function MunicipalOverview({
             </div>
           )}
 
-          <div
-            className={`rounded-xl p-2.5 border ${
-              summary.active_disease_cases > 0
-                ? 'bg-rose-50/90 border-rose-200/80 text-rose-950'
-                : 'bg-slate-50 border-slate-200 text-slate-700'
-            }`}
-          >
-            <div className="text-xl font-black font-mono">
-              {summary.active_disease_cases}
+          {showDisease && (
+            <div
+              className={`rounded-xl p-2.5 border ${
+                summary.active_disease_cases > 0
+                  ? 'bg-rose-50/90 border-rose-200/80 text-rose-950'
+                  : 'bg-slate-50 border-slate-200 text-slate-700'
+              }`}
+            >
+              <div className="text-xl font-black font-mono">
+                {summary.active_disease_cases}
+              </div>
+              <div className="text-[10px] font-bold uppercase tracking-wider">
+                🚨 Reports (90 days)
+              </div>
             </div>
-            <div className="text-[10px] font-bold uppercase tracking-wider">
-              🚨 Reports (90 days)
-            </div>
-          </div>
+          )}
 
           {showMovement && (
             <div className="bg-blue-50/90 border border-blue-200/80 rounded-xl p-2.5">
@@ -293,15 +297,16 @@ export function MunicipalOverview({
             </div>
           )}
 
-
-          <div className="bg-slate-100/90 border border-slate-200/80 rounded-xl p-2.5">
-            <div className="text-xl font-black text-slate-950 font-mono">
-              {summary.total_mortality}
+          {showMortality && (
+            <div className="bg-slate-100/90 border border-slate-200/80 rounded-xl p-2.5">
+              <div className="text-xl font-black text-slate-950 font-mono">
+                {summary.total_mortality}
+              </div>
+              <div className="text-[10px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1">
+                <Skull className="size-3 text-slate-600 inline" /> Recorded Deaths
+              </div>
             </div>
-            <div className="text-[10px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1">
-              <Skull className="size-3 text-slate-600 inline" /> Recorded Deaths
-            </div>
-          </div>
+          )}
         </div>
 
         {(!userScope || userScope.allowed_layers.includes('cattle')) && (
@@ -309,133 +314,137 @@ export function MunicipalOverview({
         )}
 
         {/* Recorded Mortality Section */}
-        <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="font-black text-xs text-slate-800 flex items-center gap-1.5 uppercase tracking-wide">
-              <Skull className="size-3.5 text-slate-700" />
-              Recorded Mortality Overview
-            </span>
-            <Badge
-              variant="outline"
-              className={
-                summary.total_mortality > 0
-                  ? 'border-slate-300 text-slate-800 bg-slate-50 text-[10px] font-bold'
-                  : 'border-emerald-300 text-emerald-800 bg-emerald-50 text-[10px] font-bold'
-              }
-            >
-              {summary.total_mortality > 0
-                ? `${summary.total_mortality} Deaths Recorded`
-                : 'Zero Recorded'}
-            </Badge>
-          </div>
+        {showMortality && (
+          <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-black text-xs text-slate-800 flex items-center gap-1.5 uppercase tracking-wide">
+                <Skull className="size-3.5 text-slate-700" />
+                Recorded Mortality Overview
+              </span>
+              <Badge
+                variant="outline"
+                className={
+                  summary.total_mortality > 0
+                    ? 'border-slate-300 text-slate-800 bg-slate-50 text-[10px] font-bold'
+                    : 'border-emerald-300 text-emerald-800 bg-emerald-50 text-[10px] font-bold'
+                }
+              >
+                {summary.total_mortality > 0
+                  ? `${summary.total_mortality} Deaths Recorded`
+                  : 'Zero Recorded'}
+              </Badge>
+            </div>
 
-          {summary.total_mortality > 0 ? (
-            <div className="space-y-2 pt-1 text-xs">
-              <div className="grid grid-cols-2 gap-2 text-slate-700">
-                <div className="bg-slate-50 border border-slate-100 rounded-lg p-2">
-                  <span className="text-[10px] font-bold uppercase text-slate-500 block">Affected Barangays</span>
-                  <span className="text-base font-black font-mono text-slate-900">
-                    {summary.mortality?.affected_barangays ?? 0} <span className="text-[10px] font-normal text-slate-500">/ 18</span>
-                  </span>
-                </div>
-                <div className="bg-slate-50 border border-slate-100 rounded-lg p-2">
-                  <span className="text-[10px] font-bold uppercase text-slate-500 block">Recent (90 Days)</span>
-                  <span className="text-base font-black font-mono text-slate-900">
-                    {summary.mortality?.recent_deaths ?? 0}
-                  </span>
-                </div>
-              </div>
-
-              {summary.mortality?.top_barangays && summary.mortality.top_barangays.length > 0 && (
-                <div className="pt-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
-                    Top Mortality Hotspots:
-                  </span>
-                  <div className="space-y-1">
-                    {summary.mortality.top_barangays.slice(0, 3).map((b) => (
-                      <button
-                        key={b.name}
-                        type="button"
-                        onClick={() => handleBarangayClick(b.name)}
-                        className="w-full text-left p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors flex items-center justify-between group cursor-pointer"
-                      >
-                        <span className="font-semibold text-xs text-slate-800 group-hover:text-slate-950">
-                          Brgy. {b.name}
-                        </span>
-                        <span className="font-mono font-bold text-xs text-slate-900">
-                          {b.deaths} head{b.deaths !== 1 ? 's' : ''}
-                        </span>
-                      </button>
-                    ))}
+            {summary.total_mortality > 0 ? (
+              <div className="space-y-2 pt-1 text-xs">
+                <div className="grid grid-cols-2 gap-2 text-slate-700">
+                  <div className="bg-slate-50 border border-slate-100 rounded-lg p-2">
+                    <span className="text-[10px] font-bold uppercase text-slate-500 block">Affected Barangays</span>
+                    <span className="text-base font-black font-mono text-slate-900">
+                      {summary.mortality?.affected_barangays ?? 0} <span className="text-[10px] font-normal text-slate-500">/ 18</span>
+                    </span>
+                  </div>
+                  <div className="bg-slate-50 border border-slate-100 rounded-lg p-2">
+                    <span className="text-[10px] font-bold uppercase text-slate-500 block">Recent (90 Days)</span>
+                    <span className="text-base font-black font-mono text-slate-900">
+                      {summary.mortality?.recent_deaths ?? 0}
+                    </span>
                   </div>
                 </div>
-              )}
-            </div>
-          ) : (
-            <div className="p-2.5 bg-slate-50 border border-slate-100 rounded-lg text-center">
-              <p className="text-xs font-semibold text-slate-700">No recorded livestock deaths across Padre Garcia</p>
-              <p className="text-[10px] text-slate-500">Mortality declarations require MAO approval to be officially reflected.</p>
-            </div>
-          )}
-        </div>
+
+                {summary.mortality?.top_barangays && summary.mortality.top_barangays.length > 0 && (
+                  <div className="pt-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
+                      Top Mortality Hotspots:
+                    </span>
+                    <div className="space-y-1">
+                      {summary.mortality.top_barangays.slice(0, 3).map((b) => (
+                        <button
+                          key={b.name}
+                          type="button"
+                          onClick={() => handleBarangayClick(b.name)}
+                          className="w-full text-left p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors flex items-center justify-between group cursor-pointer"
+                        >
+                          <span className="font-semibold text-xs text-slate-800 group-hover:text-slate-950">
+                            Brgy. {b.name}
+                          </span>
+                          <span className="font-mono font-bold text-xs text-slate-900">
+                            {b.deaths} head{b.deaths !== 1 ? 's' : ''}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="p-2.5 bg-slate-50 border border-slate-100 rounded-lg text-center">
+                <p className="text-xs font-semibold text-slate-700">No recorded livestock deaths across Padre Garcia</p>
+                <p className="text-[10px] text-slate-500">Mortality declarations require MAO approval to be officially reflected.</p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Disease Alerts Section */}
-        <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="font-black text-xs text-slate-800 flex items-center gap-1.5 uppercase tracking-wide">
-              <AlertTriangle className="size-3.5 text-rose-600" />
-              Disease Surveillance Alerts
-            </span>
-            <Badge
-              variant="outline"
-              className={
-                summary.alert_barangays.length > 0
-                  ? 'border-rose-300 text-rose-800 bg-rose-50 text-[10px] font-black'
-                  : 'border-emerald-300 text-emerald-800 bg-emerald-50 text-[10px] font-bold'
-              }
-            >
-              {summary.alert_barangays.length > 0
-                ? `${summary.alert_barangays.length} Flagged`
-                : 'All Clear'}
-            </Badge>
-          </div>
+        {showDisease && (
+          <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-black text-xs text-slate-800 flex items-center gap-1.5 uppercase tracking-wide">
+                <AlertTriangle className="size-3.5 text-rose-600" />
+                Disease Surveillance Alerts
+              </span>
+              <Badge
+                variant="outline"
+                className={
+                  summary.alert_barangays.length > 0
+                    ? 'border-rose-300 text-rose-800 bg-rose-50 text-[10px] font-black'
+                    : 'border-emerald-300 text-emerald-800 bg-emerald-50 text-[10px] font-bold'
+                }
+              >
+                {summary.alert_barangays.length > 0
+                  ? `${summary.alert_barangays.length} Flagged`
+                  : 'All Clear'}
+              </Badge>
+            </div>
 
-          {summary.alert_barangays.length > 0 ? (
-            <div tabIndex={0} role="region" aria-label="Disease surveillance alerts" className="max-h-72 overflow-y-auto overscroll-contain space-y-1.5 pt-1 pr-1 [scrollbar-gutter:stable] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 rounded-lg">
-              {summary.alert_barangays.map((a, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => handleBarangayClick(a.name)}
-                  className="w-full text-left p-2 rounded-lg bg-rose-50/80 hover:bg-rose-100/80 border border-rose-200/70 transition-colors flex items-center justify-between group cursor-pointer"
-                >
-                  <div className="min-w-0 flex-1 pr-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-bold text-xs text-rose-950">
-                        Brgy. {a.name}
-                      </span>
-                      <Badge className="bg-rose-600 text-white text-[9px] px-1 py-0 font-bold uppercase">
-                        {a.disease_risk}
-                      </Badge>
+            {summary.alert_barangays.length > 0 ? (
+              <div tabIndex={0} role="region" aria-label="Disease surveillance alerts" className="max-h-72 overflow-y-auto overscroll-contain space-y-1.5 pt-1 pr-1 [scrollbar-gutter:stable] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 rounded-lg">
+                {summary.alert_barangays.map((a, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => handleBarangayClick(a.name)}
+                    className="w-full text-left p-2 rounded-lg bg-rose-50/80 hover:bg-rose-100/80 border border-rose-200/70 transition-colors flex items-center justify-between group cursor-pointer"
+                  >
+                    <div className="min-w-0 flex-1 pr-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-xs text-rose-950">
+                          Brgy. {a.name}
+                        </span>
+                        <Badge className="bg-rose-600 text-white text-[9px] px-1 py-0 font-bold uppercase">
+                          {a.disease_risk}
+                        </Badge>
+                      </div>
+                      {a.recent_diseases?.length > 0 && (
+                        <p className="text-[10px] text-rose-800 truncate mt-0.5">
+                          {a.recent_diseases.join(', ')}
+                        </p>
+                      )}
                     </div>
-                    {a.recent_diseases?.length > 0 && (
-                      <p className="text-[10px] text-rose-800 truncate mt-0.5">
-                        {a.recent_diseases.join(', ')}
-                      </p>
-                    )}
-                  </div>
-                  <ChevronRight className="size-3.5 text-rose-400 group-hover:text-rose-700 transition-transform group-hover:translate-x-0.5 shrink-0" />
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="p-3 bg-emerald-50/50 border border-emerald-100 rounded-lg text-center">
-              <CheckCircle2 className="size-5 text-emerald-600 mx-auto mb-1" />
-              <p className="text-xs font-bold text-emerald-900">No approved disease reports in the last 90 days</p>
-              <p className="text-[10px] text-emerald-700">No reports does not establish absence of disease.</p>
-            </div>
-          )}
-        </div>
+                    <ChevronRight className="size-3.5 text-rose-400 group-hover:text-rose-700 transition-transform group-hover:translate-x-0.5 shrink-0" />
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="p-3 bg-emerald-50/50 border border-emerald-100 rounded-lg text-center">
+                <CheckCircle2 className="size-5 text-emerald-600 mx-auto mb-1" />
+                <p className="text-xs font-bold text-emerald-900">No approved disease reports in the last 90 days</p>
+                <p className="text-[10px] text-emerald-700">No reports does not establish absence of disease.</p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Top 5 Barangays by Cattle */}
         <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2">

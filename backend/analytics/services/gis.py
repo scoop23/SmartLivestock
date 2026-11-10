@@ -335,9 +335,9 @@ def get_user_gis_scope(user) -> Dict[str, Any]:
             "allowed_barangays": allowed_b,
             "adjacent_barangays": adjacent_b,
             "can_view_all_barangays": False,
-            # Farmers see their community's aggregate livestock, milk, farmer meat production,
-            # and approved disease alerts for their own and adjacent perimeter barangays
-            "allowed_layers": ["cattle", "disease", "milk", "farmer_meat"],
+            # Farmers see their community's aggregate livestock, disease, mortality, milk,
+            # and farmer meat production for their own and adjacent perimeter barangays
+            "allowed_layers": ["cattle", "disease", "mortality", "milk", "farmer_meat"],
             "allowed_modes": ["2D"],
             "can_use_simulation": False,
             "can_use_advanced_analytics": False,

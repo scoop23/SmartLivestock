@@ -608,20 +608,12 @@ export function GISMap({
       if (data?.disease_cases > 0) return '#0284c7';
       return '#10b981';
     }
-    if (diseaseSubMode === 'surveillance') {
-      const data = barangaysByName[bName];
-      const hasReportAlert = (data?.active_cases ?? 0) > 0 || ((data?.fmd_active_cases ?? 0) > 0) || risk === 'high';
-      const isMonitoring = !hasReportAlert && (risk === 'medium' || Boolean(data?.is_in_monitoring_radius));
-      if (hasReportAlert) return '#ef4444'; // Red: recent report needs follow-up
-      if (isMonitoring) return '#f97316'; // Orange: Within monitoring radius (precautionary)
-      return '#10b981'; // Green: no qualifying report alert in this layer
-    }
-    // Default 'reported' mode: only color barangays that actually have active reported cases, NO false radius colors
     const data = barangaysByName[bName];
-    if ((data?.active_cases ?? 0) > 0) {
-      return '#ef4444'; // Red: recent approved disease report
-    }
-    return '#f8fafc'; // Clean uncolored baseline
+    const hasReportAlert = (data?.active_cases ?? 0) > 0 || ((data?.fmd_active_cases ?? 0) > 0) || risk === 'high' || data?.disease_zone === 'outbreak';
+    const isMonitoring = !hasReportAlert && (risk === 'medium' || Boolean(data?.is_in_monitoring_radius) || data?.disease_zone === 'monitoring_radius');
+    if (hasReportAlert) return '#ef4444'; // Red: recent approved disease report
+    if (isMonitoring) return '#f97316'; // Orange: Within Haversine monitoring radius
+    return '#10b981'; // Green: no recent report
   };
 
   const getMilkColor = (milk: number): string => {
@@ -1050,20 +1042,7 @@ export function GISMap({
           : '🐄';
       let statText = isInScope ? `${lHeads}${lIcon}` : '—';
 
-      if (isSurveillance && b.is_report_alert_visible === false) {
-        statText = '';
-      } else if (isSurveillance) {
-        const risk = b.disease_risk;
-        const hasReportAlert = (b.active_cases > 0) || ((b.fmd_active_cases ?? 0) > 0) || risk === 'high';
-        const isMonitoring = !hasReportAlert && (risk === 'medium' || Boolean(b.is_in_monitoring_radius));
-        statText = hasReportAlert
-          ? `🚨${b.active_cases > 0 ? b.active_cases : '1+'}`
-          : isMonitoring
-          ? '⚠️3.5km'
-          : '✅No report';
-      } else if (!isInScope) {
-        statText = '—';
-      } else if (activeLayer === 'disease') {
+      if (activeLayer === 'disease') {
         if (diseaseSubMode === 'simulation' && simulatedStates?.[b.name]) {
           const simState = simulatedStates[b.name];
           statText = !simState.hasLivestock && simState.cases === 0
@@ -1072,8 +1051,17 @@ export function GISMap({
             ? `⚡${(simState.transmissionPressure * 100).toFixed(0)}%`
             : `${simState.cases} case${simState.cases === 1 ? '' : 's'}`;
         } else {
-          statText = b.active_cases > 0 ? `⚠️${b.active_cases}` : '✅';
+          const risk = b.disease_risk;
+          const hasReportAlert = (b.active_cases > 0) || ((b.fmd_active_cases ?? 0) > 0) || risk === 'high' || b.disease_zone === 'outbreak';
+          const isMonitoring = !hasReportAlert && (risk === 'medium' || Boolean(b.is_in_monitoring_radius) || b.disease_zone === 'monitoring_radius');
+          statText = hasReportAlert
+            ? `🚨${b.active_cases > 0 ? `${b.active_cases} cases` : '1+ case'}`
+            : isMonitoring
+            ? (b.nearest_outbreak_dist_km != null ? `⚠️${b.nearest_outbreak_dist_km.toFixed(1)}km` : '⚠️Buffer')
+            : '✅No report';
         }
+      } else if (!isInScope) {
+        statText = '—';
       } else if (activeLayer === 'milk') {
         statText = b.milk > 0 ? `${(b.milk / 1000).toFixed(1)}k🥛` : '0🥛';
       } else if (activeLayer === 'farmer_meat') {
@@ -1095,14 +1083,15 @@ export function GISMap({
       const isSubtleOut = isGeographicallyRestricted && !isInScope && !isSurveillance;
 
       const risk = b.disease_risk;
-      const hasReportAlert = (b.active_cases > 0) || ((b.fmd_active_cases ?? 0) > 0) || risk === 'high';
-      const isMonitoring = !hasReportAlert && (risk === 'medium' || Boolean(b.is_in_monitoring_radius));
+      const hasReportAlert = (b.active_cases > 0) || ((b.fmd_active_cases ?? 0) > 0) || risk === 'high' || b.disease_zone === 'outbreak';
+      const isMonitoring = !hasReportAlert && (risk === 'medium' || Boolean(b.is_in_monitoring_radius) || b.disease_zone === 'monitoring_radius');
+      const isDiseaseActive = activeLayer === 'disease';
 
       const pillClass = isHighlightedScope
         ? 'permanent-centroid-pill highlight-own-farm'
-        : isSurveillance && b.is_report_alert_visible !== false && hasReportAlert
+        : isDiseaseActive && b.is_report_alert_visible !== false && hasReportAlert
         ? 'permanent-centroid-pill outbreak-site'
-        : isSurveillance && b.is_report_alert_visible !== false && isMonitoring
+        : isDiseaseActive && b.is_report_alert_visible !== false && isMonitoring
         ? 'permanent-centroid-pill monitoring-buffer'
         : isSubtleOut
         ? 'permanent-centroid-pill subtle-out-of-scope'
@@ -1372,9 +1361,12 @@ export function GISMap({
         @keyframes sonar-wave {
           0% {
             transform: scale(0.6);
+            opacity: 0;
+          }
+          20% {
             opacity: 0.9;
           }
-          50% {
+          60% {
             opacity: 0.45;
           }
           100% {

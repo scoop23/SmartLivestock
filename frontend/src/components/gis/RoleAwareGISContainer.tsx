@@ -40,7 +40,7 @@ import { useClientReady } from "@/hooks/use-browser-state";
 import { useIsMobile } from '@/components/ui/use-mobile';
 import api from '@/lib/axios';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Info, Loader2, Pause, Play, Radio, ShieldAlert, X } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Info, Loader2, Pause, Play, Radio, RotateCcw, ShieldAlert, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useCallback,useEffect,useMemo,useRef,useState } from 'react';
@@ -133,6 +133,11 @@ export function RoleAwareGISContainer({
   const { user } = useAuth();
   const ready = useClientReady();
   const [reportTimelineDay, setReportTimelineDay] = useState(365);
+  const [isHistoricalPlaying, setIsHistoricalPlaying] = useState<boolean>(false);
+  const [historicalPlaybackSpeed, setHistoricalPlaybackSpeed] = useState<1 | 2 | 4>(1);
+  const historicalDayRef = useRef(reportTimelineDay);
+  historicalDayRef.current = reportTimelineDay;
+
   const reportTimelineDates = useMemo(() => {
     const today = new Date();
     return Array.from({ length: 366 }, (_, index) => {
@@ -141,10 +146,27 @@ export function RoleAwareGISContainer({
     });
   }, []);
   const [reportAsOf, setReportAsOf] = useState(reportTimelineDates[365]);
+  const lastFetchedDayRef = useRef(reportTimelineDay);
+
+  // Synchronize telemetry date parameter without freezing or flooding the network during day-by-day animation
   useEffect(() => {
-    const timer = setTimeout(() => setReportAsOf(reportTimelineDates[reportTimelineDay]), 300);
-    return () => clearTimeout(timer);
-  }, [reportTimelineDay, reportTimelineDates]);
+    if (isHistoricalPlaying) {
+      // During active day-by-day cycling, sample telemetry every 5 days or at boundary values (0 and 365)
+      const dayDiff = Math.abs(reportTimelineDay - lastFetchedDayRef.current);
+      if (dayDiff >= 5 || reportTimelineDay === 0 || reportTimelineDay >= 365) {
+        lastFetchedDayRef.current = reportTimelineDay;
+        setReportAsOf(reportTimelineDates[reportTimelineDay]);
+      }
+    } else {
+      // When paused or dragging slider manually, debounce slightly (120ms) for snappy response
+      lastFetchedDayRef.current = reportTimelineDay;
+      const timer = setTimeout(() => {
+        setReportAsOf(reportTimelineDates[reportTimelineDay]);
+      }, 120);
+      return () => clearTimeout(timer);
+    }
+  }, [reportTimelineDay, isHistoricalPlaying, reportTimelineDates]);
+
   const scopeKey = JSON.stringify([user?.email, user?.role, user?.accessScope, user?.assignedBarangayId]);
   const telemetry = useQuery<GISTelemetryResponse>({
     queryKey: ["gis-telemetry", scopeKey, reportAsOf],
@@ -265,28 +287,29 @@ export function RoleAwareGISContainer({
 
   // Historical date scrubber state (Cattle Inventory, Mortality, Disease Surveillance)
   const [showHistoricalTimeline, setShowHistoricalTimeline] = useState<boolean>(true);
-  const [isHistoricalPlaying, setIsHistoricalPlaying] = useState<boolean>(false);
-  const historicalDayRef = useRef(reportTimelineDay);
-  historicalDayRef.current = reportTimelineDay;
 
+  // Day-by-day continuous timeline cycle animation loop
   useEffect(() => {
     if (!isHistoricalPlaying) return;
+
+    // 1x = 80ms/day (~29s full year), 2x = 40ms/day (~14s full year), 4x = 20ms/day (~7s full year)
+    const stepIntervalMs = historicalPlaybackSpeed === 4 ? 20 : historicalPlaybackSpeed === 2 ? 40 : 80;
 
     const timer = setInterval(() => {
       const current = historicalDayRef.current;
       if (current >= 365) {
         setIsHistoricalPlaying(false);
       } else {
-        const next = Math.min(365, current + 30);
+        const next = current + 1;
         setReportTimelineDay(next);
         if (next >= 365) {
           setIsHistoricalPlaying(false);
         }
       }
-    }, 1200);
+    }, stepIntervalMs);
 
     return () => clearInterval(timer);
-  }, [isHistoricalPlaying]);
+  }, [isHistoricalPlaying, historicalPlaybackSpeed]);
 
   useEffect(() => {
     if (!showHistoricalTimeline) {
@@ -321,13 +344,13 @@ export function RoleAwareGISContainer({
     else if (isRefresh) toast.success('Map data refreshed');
   };
 
-  // Keep the first-load screen mounted briefly after the request ends so its opacity can fade out.
-  // Later refreshes keep using the small syncing indicator and do not cover the interactive map.
+  // Keep the first-load screen mounted briefly after initial load ends so its opacity can fade out.
+  // Once the first dataset is loaded, it unmounts permanently. Subsequent date changes use the non-blocking top pill.
   useEffect(() => {
-    if (isLoading || !showInitialLoadingScreen) return;
-    const timeout = window.setTimeout(() => setShowInitialLoadingScreen(false), 700);
+    if (!gisData) return;
+    const timeout = window.setTimeout(() => setShowInitialLoadingScreen(false), 500);
     return () => window.clearTimeout(timeout);
-  }, [isLoading, showInitialLoadingScreen]);
+  }, [gisData]);
 
   // Proactive Biosecurity Alert Toast for Farmers if any adjacent barangay has approved disease cases
   useEffect(() => {
@@ -643,7 +666,7 @@ export function RoleAwareGISContainer({
         {showHistoricalTimeline && (
           activeLayer === 'cattle' ||
           activeLayer === 'mortality' ||
-          (activeLayer === 'disease' && diseaseSubMode === 'surveillance')
+          (activeLayer === 'disease' && (diseaseSubMode === 'surveillance' || diseaseSubMode === 'reported'))
         ) && (
           <div className={`${chromeStyles.chrome} absolute bottom-24 sm:bottom-4 left-1/2 -translate-x-1/2 z-[900] w-[calc(100%-2rem)] max-w-lg rounded-2xl border border-slate-200 bg-white/95 p-3 sm:p-3.5 shadow-xl backdrop-blur flex flex-col gap-2`}>
             <div className="flex items-center justify-between gap-2 text-xs font-bold text-slate-800">
@@ -687,7 +710,7 @@ export function RoleAwareGISContainer({
               <div className="flex justify-between items-center text-[10px] text-slate-500 mt-0.5">
                 <span>{reportTimelineDates[0]}</span>
                 <span className="font-semibold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60 font-mono text-[11px]">
-                  {reportTimelineDates[reportTimelineDay]}
+                  Day {reportTimelineDay + 1}/366 · {reportTimelineDates[reportTimelineDay]}
                 </span>
                 <span>{reportTimelineDates[365]}</span>
               </div>
@@ -696,22 +719,25 @@ export function RoleAwareGISContainer({
             {/* Cycling & Step Controls */}
             <div className="flex flex-wrap items-center justify-between gap-1.5 pt-1 border-t border-slate-100">
               <div className="flex items-center gap-1">
+                {/* Step back 1 day */}
                 <button
                   type="button"
                   onClick={() => {
                     if (isHistoricalPlaying) setIsHistoricalPlaying(false);
-                    setReportTimelineDay((prev) => Math.max(0, prev - 30));
+                    setReportTimelineDay((prev) => Math.max(0, prev - 1));
                   }}
-                  title="Step backward 30 days"
-                  aria-label="Step backward 30 days"
+                  title="Step backward 1 day"
+                  aria-label="Step backward 1 day"
                   className="size-7 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 flex items-center justify-center transition-colors cursor-pointer"
                 >
                   <ChevronLeft className="size-3.5" />
                 </button>
+
+                {/* Main Play / Pause Cycle Button */}
                 <button
                   type="button"
                   onClick={handleToggleHistoricalPlay}
-                  title={isHistoricalPlaying ? "Pause cycling" : "Cycle through past 12 months"}
+                  title={isHistoricalPlaying ? "Pause cycling" : "Cycle through days smoothly"}
                   aria-label={isHistoricalPlaying ? "Pause timeline cycle" : "Start timeline cycle"}
                   className={`h-7 px-2.5 rounded-lg border flex items-center gap-1.5 text-xs font-bold transition-all cursor-pointer ${
                     isHistoricalPlaying
@@ -731,18 +757,39 @@ export function RoleAwareGISContainer({
                     </>
                   )}
                 </button>
+
+                {/* Step forward 1 day */}
                 <button
                   type="button"
                   onClick={() => {
                     if (isHistoricalPlaying) setIsHistoricalPlaying(false);
-                    setReportTimelineDay((prev) => Math.min(365, prev + 30));
+                    setReportTimelineDay((prev) => Math.min(365, prev + 1));
                   }}
-                  title="Step forward 30 days"
-                  aria-label="Step forward 30 days"
+                  title="Step forward 1 day"
+                  aria-label="Step forward 1 day"
                   className="size-7 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 flex items-center justify-center transition-colors cursor-pointer"
                 >
                   <ChevronRight className="size-3.5" />
                 </button>
+
+                {/* Playback Speed Toggles: 1x, 2x, 4x */}
+                <div className="flex items-center rounded-lg bg-slate-100 p-0.5 border border-slate-200 ml-1">
+                  {([1, 2, 4] as const).map((speed) => (
+                    <button
+                      key={speed}
+                      type="button"
+                      onClick={() => setHistoricalPlaybackSpeed(speed)}
+                      title={`Playback speed ${speed}x`}
+                      className={`px-1.5 py-0.5 text-[10px] font-bold rounded transition-colors cursor-pointer ${
+                        historicalPlaybackSpeed === speed
+                          ? 'bg-white text-slate-900 shadow-xs font-black'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      {speed}x
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Quick Jump Presets */}
@@ -1146,7 +1193,7 @@ export function RoleAwareGISContainer({
               role="status"
               aria-live="polite"
               style={{ zIndex: 2_147_483_647 }}
-              className={`fixed inset-0 flex items-center justify-center bg-slate-950 text-white transition-opacity duration-700 ease-out ${isLoading ? "opacity-100" : "pointer-events-none opacity-0"}`}
+              className={`fixed inset-0 flex items-center justify-center bg-slate-950 text-white transition-opacity duration-500 ease-out ${!gisData ? "opacity-100" : "pointer-events-none opacity-0"}`}
             >
               <div className="flex flex-col items-center gap-4 px-6 text-center">
                 <div className="relative flex size-16 items-center justify-center rounded-2xl border border-emerald-400/30 bg-emerald-400/10 shadow-[0_0_48px_rgba(16,185,129,0.18)]">

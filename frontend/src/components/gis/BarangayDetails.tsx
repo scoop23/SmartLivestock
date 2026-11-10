@@ -97,9 +97,12 @@ export function BarangayDetails({
   const isAuthorized = ['CBAT', 'SIBAT', 'MAO', 'ADMIN'].includes(userRole);
   const isFarmer = userRole === 'FARMER' || userScope?.role === 'FARMER' || userScope?.scope === 'OWN_BARANGAY';
   const isCbat = ['CBAT', 'SIBAT'].includes(userRole) || ['CBAT', 'SIBAT'].includes((userScope?.role || '').toUpperCase());
+  const isAuction = userRole === 'AUCTION' || (userScope?.role || '').toUpperCase() === 'AUCTION';
   const showMovement = !isFarmer && !isCbat && Boolean(userScope?.allowed_layers?.includes('movement'));
   const showMilk = !isCbat && (!userScope || userScope.allowed_layers.includes('milk'));
   const showFarmerMeat = !isCbat && (!userScope || userScope.allowed_layers.includes('farmer_meat'));
+  const showDisease = !isAuction && (!userScope?.allowed_layers || userScope.allowed_layers.includes('disease'));
+  const showMortality = !isAuction && (!userScope?.allowed_layers || userScope.allowed_layers.includes('mortality'));
 
   const [isFarmersDialogOpen, setIsFarmersDialogOpen] = React.useState(false);
   const [isHerdsDialogOpen, setIsHerdsDialogOpen] = React.useState(false);
@@ -195,7 +198,7 @@ export function BarangayDetails({
       {/* Content scroll area */}
       <div data-gis-body className="p-4 space-y-4 overflow-y-auto overflow-x-hidden flex-1 text-slate-800 pb-[calc(env(safe-area-inset-bottom,0px)+1.5rem)] overscroll-contain">
         {/* Quick Highlights Grid */}
-        <div data-gis-metrics className="grid grid-cols-2 gap-2">
+        <div data-gis-metrics className={`grid ${!showDisease ? 'grid-cols-1' : 'grid-cols-2'} gap-2`}>
           <div className="bg-emerald-50/80 border border-emerald-200/80 rounded-xl p-2.5 text-center">
             <div className="text-2xl font-black text-emerald-900 font-mono">
               {displayHeads}
@@ -205,50 +208,52 @@ export function BarangayDetails({
             </div>
           </div>
 
-          <div
-            className={`rounded-xl p-2.5 text-center border ${
-              isSim && simulatedState && !simulatedState.hasLivestock && simulatedState.cases === 0
-                ? 'bg-slate-100 border-slate-300 text-slate-700'
-                : isSim
-                ? simulatedState?.risk === 'critical' || simulatedState?.risk === 'high'
+          {showDisease && (
+            <div
+              className={`rounded-xl p-2.5 text-center border ${
+                isSim && simulatedState && !simulatedState.hasLivestock && simulatedState.cases === 0
+                  ? 'bg-slate-100 border-slate-300 text-slate-700'
+                  : isSim
+                  ? simulatedState?.risk === 'critical' || simulatedState?.risk === 'high'
+                    ? 'bg-rose-50 border-rose-200 text-rose-800'
+                    : 'bg-amber-50 border-amber-200 text-amber-800'
+                  : isTrend
+                  ? data.active_cases > 0
+                    ? 'bg-purple-50 border-purple-200 text-purple-800'
+                    : data.disease_cases > 0
+                    ? 'bg-sky-50 border-sky-200 text-sky-800'
+                    : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                  : isHighRisk
                   ? 'bg-rose-50 border-rose-200 text-rose-800'
-                  : 'bg-amber-50 border-amber-200 text-amber-800'
-                : isTrend
-                ? data.active_cases > 0
-                  ? 'bg-purple-50 border-purple-200 text-purple-800'
-                  : data.disease_cases > 0
-                  ? 'bg-sky-50 border-sky-200 text-sky-800'
+                  : isMedRisk
+                  ? 'bg-amber-50 border-amber-200 text-amber-800'
                   : 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                : isHighRisk
-                ? 'bg-rose-50 border-rose-200 text-rose-800'
-                : isMedRisk
-                ? 'bg-amber-50 border-amber-200 text-amber-800'
-                : 'bg-emerald-50 border-emerald-200 text-emerald-800'
-            }`}
-          >
-            <div className="text-xl font-black uppercase tracking-tight font-mono">
-              {isSim && simulatedState && !simulatedState.hasLivestock && simulatedState.cases === 0
-                ? 'NOT MODELED'
-                : isSim
-                ? (simulatedState?.risk || 'LOW').toUpperCase()
-                : isTrend
-                ? data.active_cases > 0
-                  ? 'ELEVATED'
-                  : data.disease_cases > 0
-                  ? 'REPORTED'
-                  : 'STABLE'
-                : data.disease_risk.toUpperCase()}
+              }`}
+            >
+              <div className="text-xl font-black uppercase tracking-tight font-mono">
+                {isSim && simulatedState && !simulatedState.hasLivestock && simulatedState.cases === 0
+                  ? 'NOT MODELED'
+                  : isSim
+                  ? (simulatedState?.risk || 'LOW').toUpperCase()
+                  : isTrend
+                  ? data.active_cases > 0
+                    ? 'ELEVATED'
+                    : data.disease_cases > 0
+                    ? 'REPORTED'
+                    : 'STABLE'
+                  : data.disease_risk.toUpperCase()}
+              </div>
+              <div className="text-[11px] font-bold uppercase tracking-wide">
+                {isSim
+                  ? isSim && simulatedState && !simulatedState.hasLivestock && simulatedState.cases === 0
+                    ? 'No approved active livestock'
+                    : '⚡ Simulated Risk'
+                  : isTrend
+                  ? '🩺 Surveillance Status'
+                  : '🩺 Reported Risk'}
+              </div>
             </div>
-            <div className="text-[11px] font-bold uppercase tracking-wide">
-              {isSim
-                ? isSim && simulatedState && !simulatedState.hasLivestock && simulatedState.cases === 0
-                  ? 'No approved active livestock'
-                  : '⚡ Simulated Risk'
-                : isTrend
-                ? '🩺 Surveillance Status'
-                : '🩺 Reported Risk'}
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Demographics & Herds */}
@@ -322,94 +327,96 @@ export function BarangayDetails({
         )}
 
         {/* Disease Surveillance Section */}
-        <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
-              <Activity className="size-3.5 text-rose-600" />
-              Disease Surveillance
-            </span>
-            {data.active_cases > 0 ? (
-              <Badge className="bg-rose-100 text-rose-800 border-rose-200 text-[10px] font-black px-1.5 py-0">
-                {data.active_cases} Recent Approved Report{data.active_cases > 1 ? 's' : ''}
-              </Badge>
-            ) : (
-              <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px] font-bold px-1.5 py-0">
-                No Recent Reports
-              </Badge>
+        {showDisease && (
+          <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
+                <Activity className="size-3.5 text-rose-600" />
+                Disease Surveillance
+              </span>
+              {data.active_cases > 0 ? (
+                <Badge className="bg-rose-100 text-rose-800 border-rose-200 text-[10px] font-black px-1.5 py-0">
+                  {data.active_cases} Recent Approved Report{data.active_cases > 1 ? 's' : ''}
+                </Badge>
+              ) : (
+                <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px] font-bold px-1.5 py-0">
+                  No Recent Reports
+                </Badge>
+              )}
+            </div>
+
+            {/* If Simulation Mode is Active */}
+            {isSim && simulatedState && (
+              !simulatedState.hasLivestock && simulatedState.cases === 0 ? (
+                <div className="bg-slate-100 border border-slate-300 rounded-lg p-2.5 text-xs text-slate-700">
+                  This barangay is excluded from simulated transmission because there are no approved active cloven-hoofed livestock records.
+                </div>
+              ) : <div className="bg-amber-50/90 border border-amber-200 rounded-lg p-2.5 text-xs space-y-1.5">
+                <div className="flex justify-between font-bold text-amber-950">
+                  <span>⚡ Simulated Transmission Pressure:</span>
+                  <span className="font-mono">{simulatedState.transmissionPressure}</span>
+                </div>
+                <div className="flex justify-between text-amber-900 text-[11px]">
+                  <span className="flex items-center gap-1">
+                    <Wind className="size-3 text-sky-600" /> Wind Exposure Factor:
+                  </span>
+                  <span className="font-mono font-bold">
+                    {simulatedState.windExposureFactor > 0
+                      ? `+${simulatedState.windExposureFactor} (Downwind)`
+                      : 'Neutral / Shielded'}
+                  </span>
+                </div>
+                <div className="flex justify-between text-amber-900 text-[11px] pt-1 border-t border-amber-200/60">
+                  <span>Projected Case Load:</span>
+                  <span className="font-bold">{simulatedState.cases} head{simulatedState.cases !== 1 ? 's' : ''}</span>
+                </div>
+              </div>
+            )}
+
+            {/* If Surveillance Trend Mode is Active */}
+            {isTrend && (
+              <div className="bg-purple-50/90 border border-purple-200 rounded-lg p-2.5 text-xs space-y-1">
+                <div className="flex justify-between font-bold text-purple-950">
+                  <span>🩺 Current Surveillance Status:</span>
+                  <span className="font-mono">
+                    {data.active_cases > 0
+                      ? 'ELEVATED'
+                      : data.disease_cases > 0
+                      ? 'REPORTED'
+                      : 'STABLE'}
+                  </span>
+                </div>
+                <p className="text-[10.5px] text-purple-800 leading-relaxed">
+                  Recent activity counts approved reports from the last 90 days; historical totals remain separate. This does not establish clinical case resolution. For statistical forecasts, visit Predictive Analytics.
+                </p>
+              </div>
+            )}
+
+            <div className="text-xs space-y-1 pt-1">
+              <div className="flex justify-between text-slate-600">
+                <span>Reported Disease Cases:</span>
+                <span className="font-bold font-mono text-slate-900">{data.disease_cases}</span>
+              </div>
+              <div className="flex justify-between text-slate-600">
+                <span>Affected Animal Heads:</span>
+                <span className="font-bold font-mono text-slate-900">{data.affected_heads}</span>
+              </div>
+            </div>
+
+            {data.recent_diseases.length > 0 && (
+              <div className="pt-2 border-t border-slate-100">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700 block mb-1">
+                  Reported Illness Symptoms:
+                </span>
+                <ul tabIndex={0} aria-label="Reported illness symptoms" className="max-h-48 overflow-y-auto overscroll-contain pr-1 text-xs text-rose-900 space-y-0.5 list-disc list-inside [scrollbar-gutter:stable] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 rounded">
+                  {data.recent_diseases.map((d, i) => (
+                    <li key={i} className="truncate">{d}</li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
-
-          {/* If Simulation Mode is Active */}
-          {isSim && simulatedState && (
-            !simulatedState.hasLivestock && simulatedState.cases === 0 ? (
-              <div className="bg-slate-100 border border-slate-300 rounded-lg p-2.5 text-xs text-slate-700">
-                This barangay is excluded from simulated transmission because there are no approved active cloven-hoofed livestock records.
-              </div>
-            ) : <div className="bg-amber-50/90 border border-amber-200 rounded-lg p-2.5 text-xs space-y-1.5">
-              <div className="flex justify-between font-bold text-amber-950">
-                <span>⚡ Simulated Transmission Pressure:</span>
-                <span className="font-mono">{simulatedState.transmissionPressure}</span>
-              </div>
-              <div className="flex justify-between text-amber-900 text-[11px]">
-                <span className="flex items-center gap-1">
-                  <Wind className="size-3 text-sky-600" /> Wind Exposure Factor:
-                </span>
-                <span className="font-mono font-bold">
-                  {simulatedState.windExposureFactor > 0
-                    ? `+${simulatedState.windExposureFactor} (Downwind)`
-                    : 'Neutral / Shielded'}
-                </span>
-              </div>
-              <div className="flex justify-between text-amber-900 text-[11px] pt-1 border-t border-amber-200/60">
-                <span>Projected Case Load:</span>
-                <span className="font-bold">{simulatedState.cases} head{simulatedState.cases !== 1 ? 's' : ''}</span>
-              </div>
-            </div>
-          )}
-
-          {/* If Surveillance Trend Mode is Active */}
-          {isTrend && (
-            <div className="bg-purple-50/90 border border-purple-200 rounded-lg p-2.5 text-xs space-y-1">
-              <div className="flex justify-between font-bold text-purple-950">
-                <span>🩺 Current Surveillance Status:</span>
-                <span className="font-mono">
-                  {data.active_cases > 0
-                    ? 'ELEVATED'
-                    : data.disease_cases > 0
-                    ? 'REPORTED'
-                    : 'STABLE'}
-                </span>
-              </div>
-              <p className="text-[10.5px] text-purple-800 leading-relaxed">
-                Recent activity counts approved reports from the last 90 days; historical totals remain separate. This does not establish clinical case resolution. For statistical forecasts, visit Predictive Analytics.
-              </p>
-            </div>
-          )}
-
-          <div className="text-xs space-y-1 pt-1">
-            <div className="flex justify-between text-slate-600">
-              <span>Reported Disease Cases:</span>
-              <span className="font-bold font-mono text-slate-900">{data.disease_cases}</span>
-            </div>
-            <div className="flex justify-between text-slate-600">
-              <span>Affected Animal Heads:</span>
-              <span className="font-bold font-mono text-slate-900">{data.affected_heads}</span>
-            </div>
-          </div>
-
-          {data.recent_diseases.length > 0 && (
-            <div className="pt-2 border-t border-slate-100">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700 block mb-1">
-                Reported Illness Symptoms:
-              </span>
-              <ul tabIndex={0} aria-label="Reported illness symptoms" className="max-h-48 overflow-y-auto overscroll-contain pr-1 text-xs text-rose-900 space-y-0.5 list-disc list-inside [scrollbar-gutter:stable] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 rounded">
-                {data.recent_diseases.map((d, i) => (
-                  <li key={i} className="truncate">{d}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
+        )}
 
         {/* Neighboring Barangay Biosecurity Radar (Farmer View) */}
         {isFarmer && (
@@ -514,71 +521,73 @@ export function BarangayDetails({
         )}
 
         {/* Mortality Records */}
-        <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2 overflow-hidden min-w-0">
-          <div className="flex items-center justify-between gap-2 min-w-0">
-            <span className="font-bold text-xs text-slate-800 flex items-center gap-1.5 shrink-0">
-              <Skull className="size-3.5 text-slate-700" />
-              Recorded Mortality
-            </span>
-            <span className="font-mono font-bold text-xs text-slate-900 truncate text-right">
-              {data.mortality} head{data.mortality !== 1 ? 's' : ''}
-            </span>
-          </div>
-
-          {data.mortality > 0 ? (
-            <div className="text-xs space-y-1.5 pt-1 border-t border-slate-100 min-w-0">
-              {/* Species Breakdown if multi-species data exists */}
-              {data.mortality_by_species && data.mortality_by_species.length > 0 && (
-                <div className="flex items-center justify-between text-[11px] text-slate-600 gap-2 min-w-0">
-                  <span className="shrink-0">Species Breakdown:</span>
-                  <div className="flex gap-1 flex-wrap justify-end min-w-0">
-                    {data.mortality_by_species.map((sp, idx) => (
-                      <Badge
-                        key={idx}
-                        variant="outline"
-                        className="text-[10px] px-1.5 py-0 border-slate-300/40 bg-slate-50/10 text-slate-200 font-mono"
-                      >
-                        {sp.species}: {sp.heads}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Recent Deaths in Surveillance Window */}
-              {data.recent_mortality !== undefined && data.recent_mortality > 0 && (
-                <div className="flex items-center justify-between text-[11px] text-slate-600 gap-2 min-w-0">
-                  <span className="shrink-0">Recent Deaths (90-day window):</span>
-                  <span className="font-bold font-mono text-slate-900">{data.recent_mortality}</span>
-                </div>
-              )}
-
-              {/* Recorded Causes */}
-              {data.mortality_causes.length > 0 && (
-                <div className="space-y-1 min-w-0">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
-                    Recorded Causes:
-                  </span>
-                  <div className="flex flex-wrap gap-1.5 w-full min-w-0">
-                    {data.mortality_causes.map((c, i) => (
-                      <Badge
-                        key={i}
-                        variant="outline"
-                        className="text-[10px] sm:text-[10.5px] px-2 py-0.5 border-slate-300/40 bg-slate-50/10 text-slate-200 whitespace-normal break-words [overflow-wrap:anywhere] max-w-full text-left leading-snug font-normal h-auto shrink"
-                      >
-                        {c}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
+        {showMortality && (
+          <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2 overflow-hidden min-w-0">
+            <div className="flex items-center justify-between gap-2 min-w-0">
+              <span className="font-bold text-xs text-slate-800 flex items-center gap-1.5 shrink-0">
+                <Skull className="size-3.5 text-slate-700" />
+                Recorded Mortality
+              </span>
+              <span className="font-mono font-bold text-xs text-slate-900 truncate text-right">
+                {data.mortality} head{data.mortality !== 1 ? 's' : ''}
+              </span>
             </div>
-          ) : (
-            <p className="text-[11px] text-emerald-700 flex items-center gap-1 pt-1 border-t border-slate-100">
-              <CheckCircle2 className="size-3 text-emerald-600" /> No recorded livestock deaths
-            </p>
-          )}
-        </div>
+
+            {data.mortality > 0 ? (
+              <div className="text-xs space-y-1.5 pt-1 border-t border-slate-100 min-w-0">
+                {/* Species Breakdown if multi-species data exists */}
+                {data.mortality_by_species && data.mortality_by_species.length > 0 && (
+                  <div className="flex items-center justify-between text-[11px] text-slate-600 gap-2 min-w-0">
+                    <span className="shrink-0">Species Breakdown:</span>
+                    <div className="flex gap-1 flex-wrap justify-end min-w-0">
+                      {data.mortality_by_species.map((sp, idx) => (
+                        <Badge
+                          key={idx}
+                          variant="outline"
+                          className="text-[10px] px-1.5 py-0 border-slate-300/40 bg-slate-50/10 text-slate-200 font-mono"
+                        >
+                          {sp.species}: {sp.heads}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Recent Deaths in Surveillance Window */}
+                {data.recent_mortality !== undefined && data.recent_mortality > 0 && (
+                  <div className="flex items-center justify-between text-[11px] text-slate-600 gap-2 min-w-0">
+                    <span className="shrink-0">Recent Deaths (90-day window):</span>
+                    <span className="font-bold font-mono text-slate-900">{data.recent_mortality}</span>
+                  </div>
+                )}
+
+                {/* Recorded Causes */}
+                {data.mortality_causes.length > 0 && (
+                  <div className="space-y-1 min-w-0">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
+                      Recorded Causes:
+                    </span>
+                    <div className="flex flex-wrap gap-1.5 w-full min-w-0">
+                      {data.mortality_causes.map((c, i) => (
+                        <Badge
+                          key={i}
+                          variant="outline"
+                          className="text-[10px] sm:text-[10.5px] px-2 py-0.5 border-slate-300/40 bg-slate-50/10 text-slate-200 whitespace-normal break-words [overflow-wrap:anywhere] max-w-full text-left leading-snug font-normal h-auto shrink"
+                        >
+                          {c}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-[11px] text-emerald-700 flex items-center gap-1 pt-1 border-t border-slate-100">
+                <CheckCircle2 className="size-3 text-emerald-600" /> No recorded livestock deaths
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Live Movement & Inspections */}
         {showMovement && (

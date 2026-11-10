@@ -65,6 +65,7 @@ interface AnimatedRing {
   speed: number;
   phase: number;
   maxScale: number;
+  baseOpacity?: number;
 }
 
 // Convert latitude/longitude (EPSG:4326) into Web Mercator meters (EPSG:3857)
@@ -93,9 +94,17 @@ function getMetricValue(
       return data.species_breakdown.find((item) => item.species.toLowerCase() === livestockType.toLowerCase())?.heads ?? 0;
     }
     case 'disease':
-      return diseaseSubMode === 'simulation' && simulation
-        ? simulationColorMode === 'pressure' ? simulation.transmissionPressure : simulation.cases
-        : data.active_cases;
+      if (diseaseSubMode === 'simulation' && simulation) {
+        return simulationColorMode === 'pressure' ? simulation.transmissionPressure : simulation.cases;
+      }
+      if ((data.active_cases ?? 0) > 0 || (data.fmd_active_cases ?? 0) > 0) {
+        return Math.max(data.active_cases, data.fmd_active_cases ?? 0);
+      }
+      // Haversine buffer zone elevated warning tier in 3D
+      if (Boolean(data.is_in_monitoring_radius) || data.disease_risk === 'medium' || data.disease_zone === 'monitoring_radius') {
+        return 3;
+      }
+      return 0;
     case 'milk':
       return data.milk;
     case 'farmer_meat':
@@ -136,30 +145,45 @@ function getLayerColor(
   simulationColorMode: SimulationColorMode,
   simulation: SimulatedBarangayState | undefined,
   value?: number,
+  data?: BarangayGISData,
 ): string {
   if (layer === 'movement') {
     return getMovementColor(value ?? 0);
   }
 
-  if (layer === 'disease' && diseaseSubMode === 'simulation') {
-    if (simulation && !simulation.hasLivestock && simulation.cases === 0) return '#94a3b8';
-    if (simulationColorMode === 'pressure') {
-      const pressure = simulation?.transmissionPressure ?? 0;
-      if (pressure >= 0.70) return '#991b1b';
-      if (pressure >= 0.40) return '#ea580c';
-      if (pressure >= 0.20) return '#f59e0b';
+  if (layer === 'disease') {
+    if (diseaseSubMode === 'simulation') {
+      if (simulation && !simulation.hasLivestock && simulation.cases === 0) return '#94a3b8';
+      if (simulationColorMode === 'pressure') {
+        const pressure = simulation?.transmissionPressure ?? 0;
+        if (pressure >= 0.70) return '#991b1b';
+        if (pressure >= 0.40) return '#ea580c';
+        if (pressure >= 0.20) return '#f59e0b';
+        return '#10b981';
+      }
+      const cases = simulation?.cases ?? 0;
+      if (cases >= 6) return '#991b1b';
+      if (cases >= 3) return '#ea580c';
+      if (cases >= 1) return '#f59e0b';
       return '#10b981';
     }
-    const cases = simulation?.cases ?? 0;
-    if (cases >= 6) return '#991b1b';
-    if (cases >= 3) return '#ea580c';
-    if (cases >= 1) return '#f59e0b';
+
+    // 3-Tier Classification for Disease:
+    // Red: Approved disease report
+    // Orange: Within Haversine distance monitoring radius
+    // Green: No recent report
+    const hasApprovedReport = (data?.active_cases ?? 0) > 0 || (data?.fmd_active_cases ?? 0) > 0 || data?.disease_risk === 'high' || data?.disease_zone === 'outbreak';
+    if (hasApprovedReport) return '#ef4444';
+
+    const isHaversineBuffer = Boolean(data?.is_in_monitoring_radius) || data?.disease_risk === 'medium' || data?.disease_zone === 'monitoring_radius';
+    if (isHaversineBuffer) return '#f97316';
+
     return '#10b981';
   }
 
   const palettes: Record<MapLayer, [string, string, string, string]> = {
     cattle: ['#eaf3e4', '#c5e0a8', '#5a8f4f', '#1a3d15'],
-    disease: ['#dcfce7', '#fde68a', '#fb923c', '#991b1b'],
+    disease: ['#10b981', '#f97316', '#ea580c', '#ef4444'],
     milk: ['#e0f2fe', '#7dd3fc', '#0284c7', '#0c4a6e'],
     farmer_meat: ['#fef3c7', '#fbbf24', '#ea580c', '#7c2d12'],
     slaughter_yield: ['#fef3c7', '#fbbf24', '#ea580c', '#7c2d12'],
@@ -314,7 +338,20 @@ export function Giro3DBarangayView({
   const barangaysByNameRef = useRef(barangaysByName);
   useEffect(() => {
     barangaysByNameRef.current = barangaysByName;
-  }, [barangaysByName]);
+    const collection = collectionRef.current;
+    if (collection) {
+      largestMetricRef.current = Math.max(
+        0,
+        ...Object.values(barangaysByName).map((data) =>
+          getMetricValue(data, activeLayer, diseaseSubMode, simulatedStatesRef.current?.[data.name], selectedLivestockType, simulationColorMode)
+        ),
+      );
+      collection.updateStyles();
+      refreshBorderColorsRef.current?.();
+      syncLabelPositionsRef.current?.();
+      instanceRef.current?.notifyChange();
+    }
+  }, [barangaysByName, activeLayer, diseaseSubMode, selectedLivestockType, simulationColorMode]);
   const heightScaleRef = useRef(heightScale);
   const appliedHeightScaleRef = useRef(heightScale);
   const borderLinesRef = useRef(new Map<Feature<Geometry>, import('three').LineSegments>());
@@ -322,6 +359,7 @@ export function Giro3DBarangayView({
   const labelElementsRef = useRef(new Map<Feature<Geometry>, HTMLDivElement>());
   const labelAnchorsRef = useRef(new Map<Feature<Geometry>, [number, number]>());
   const syncLabelPositionsRef = useRef<(() => void) | null>(null);
+  const refreshBorderColorsRef = useRef<(() => void) | null>(null);
   const simulatedStatesRef = useRef(simulatedStates);
   const largestMetricRef = useRef(0);
   const surfaceMeshesRef = useRef(new Map<Feature<Geometry>, Object3D[]>());
@@ -579,6 +617,7 @@ export function Giro3DBarangayView({
                   simulationColorMode,
                   simulatedStatesRef.current?.[name],
                   value,
+                  data,
                 ) : '#475569',
                 opacity: hovered || (activeLayer === 'movement' && inScope) ? 1 : inScope ? 0.94 : 0.48,
                 // The GIS choropleth should keep its data colors without depending on scene lights.
@@ -694,10 +733,29 @@ export function Giro3DBarangayView({
         const refreshBorderColors = () => {
           for (const [feature, lines] of borderLines) {
             const material = lines.material as import('three').LineBasicMaterial;
-            material.color.set(feature.get('selected') ? '#ffffff' : feature.get('hovered') ? '#fff200' : '#000000');
+            if (feature.get('selected')) {
+              material.color.set('#ffffff');
+            } else if (feature.get('hovered')) {
+              material.color.set('#fff200');
+            } else if (activeLayer === 'disease') {
+              const name = String(feature.get('name') ?? '');
+              const bData = barangaysByNameRef.current[name] || barangaysByNameRef.current[name.toLowerCase()];
+              const hasReport = (bData?.active_cases ?? 0) > 0 || (bData?.fmd_active_cases ?? 0) > 0 || bData?.disease_risk === 'high' || bData?.disease_zone === 'outbreak';
+              const isBuffer = !hasReport && (Boolean(bData?.is_in_monitoring_radius) || bData?.disease_risk === 'medium' || bData?.disease_zone === 'monitoring_radius');
+              if (hasReport) {
+                material.color.set('#ef4444');
+              } else if (isBuffer) {
+                material.color.set('#f97316');
+              } else {
+                material.color.set('#10b981');
+              }
+            } else {
+              material.color.set('#000000');
+            }
           }
           instance?.notifyChange();
         };
+        refreshBorderColorsRef.current = refreshBorderColors;
 
         // Focus a selected barangay on entry; otherwise fit the whole municipality.
         const initialSelected = selectedBarangayRef.current?.name.toLowerCase();
@@ -748,15 +806,63 @@ export function Giro3DBarangayView({
           for (const [feature, label] of labelElements) {
             const name = String(feature.get('name') ?? '');
             const simState = simulatedStatesRef.current?.[name];
-            label.textContent = activeLayer === 'disease' && diseaseSubMode === 'simulation' && simState
-              ? !simState.hasLivestock && simState.cases === 0
-                ? `${name}\nNot modeled · 0 livestock`
-                : `${name}\n${simState.cases} case${simState.cases === 1 ? '' : 's'} | ${(simState.transmissionPressure * 100).toFixed(0)}% pressure`
-              : name;
+            const bData = barangaysByNameRef.current[name] || barangaysByNameRef.current[name.toLowerCase()];
+
+            let labelExtraHeight = 30;
+
+            if (activeLayer === 'disease') {
+              if (diseaseSubMode === 'simulation' && simState) {
+                label.innerHTML = !simState.hasLivestock && simState.cases === 0
+                  ? `<div style="font-weight:800;font-size:11px;color:#cbd5e1;">${name}</div><div style="font-size:9px;color:#94a3b8;">Not modeled · 0 livestock</div>`
+                  : `<div style="font-weight:800;font-size:11px;color:#fff;">${name}</div><div style="display:inline-flex;align-items:center;gap:4px;margin-top:2px;padding:1px 6px;border-radius:9999px;background:rgba(234,88,12,0.25);border:1px solid #ea580c;color:#fdba74;font-size:9.5px;font-weight:700;">${simState.cases} case${simState.cases === 1 ? '' : 's'} · ${(simState.transmissionPressure * 100).toFixed(0)}% spread</div>`;
+                label.style.border = '1px solid rgba(234,88,12,0.7)';
+                label.style.boxShadow = '0 4px 12px rgba(234,88,12,0.3)';
+              } else {
+                const hasApprovedReport = (bData?.active_cases ?? 0) > 0 || (bData?.fmd_active_cases ?? 0) > 0 || bData?.disease_risk === 'high' || bData?.disease_zone === 'outbreak';
+                const isOrangeBuffer = !hasApprovedReport && (Boolean(bData?.is_in_monitoring_radius) || bData?.disease_risk === 'medium' || bData?.disease_zone === 'monitoring_radius');
+
+                if (hasApprovedReport) {
+                  labelExtraHeight = 90; // Float comfortably above rotating 3D crystal beacon
+                  const cases = bData?.active_cases || 1;
+                  label.innerHTML = `<div style="font-weight:800;font-size:11px;color:#fff;letter-spacing:0.02em;">${name}</div>` +
+                    `<div style="display:inline-flex;align-items:center;gap:4px;margin-top:2px;padding:1px 7px;border-radius:9999px;background:rgba(239,68,68,0.28);border:1px solid #ef4444;color:#fca5a5;font-size:9.5px;font-weight:800;white-space:nowrap;">` +
+                    `<span style="width:6px;height:6px;border-radius:50%;background:#ef4444;box-shadow:0 0 6px #ef4444;display:inline-block;"></span>` +
+                    `Approved Report · ${cases} ${cases === 1 ? 'Case' : 'Cases'}</div>`;
+                  label.style.border = '1.5px solid rgba(239, 68, 68, 0.9)';
+                  label.style.boxShadow = '0 4px 18px rgba(239, 68, 68, 0.55)';
+                  label.style.background = 'rgba(15, 23, 42, 0.94)';
+                } else if (isOrangeBuffer) {
+                  labelExtraHeight = 55;
+                  const dist = bData?.nearest_outbreak_dist_km != null ? `${bData.nearest_outbreak_dist_km.toFixed(1)} km` : 'Near Outbreak';
+                  label.innerHTML = `<div style="font-weight:800;font-size:11px;color:#fff;letter-spacing:0.02em;">${name}</div>` +
+                    `<div style="display:inline-flex;align-items:center;gap:4px;margin-top:2px;padding:1px 7px;border-radius:9999px;background:rgba(249,115,22,0.28);border:1px solid #f97316;color:#fdba74;font-size:9.5px;font-weight:800;white-space:nowrap;">` +
+                    `<span style="width:6px;height:6px;border-radius:50%;background:#f97316;box-shadow:0 0 6px #f97316;display:inline-block;"></span>` +
+                    `Buffer Zone · ${dist}</div>`;
+                  label.style.border = '1.5px solid rgba(249, 115, 22, 0.9)';
+                  label.style.boxShadow = '0 4px 16px rgba(249, 115, 22, 0.45)';
+                  label.style.background = 'rgba(15, 23, 42, 0.94)';
+                } else {
+                  labelExtraHeight = 35;
+                  label.innerHTML = `<div style="font-weight:800;font-size:11px;color:#fff;letter-spacing:0.02em;">${name}</div>` +
+                    `<div style="display:inline-flex;align-items:center;gap:4px;margin-top:2px;padding:1px 7px;border-radius:9999px;background:rgba(16,185,129,0.22);border:1px solid #10b981;color:#86efac;font-size:9.5px;font-weight:800;white-space:nowrap;">` +
+                    `<span style="width:6px;height:6px;border-radius:50%;background:#10b981;box-shadow:0 0 6px #10b981;display:inline-block;"></span>` +
+                    `No Recent Report</div>`;
+                  label.style.border = '1.5px solid rgba(16, 185, 129, 0.8)';
+                  label.style.boxShadow = '0 4px 14px rgba(16, 185, 129, 0.3)';
+                  label.style.background = 'rgba(15, 23, 42, 0.94)';
+                }
+              }
+            } else {
+              label.textContent = name;
+              label.style.border = '1px solid rgba(255,255,255,0.8)';
+              label.style.boxShadow = 'none';
+              label.style.background = 'rgba(15,23,42,0.92)';
+            }
+
             const anchor = labelAnchors.get(feature);
             if (!anchor) continue;
             const height = displayedHeightsRef.current.get(feature) ?? 50;
-            projectedLabelPoint.set(anchor[0], anchor[1], height + 30).project(instance.view.camera);
+            projectedLabelPoint.set(anchor[0], anchor[1], height + labelExtraHeight).project(instance.view.camera);
             const inFrontOfCamera = projectedLabelPoint.z >= -1 && projectedLabelPoint.z <= 1;
             const showName = activeLayer !== 'movement' || Boolean(feature.get('selected')) || Boolean(feature.get('hovered'));
             label.style.display = inFrontOfCamera && showName ? 'block' : 'none';
@@ -831,9 +937,14 @@ export function Giro3DBarangayView({
             if (intersects.length > 0) {
               let hitObj: import('three').Object3D | null = intersects[0].object;
               let pickedMove: MovementRecord | undefined;
+              let pickedBarangay: BarangayGISData | undefined;
               while (hitObj) {
                 if (hitObj.userData?.movement) {
                   pickedMove = hitObj.userData.movement as MovementRecord;
+                  break;
+                }
+                if (hitObj.userData?.barangay) {
+                  pickedBarangay = hitObj.userData.barangay as BarangayGISData;
                   break;
                 }
                 hitObj = hitObj.parent;
@@ -842,6 +953,11 @@ export function Giro3DBarangayView({
                 onSelectMovementRef.current?.(pickedMove);
                 syncLabelPositionsRef.current?.();
                 flyToDestinationRef.current?.(pickedMove);
+                return;
+              }
+              if (pickedBarangay) {
+                onSelectRef.current(pickedBarangay);
+                syncLabelPositionsRef.current?.();
                 return;
               }
             }
@@ -989,6 +1105,7 @@ export function Giro3DBarangayView({
       destinationAnchorsRef.current.clear();
       labelAnchors.clear();
       syncLabelPositionsRef.current = null;
+      refreshBorderColorsRef.current = null;
       if (movementGroupRef.current && instance) {
         instance.threeObjects.remove(movementGroupRef.current);
         while (movementGroupRef.current.children.length > 0) {
@@ -1237,11 +1354,15 @@ export function Giro3DBarangayView({
     destinationLabelsRef.current.clear();
     destinationAnchorsRef.current.clear();
 
-    const shouldShow = (activeLayer === 'movement' || Boolean(showMovementOverlay)) && (activeLayer !== 'movement' || movementDisplayMode !== 'density');
-    if (!shouldShow || !movements || movements.length === 0) {
+    const shouldShowMovement = (activeLayer === 'movement' || Boolean(showMovementOverlay)) && (activeLayer !== 'movement' || movementDisplayMode !== 'density') && Boolean(movements && movements.length > 0);
+    const shouldShowDisease = activeLayer === 'disease' && diseaseSubMode !== 'simulation';
+
+    if (!shouldShowMovement && !shouldShowDisease) {
       instance.notifyChange();
       return;
     }
+
+    if (shouldShowMovement && movements && movements.length > 0) {
 
     // Helper to extract top extrusion height of a barangay polygon
     const getBarangayExtrusionHeight = (name: string | null | undefined) => {
@@ -1314,24 +1435,40 @@ export function Giro3DBarangayView({
 
       // Controlled parabolic altitude in 3D WebGL space:
       // Minimum apex height gives every line clear 3D loft above barangay extrusion
-      const apexHeight = Math.min(Math.max(dist * 0.055, 480), 1600);
-      const midZ = Math.max(startZ, endZ) + apexHeight;
+      const apexHeight = Math.min(Math.max(dist * 0.12, 420), 1500);
 
-      // Upward launch trajectory from Origin:
-      // CP1 ascends steeply / vertically upward directly out of the origin launch pad (+Z climb)
-      // with minimal horizontal drift (only 5% forward).
-      // This causes the laser tube, glow sheath, and energy pulses to surge straight UPWARD
-      // out of the origin before curving over at the apex and following through to destination!
+      // Organic, non-linear lateral curvature:
+      // Perpendicular normal vector in the horizontal plane (X, Y)
+      const nx = -dy / dist;
+      const ny = dx / dist;
+
+      // Determine a natural bowing direction and magnitude:
+      // - Inbound routes bow to one side (-1), Outbound routes bow to the other (+1),
+      //   forming distinct, non-overlapping dual curved lanes between municipalities.
+      // - Internal routes alternate naturally based on endpoint string hashes.
+      let bowSign = 1;
+      if (move.direction === 'INBOUND') {
+        bowSign = -1;
+      } else if (move.direction === 'INTERNAL') {
+        const hash = ((move.origin_barangay?.charCodeAt(0) || 0) * 31 + (move.destination_barangay?.charCodeAt(0) || 0)) % 2;
+        bowSign = hash === 0 ? 1 : -1;
+      }
+
+      // Lateral deviation distance: scales gracefully with path length (~16% of distance, clamped between 150m and 850m)
+      const lateralDeviation = Math.min(Math.max(dist * 0.16, 150), 850) * bowSign;
+
+      // Smooth 3D Cubic Bezier trajectory with graceful lateral sweep & parabolic loft:
+      // CP1 rises smoothly from the launch pad (~28% forward) while arching laterally
       const cp1 = new three.Vector3(
-        startX + dx * 0.05,
-        startY + dy * 0.05,
-        startZ + apexHeight * 0.92
+        startX + dx * 0.28 + nx * lateralDeviation * 0.88,
+        startY + dy * 0.28 + ny * lateralDeviation * 0.88,
+        startZ + apexHeight * 1.25
       );
-      // CP2 crests above the destination sector and follows through smoothly into the landing zone
+      // CP2 crests past the apex (~72% forward) and curves smoothly down toward the destination landing pad
       const cp2 = new three.Vector3(
-        startX + dx * 0.82,
-        startY + dy * 0.82,
-        endZ + apexHeight * 0.88
+        startX + dx * 0.72 + nx * lateralDeviation * 0.88,
+        startY + dy * 0.72 + ny * lateralDeviation * 0.88,
+        endZ + apexHeight * 1.25
       );
       const curve = new three.CubicBezierCurve3(
         new three.Vector3(startX, startY, startZ),
@@ -1657,6 +1794,176 @@ export function Giro3DBarangayView({
       destinationLabelsRef.current.set(destKey, destLabel);
       destinationAnchorsRef.current.set(destKey, [endX, endY, endZ + beaconHeight + crystalRadius * 2 + 35]);
     }
+  }
+
+    if (shouldShowDisease) {
+      // Build 3D Outbreak Radar Waves, Rotating Crystal Beacons, and Glowing Pillars
+      for (const [name, bData] of Object.entries(barangaysByName)) {
+        if (!bData) continue;
+        const hasApprovedReport = (bData.active_cases ?? 0) > 0 || (bData.fmd_active_cases ?? 0) > 0 || bData.disease_risk === 'high' || bData.disease_zone === 'outbreak';
+        const isOrangeBuffer = !hasApprovedReport && (Boolean(bData.is_in_monitoring_radius) || bData.disease_risk === 'medium' || bData.disease_zone === 'monitoring_radius');
+
+        if (!hasApprovedReport && !isOrangeBuffer) continue;
+
+        const lowerName = name.toLowerCase();
+        const feat = featuresByNameRef.current.get(lowerName);
+        const topHeight = feat ? displayedHeightsRef.current.get(feat) ?? 150 : 150;
+
+        let anchorX: number | undefined;
+        let anchorY: number | undefined;
+        if (feat) {
+          const geom = feat.getGeometry();
+          if (geom) {
+            const anchor = labelAnchorsRef.current.get(feat) ?? getPolygonLabelAnchor(geom);
+            anchorX = anchor[0];
+            anchorY = anchor[1];
+          }
+        }
+        if (anchorX == null || anchorY == null) {
+          if (bData.position) {
+            const [x, y] = latLngToWebMercator(bData.position[0], bData.position[1]);
+            anchorX = x;
+            anchorY = y;
+          } else {
+            continue;
+          }
+        }
+
+        if (hasApprovedReport) {
+          // RED: Approved Disease Outbreak Hotspot
+          const ringRadius = 380;
+          const ringConfigs = [
+            { phase: 0.0, speed: 0.42, maxScale: 2.7, baseOpacity: 0.95, color: '#ef4444' },
+            { phase: 0.33, speed: 0.42, maxScale: 2.7, baseOpacity: 0.88, color: '#ef4444' },
+            { phase: 0.66, speed: 0.42, maxScale: 2.7, baseOpacity: 0.80, color: '#f87171' },
+          ];
+
+          for (const cfg of ringConfigs) {
+            const ringGeom = new three.RingGeometry(ringRadius * 0.25, ringRadius * 0.55, 32);
+            const ringMat = new three.MeshBasicMaterial({
+              color: cfg.color,
+              side: three.DoubleSide,
+              opacity: 0,
+              transparent: true,
+              blending: three.AdditiveBlending,
+              depthTest: true,
+              depthWrite: false,
+            });
+            const ringMesh = new three.Mesh(ringGeom, ringMat);
+            ringMesh.position.set(anchorX, anchorY, topHeight + 4);
+            ringMesh.userData = { barangay: bData };
+            movementGroup.add(ringMesh);
+            animatedRingsRef.current.push({
+              mesh: ringMesh,
+              speed: cfg.speed,
+              phase: cfg.phase,
+              maxScale: cfg.maxScale,
+              baseOpacity: cfg.baseOpacity,
+            });
+          }
+
+          // Rotating 3D Outbreak Crystal Beacon
+          const crystalRadius = 55;
+          const crystalGeom = new three.OctahedronGeometry(crystalRadius, 0);
+          const crystalMat = new three.MeshBasicMaterial({
+            color: '#ef4444',
+            wireframe: false,
+            transparent: true,
+            opacity: 0.95,
+            depthTest: true,
+            depthWrite: true,
+          });
+          const crystalMesh = new three.Mesh(crystalGeom, crystalMat);
+          crystalMesh.position.set(anchorX, anchorY, topHeight + 55);
+          crystalMesh.userData = { barangay: bData };
+          movementGroup.add(crystalMesh);
+          destinationBeaconsRef.current.push(crystalMesh);
+
+          // Additive Wireframe Crystal Aura
+          const wireGeom = new three.OctahedronGeometry(crystalRadius * 1.35, 0);
+          const wireMat = new three.MeshBasicMaterial({
+            color: '#fca5a5',
+            wireframe: true,
+            transparent: true,
+            opacity: 0.85,
+            blending: three.AdditiveBlending,
+            depthTest: true,
+            depthWrite: false,
+          });
+          const wireMesh = new three.Mesh(wireGeom, wireMat);
+          wireMesh.position.set(anchorX, anchorY, topHeight + 55);
+          wireMesh.userData = { barangay: bData };
+          movementGroup.add(wireMesh);
+          destinationBeaconsRef.current.push(wireMesh);
+
+          // Vertical Light Column Pillar
+          const pillarHeight = 110;
+          const pillarGeom = new three.CylinderGeometry(18, 45, pillarHeight, 16, 1, true);
+          const pillarMat = new three.MeshBasicMaterial({
+            color: '#ef4444',
+            transparent: true,
+            opacity: 0.45,
+            blending: three.AdditiveBlending,
+            side: three.DoubleSide,
+            depthTest: true,
+            depthWrite: false,
+          });
+          const pillarMesh = new three.Mesh(pillarGeom, pillarMat);
+          pillarMesh.position.set(anchorX, anchorY, topHeight + pillarHeight / 2);
+          pillarMesh.userData = { barangay: bData };
+          movementGroup.add(pillarMesh);
+          destinationPillarsRef.current.push(pillarMesh);
+        } else if (isOrangeBuffer) {
+          // ORANGE: Precautionary Buffer Zone (Haversine Algorithm)
+          const ringRadius = 260;
+          const ringConfigs = [
+            { phase: 0.0, speed: 0.35, maxScale: 2.2, baseOpacity: 0.85, color: '#f97316' },
+            { phase: 0.5, speed: 0.35, maxScale: 2.2, baseOpacity: 0.75, color: '#fb923c' },
+          ];
+
+          for (const cfg of ringConfigs) {
+            const ringGeom = new three.RingGeometry(ringRadius * 0.25, ringRadius * 0.55, 32);
+            const ringMat = new three.MeshBasicMaterial({
+              color: cfg.color,
+              side: three.DoubleSide,
+              opacity: 0,
+              transparent: true,
+              blending: three.AdditiveBlending,
+              depthTest: true,
+              depthWrite: false,
+            });
+            const ringMesh = new three.Mesh(ringGeom, ringMat);
+            ringMesh.position.set(anchorX, anchorY, topHeight + 4);
+            ringMesh.userData = { barangay: bData };
+            movementGroup.add(ringMesh);
+            animatedRingsRef.current.push({
+              mesh: ringMesh,
+              speed: cfg.speed,
+              phase: cfg.phase,
+              maxScale: cfg.maxScale,
+              baseOpacity: cfg.baseOpacity,
+            });
+          }
+
+          // Floating Warning Diamond Beacon
+          const diamondRadius = 32;
+          const diamondGeom = new three.OctahedronGeometry(diamondRadius, 0);
+          const diamondMat = new three.MeshBasicMaterial({
+            color: '#f97316',
+            wireframe: false,
+            transparent: true,
+            opacity: 0.85,
+            depthTest: true,
+            depthWrite: false,
+          });
+          const diamondMesh = new three.Mesh(diamondGeom, diamondMat);
+          diamondMesh.position.set(anchorX, anchorY, topHeight + 35);
+          diamondMesh.userData = { barangay: bData };
+          movementGroup.add(diamondMesh);
+          destinationBeaconsRef.current.push(diamondMesh);
+        }
+      }
+    }
 
     // Start forward pulse transport animation loop
     if (animatedPulsesRef.current.length > 0 || animatedRingsRef.current.length > 0 || destinationBeaconsRef.current.length > 0) {
@@ -1705,12 +2012,16 @@ export function Giro3DBarangayView({
           (pillar.material as import('three').MeshBasicMaterial).opacity = pillarBreath;
         }
 
-        // Pulse and expand ripple rings at origin polygon and destination landing
+        // Pulse and expand ripple rings at origin polygon, destination landing, and disease outbreak zones
         for (const ring of animatedRingsRef.current) {
           const cycle = (now * ring.speed + ring.phase) % 1.0;
           const scale = 1 + cycle * (ring.maxScale - 1);
           ring.mesh.scale.set(scale, scale, 1);
-          (ring.mesh.material as import('three').MeshBasicMaterial).opacity = 0.85 * (1 - cycle);
+          // Seamless cyclic wave: sine window starts at 0, peaks smoothly at cycle 0.5, and fades to 0 before wrapping
+          // Guarantees zero popping when cycle wraps from 1.0 back to 0.0
+          const envelope = Math.sin(cycle * Math.PI);
+          const baseOpacity = ring.baseOpacity ?? 0.85;
+          (ring.mesh.material as import('three').MeshBasicMaterial).opacity = baseOpacity * envelope;
         }
 
         // Smoothly fade in newly materialized laser lines & chevrons during timeline cycles (seamless transition)
@@ -1748,7 +2059,7 @@ export function Giro3DBarangayView({
       destinationPillarsRef.current = [];
       materialsToFadeRef.current = [];
     };
-  }, [isSceneReady, activeLayer, showMovementOverlay, movements, selectedMovement, movementDisplayMode, barangaysByName]);
+  }, [isSceneReady, activeLayer, diseaseSubMode, showMovementOverlay, movements, selectedMovement, movementDisplayMode, barangaysByName, heightScale]);
 
   // Animate the polygon column extrusion heights in response to movementDisplayMode,
   // timeline scrubber date changes, and timeline activation
@@ -1813,7 +2124,7 @@ export function Giro3DBarangayView({
       const baseFullH = fullExtrusionHeightsRef.current.get(feature) ?? Math.max(10, getExtrusionHeight(value, largestMetricRef.current, heightScaleRef.current));
       const currentH = displayedHeightsRef.current.get(feature) ?? (isFlat ? 2 : baseFullH);
 
-      let targetH = isFlat ? 2 : baseFullH;
+      let targetH = isFlat ? 2 : Math.max(10, getExtrusionHeight(value, largestMetricRef.current, heightScaleRef.current));
       if (isMovementLayer) {
         if (isFlat) {
           targetH = 2;
@@ -1864,6 +2175,25 @@ export function Giro3DBarangayView({
         const lines = borderLinesByNameRef.current.get(name) || borderLinesRef.current.get(feature);
         if (lines) {
           setVerticalScale(lines, scaleZ);
+        }
+
+        // Keep 3D crystal beacons, laser columns, and ripple rings riding seamlessly atop the extruding column
+        if (activeLayer === 'disease') {
+          for (const beacon of destinationBeaconsRef.current) {
+            if (((beacon.userData?.barangay?.name || '') as string).toLowerCase() === name) {
+              beacon.position.z = currentH + 55;
+            }
+          }
+          for (const pillar of destinationPillarsRef.current) {
+            if (((pillar.userData?.barangay?.name || '') as string).toLowerCase() === name) {
+              pillar.position.z = currentH + 55;
+            }
+          }
+          for (const ring of animatedRingsRef.current) {
+            if (((ring.mesh.userData?.barangay?.name || '') as string).toLowerCase() === name) {
+              ring.mesh.position.z = currentH + 4;
+            }
+          }
         }
       }
 

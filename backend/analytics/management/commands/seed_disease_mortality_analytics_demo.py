@@ -57,19 +57,70 @@ MORTALITY_RECORDS_PER_MONTH = (
     0, 1, 0, 0, 1, 0, 2, 0, 1, 0, 0, 1, 0, 1, 0, 2, 0, 1, 0, 1, 0, 1, 0, 0, 1,
 )
 
-# Realistic scenario: natural seasonal/outbreak waves where cases peak during wet/monsoon
-# seasons and decline into troughs where prior cases recover and close ("goes low meaning recovery and closed").
-# Includes current in-progress month so rolling 7-day, 14-day, and 30-day surveillance windows are active.
-REALISTIC_DISEASE_CASES_PER_MONTH = (
-    1, 0, 1, 2, 4, 6, 8, 7, 5, 2, 1, 0,  # Year 1 (Months 0-11)
-    1, 1, 2, 3, 5, 7, 9, 8, 6, 4, 3, 4,  # Year 2 (Months 12-23)
-    2,                                    # Current Month up to today (Month 24)
+# Realistic scenario: localized epidemiology with an outbreak cluster in high-density livestock
+# corridors (Hotspot), sporadic seasonal cases in buffer zones (Moderate), and disease-free
+# negative monitoring in quiet barangays (Quiet).
+BARANGAY_EPIDEMIOLOGY_TIER = {
+    # Hotspot Cluster (Outbreak Wave): ~100% of wave
+    "Manggas": "HOTSPOT",
+    "Pansol": "HOTSPOT",
+    "Cawongan": "HOTSPOT",
+    "Bawi": "HOTSPOT",
+
+    # Moderate / Buffer Zone (Sporadic surveillance): ~20% of wave
+    "Banaba": "MODERATE",
+    "San Miguel": "MODERATE",
+    "Bukal": "MODERATE",
+    "San Felipe": "MODERATE",
+    "Maugat West": "MODERATE",
+
+    # Quiet / Clean Zone (Zero or near-zero disease, clean coverage attestations)
+    "Banay-Banay": "QUIET",
+    "Tamak": "QUIET",
+    "Quilo Quilo North": "QUIET",
+    "Quilo Quilo South": "QUIET",
+    "Castillo": "QUIET",
+    "Maugat East": "QUIET",
+    "Payapa": "QUIET",
+    "Tangob": "QUIET",
+    "Poblacion": "QUIET",
+}
+
+# Hotspot sequence (40-50 cases over 24 months, with natural epidemic peaks in rainy season)
+HOTSPOT_DISEASE_CASES_PER_MONTH = (
+    1, 0, 1, 2, 4, 6, 8, 7, 5, 2, 1, 0,  # Year 1 (Outbreak in months 4-8)
+    1, 1, 2, 3, 5, 7, 9, 8, 6, 4, 3, 4,  # Year 2 (Outbreak in months 16-21)
+    2,                                    # Current month up to today (Month 24)
 )
-REALISTIC_MORTALITY_RECORDS_PER_MONTH = (
+HOTSPOT_MORTALITY_RECORDS_PER_MONTH = (
     1, 0, 1, 1, 2, 3, 4, 3, 2, 1, 1, 0,  # Year 1
     1, 1, 2, 2, 3, 4, 5, 3, 2, 2, 1, 2,  # Year 2
-    1,                                    # Current Month up to today (Month 24)
+    1,                                    # Current month
 )
+
+# Moderate sequence (sporadic 1-2 cases only during wet season, quiet in dry season)
+MODERATE_DISEASE_CASES_PER_MONTH = (
+    0, 0, 0, 0, 1, 1, 2, 1, 1, 0, 0, 0,  # Year 1
+    0, 0, 1, 1, 1, 2, 2, 1, 1, 1, 0, 1,  # Year 2
+    1,                                    # Current month
+)
+MODERATE_MORTALITY_RECORDS_PER_MONTH = (
+    0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0,  # Year 1
+    0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 1,  # Year 2
+    0,                                    # Current month
+)
+
+# Quiet sequence (0 disease cases, and 1 non-infectious mortality in month 14)
+QUIET_DISEASE_CASES_PER_MONTH = (0,) * 25
+QUIET_MORTALITY_RECORDS_PER_MONTH = (
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0,
+)
+
+# Retained aliases for backward compatibility
+REALISTIC_DISEASE_CASES_PER_MONTH = HOTSPOT_DISEASE_CASES_PER_MONTH
+REALISTIC_MORTALITY_RECORDS_PER_MONTH = HOTSPOT_MORTALITY_RECORDS_PER_MONTH
 
 REALISTIC_DISEASE_PROFILES = [
     {
@@ -602,8 +653,26 @@ class Command(BaseCommand):
             last_name=cbat_spec["last_name"],
         )
 
-        disease_counts_seq = REALISTIC_DISEASE_CASES_PER_MONTH if scenario == "realistic" else DISEASE_CASES_PER_MONTH
-        mortality_counts_seq = REALISTIC_MORTALITY_RECORDS_PER_MONTH if scenario == "realistic" else MORTALITY_RECORDS_PER_MONTH
+        if scenario == "realistic":
+            brgy_name = barangay.barangay_name
+            tier = BARANGAY_EPIDEMIOLOGY_TIER.get(brgy_name, "QUIET")
+            # If a specific farmer account was provided for this barangay, ensure it has activity
+            if plan["farmer_profile"] and plan["farmer_profile"].barangay_id == barangay.pk and tier == "QUIET":
+                tier = "MODERATE"
+
+            if tier == "HOTSPOT":
+                disease_counts_seq = HOTSPOT_DISEASE_CASES_PER_MONTH
+                mortality_counts_seq = HOTSPOT_MORTALITY_RECORDS_PER_MONTH
+            elif tier == "MODERATE":
+                disease_counts_seq = MODERATE_DISEASE_CASES_PER_MONTH
+                mortality_counts_seq = MODERATE_MORTALITY_RECORDS_PER_MONTH
+            else:
+                disease_counts_seq = QUIET_DISEASE_CASES_PER_MONTH
+                mortality_counts_seq = QUIET_MORTALITY_RECORDS_PER_MONTH
+        else:
+            tier = "HOTSPOT"
+            disease_counts_seq = DISEASE_CASES_PER_MONTH
+            mortality_counts_seq = MORTALITY_RECORDS_PER_MONTH
 
         disease_count = 0
         mortality_count = 0
@@ -627,17 +696,9 @@ class Command(BaseCommand):
                     d_profile = REALISTIC_DISEASE_PROFILES[(month_index * 3 + event_index) % len(REALISTIC_DISEASE_PROFILES)]
                     d_name = d_profile["name"]
                     d_symptoms = d_profile["symptoms"]
-                    if is_low_or_declining:
-                        # In low/trough months, cases resolve cleanly (80% recovered, 20% closed, 0% open)
-                        resolution_outcome = 0 if (event_index % 5 < 4) else 1
-                    else:
-                        # In peak months, some remain open/under treatment
-                        peak_mod = event_index % 4
-                        resolution_outcome = 0 if peak_mod < 2 else (1 if peak_mod == 2 else 2)
                 else:
                     d_name = "DEMO synthetic cattle illness observation (not a diagnosis)"
                     d_symptoms = []
-                    resolution_outcome = (month_index + event_index) % 3
 
                 case = self._create_approved_disease(
                     key=f"disease:{month_end:%Y-%m}:{event_index + 1}",
@@ -649,10 +710,12 @@ class Command(BaseCommand):
                     disease_name=d_name,
                     symptoms=d_symptoms,
                 )
-                self._seed_disease_resolution(
+                self._seed_disease_timeline(
                     case=case,
                     key=f"disease:{month_end:%Y-%m}:{event_index + 1}",
-                    outcome_index=resolution_outcome,
+                    event_index=event_index,
+                    month_index=month_index,
+                    is_low_or_declining=is_low_or_declining,
                     reviewer=plan["reviewer"],
                 )
                 self._track_notifications("disease_case", f"disease:{month_end:%Y-%m}:{event_index + 1}")
@@ -672,9 +735,13 @@ class Command(BaseCommand):
                 mortality_date = self._event_day(month_end, month_index, event_index, offset=11)
 
                 if scenario == "realistic":
-                    m_profile = REALISTIC_MORTALITY_PROFILES[
-                        (month_index * 2 + event_index + plan["barangay"].pk) % len(REALISTIC_MORTALITY_PROFILES)
-                    ]
+                    if tier == "QUIET":
+                        quiet_profiles = [p for p in REALISTIC_MORTALITY_PROFILES if p["category"] != MortalityCauseClassificationReview.Category.SUSPECTED_INFECTIOUS]
+                        m_profile = quiet_profiles[event_index % len(quiet_profiles)]
+                    else:
+                        m_profile = REALISTIC_MORTALITY_PROFILES[
+                            (month_index * 2 + event_index + plan["barangay"].pk) % len(REALISTIC_MORTALITY_PROFILES)
+                        ]
                     m_cause = m_profile["cause"]
                     m_category = m_profile["category"]
                     m_note = m_profile["note"]
@@ -697,6 +764,8 @@ class Command(BaseCommand):
                             disease_name=m_profile.get("disease_name", "High fever, labored breathing, and coughing (suspected pneumonia)"),
                             symptoms=m_symptoms,
                         )
+                        prior_case.clinical_status = DiseaseCase.ClinicalStatus.CLOSED
+                        prior_case.save(update_fields=["clinical_status"])
                         source_case = prior_case
                 else:
                     m_cause = "DEMO synthetic mortality event (cause not established)"
@@ -951,27 +1020,91 @@ class Command(BaseCommand):
         )
         return case
 
-    def _seed_disease_resolution(self, *, case, key, outcome_index, reviewer):
-        """Record explicitly simulated outcomes only for this command's new owned cases."""
-        if outcome_index == 2:
+    def _seed_disease_timeline(self, *, case, key, event_index, month_index, is_low_or_declining, reviewer):
+        """Record realistic clinical follow-ups and progression over time:
+        - Initial status: OPEN
+        - Day 7-9: Intermediate FARMER_UPDATE follow-up
+        - Day 21 (RECOVERED) or Day 42 (CLOSED): Resolution follow-up
+        - Recent cases (last ~25 days) remain OPEN awaiting outcome.
+        """
+        record_date = case.record_date
+        today = timezone.localdate()
+
+        # Start as OPEN awaiting resolution
+        case.clinical_status = DiseaseCase.ClinicalStatus.OPEN
+        case.save(update_fields=["clinical_status"])
+
+        # 1. Interim Field Follow-Up (~7-9 days after initial report)
+        update_day = record_date + timedelta(days=7 + (event_index % 3))
+        if update_day <= today:
+            interim_notes = [
+                "Farmer follow-up: Medication administered. Animal isolated in shaded pen; fever reducing and appetite returning.",
+                "Field check: Swelling localized and inflammation subsiding under treatment. Animal resting comfortably.",
+                "Farmer follow-up: Respiratory rate improving; nasal discharge cleared after supportive antibiotic care.",
+                "Field check: Rumination resumed, animal drinking water and standing actively. Continuing prescribed therapy.",
+            ]
+            interim_fu = DiseaseCaseFollowUp.objects.create(
+                case=case,
+                event_type=DiseaseCaseFollowUp.EventType.FARMER_UPDATE,
+                observed_on=update_day,
+                created_by=reviewer,
+                notes=f"{SEED_MARKER_DISEASE} {interim_notes[(month_index + event_index) % len(interim_notes)]}",
+            )
+            self._track(f"{key}:fu:update", "follow_up", interim_fu)
+            DiseaseCaseFollowUp.objects.filter(pk=interim_fu.pk).update(
+                created_at=demo_time(update_day, 10),
+            )
+
+        # 2. Determine Outcome
+        if is_low_or_declining:
+            outcome = DiseaseCase.ClinicalStatus.RECOVERED if (event_index % 5 < 4) else DiseaseCase.ClinicalStatus.CLOSED
+        else:
+            mod = event_index % 6
+            if mod in (0, 1, 2, 3):
+                outcome = DiseaseCase.ClinicalStatus.RECOVERED
+            elif mod == 4:
+                outcome = DiseaseCase.ClinicalStatus.CLOSED
+            else:
+                outcome = DiseaseCase.ClinicalStatus.OPEN
+
+        if outcome == DiseaseCase.ClinicalStatus.OPEN:
             return
-        recovered = outcome_index == 0
-        resolved_on = case.record_date + timedelta(days=21 if recovered else 45)
-        if resolved_on > timezone.localdate():
+
+        days_to_resolve = 21 if outcome == DiseaseCase.ClinicalStatus.RECOVERED else 42
+        resolved_on = record_date + timedelta(days=days_to_resolve)
+
+        if resolved_on > today:
+            # Resolution date is in the future; case remains actively OPEN
             return
-        outcome = (
-            DiseaseCaseFollowUp.EventType.RECOVERED if recovered
-            else DiseaseCaseFollowUp.EventType.CLOSED
+
+        if outcome == DiseaseCase.ClinicalStatus.RECOVERED:
+            recovery_notes = [
+                "Full clinical recovery confirmed: Animal has resumed normal grazing and rumination. Temperature 38.6°C normal.",
+                "Clinical recovery verified by field inspection: Respiratory distress resolved, vital signs stable, discharged from monitoring.",
+                "Recovery confirmed: Udder inflammation completely subsided, milk appearance and yield restored to baseline.",
+                "Recovery confirmed: Oral and foot lesions healed cleanly, normal gait restored, no lingering clinical signs.",
+            ]
+            resolution_notes = recovery_notes[(month_index + event_index) % len(recovery_notes)]
+            event_type = DiseaseCaseFollowUp.EventType.RECOVERED
+        else:
+            closed_notes = [
+                "Case officially closed: Standard 30-day post-treatment observation period completed without relapse.",
+                "Case closed: Animal certified symptom-free by agricultural technologist. Surveillance record finalized.",
+                "Case closed: Full resolution of clinical symptoms confirmed upon final veterinary follow-up.",
+            ]
+            resolution_notes = closed_notes[(month_index + event_index) % len(closed_notes)]
+            event_type = DiseaseCaseFollowUp.EventType.CLOSED
+
+        res_fu = DiseaseCaseFollowUp.objects.create(
+            case=case,
+            event_type=event_type,
+            observed_on=resolved_on,
+            created_by=reviewer,
+            notes=f"{SEED_MARKER_DISEASE} Follow-up evaluation: {resolution_notes}",
         )
-        follow_up = DiseaseCaseFollowUp.objects.create(
-            case=case, event_type=outcome, observed_on=resolved_on, created_by=reviewer,
-            notes=(
-                f"{SEED_MARKER_DISEASE} Follow-up evaluation: {outcome.lower()} status confirmed."
-            ),
-        )
-        self._track(f"{key}:resolution", "follow_up", follow_up)
-        DiseaseCaseFollowUp.objects.filter(pk=follow_up.pk).update(
-            created_at=demo_time(resolved_on, 17),
+        self._track(f"{key}:fu:resolution", "follow_up", res_fu)
+        DiseaseCaseFollowUp.objects.filter(pk=res_fu.pk).update(
+            created_at=demo_time(resolved_on, 16),
         )
         DiseaseCase.objects.filter(pk=case.pk).update(clinical_status=outcome)
 
@@ -1076,7 +1209,7 @@ class Command(BaseCommand):
         rows = DiseaseCase.objects.filter(
             pk__in=owned.filter(object_type="disease").values("object_id"),
             review_remarks__contains=SEED_MARKER_DISEASE,
-            inspection_details__verificationMode="SYNTHETIC_DEMO",
+            inspection_details__verificationMode__in=["SYNTHETIC_DEMO", "FIELD_VERIFICATION"],
             status=DiseaseCase.DiseaseStatus.APPROVED,
         ).select_related(
             "livestock__farmer__user", "livestock__livestock_type",
