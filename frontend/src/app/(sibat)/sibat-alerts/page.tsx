@@ -162,24 +162,53 @@ function SibatAlertsContent() {
     });
   }, [records, userBarangay]);
 
-  const needsReviewCount = scopedRecords.filter(
-    (record) => (record.status || "").toUpperCase() === "PENDING"
-  ).length;
-  const returnedCount = scopedRecords.filter((record) => {
-    const s = (record.status || "").toUpperCase();
-    return (
-      s === "SUBJECT_TO_REVISION" ||
-      s === "SUBJECT_FOR_REVISION" ||
-      s === "FLAGGED" ||
-      s === "REJECTED"
-    );
-  }).length;
-  const forwardedCount = scopedRecords.filter(
-    (record) => (record.status || "").toUpperCase() === "VERIFIED"
-  ).length;
-  const approvedCount = scopedRecords.filter(
-    (record) => (record.status || "").toUpperCase() === "APPROVED"
-  ).length;
+  // Dynamically filter scoped records by date, month, and report category for top KPI summary cards
+  const kpiRecords = useMemo(() => {
+    return scopedRecords.filter((d) => {
+      if (typeFilter !== "ALL" && d.reportType !== typeFilter) {
+        return false;
+      }
+      if (dateFilter) {
+        const recDate = d.eventDate || d.reportedDate || d.reportedAt?.slice(0, 10);
+        if (recDate !== dateFilter) {
+          return false;
+        }
+      }
+      if (reportMonthFilter) {
+        const recMonth = (d.eventDate || d.reportedDate || d.reportedAt)?.slice(0, 7);
+        if (recMonth !== reportMonthFilter) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [scopedRecords, typeFilter, dateFilter, reportMonthFilter]);
+
+  const needsReviewCount = useMemo(
+    () => kpiRecords.filter((record) => (record.status || "").toUpperCase() === "PENDING").length,
+    [kpiRecords]
+  );
+  const returnedCount = useMemo(
+    () =>
+      kpiRecords.filter((record) => {
+        const s = (record.status || "").toUpperCase();
+        return (
+          s === "SUBJECT_TO_REVISION" ||
+          s === "SUBJECT_FOR_REVISION" ||
+          s === "FLAGGED" ||
+          s === "REJECTED"
+        );
+      }).length,
+    [kpiRecords]
+  );
+  const forwardedCount = useMemo(
+    () => kpiRecords.filter((record) => (record.status || "").toUpperCase() === "VERIFIED").length,
+    [kpiRecords]
+  );
+  const approvedCount = useMemo(
+    () => kpiRecords.filter((record) => (record.status || "").toUpperCase() === "APPROVED").length,
+    [kpiRecords]
+  );
 
   const status: StatusFilterOption =
     statusFilter ??
@@ -447,6 +476,34 @@ function SibatAlertsContent() {
           </Button>
         </div>
 
+        {(dateFilter || reportMonthFilter) && (
+          <div className="flex items-center justify-between gap-2 px-1 text-xs animate-in fade-in slide-in-from-top-1 duration-200">
+            <div className="flex items-center gap-1.5 font-bold text-emerald-950 bg-emerald-50 border border-emerald-300 px-2.5 py-1 rounded-lg">
+              <Calendar className="size-3.5 text-emerald-700 shrink-0" />
+              <span>
+                KPI counts filtered by: <strong className="underline decoration-emerald-500 underline-offset-2">{dateFilter || reportMonthFilter}</strong>
+              </span>
+              <span className="text-emerald-700 font-normal">
+                ({kpiRecords.length} report{kpiRecords.length === 1 ? "" : "s"})
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setDateFilter("");
+                setReportMonthFilter("");
+                const url = new URL(window.location.href);
+                url.searchParams.delete("date");
+                url.searchParams.delete("month");
+                router.replace(`${pathname}${url.search}${url.hash}`, { scroll: false });
+              }}
+              className="text-[11px] font-bold text-slate-500 hover:text-emerald-800 underline cursor-pointer"
+            >
+              Clear date
+            </button>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-4 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-150 fill-mode-both motion-reduce:animate-none">
           <div
             onClick={() => setStatus("Needs Review")}
@@ -464,7 +521,9 @@ function SibatAlertsContent() {
               <p className="mt-0.5 text-2xl font-black leading-none text-slate-900 tabular-nums">
                 {isLoading ? "—" : needsReviewCount}
               </p>
-              <p className="mt-1 text-[10px] text-slate-500 sm:text-xs">Awaiting initial review</p>
+              <p className="mt-1 text-[10px] text-slate-500 sm:text-xs">
+                {dateFilter ? `On ${dateFilter}` : reportMonthFilter ? `In ${reportMonthFilter}` : "Awaiting initial review"}
+              </p>
             </div>
           </div>
           <div
@@ -483,7 +542,9 @@ function SibatAlertsContent() {
               <p className="mt-0.5 text-2xl font-black leading-none text-slate-900 tabular-nums">
                 {isLoading ? "—" : returnedCount}
               </p>
-              <p className="mt-1 text-[10px] text-slate-500 sm:text-xs">Sent back to farmer</p>
+              <p className="mt-1 text-[10px] text-slate-500 sm:text-xs">
+                {dateFilter ? `On ${dateFilter}` : reportMonthFilter ? `In ${reportMonthFilter}` : "Sent back to farmer"}
+              </p>
             </div>
           </div>
           <div
@@ -502,7 +563,9 @@ function SibatAlertsContent() {
               <p className="mt-0.5 text-2xl font-black leading-none text-slate-900 tabular-nums">
                 {isLoading ? "—" : forwardedCount}
               </p>
-              <p className="mt-1 text-[10px] text-slate-500 sm:text-xs">Sent for further review</p>
+              <p className="mt-1 text-[10px] text-slate-500 sm:text-xs">
+                {dateFilter ? `On ${dateFilter}` : reportMonthFilter ? `In ${reportMonthFilter}` : "Sent for further review"}
+              </p>
             </div>
           </div>
           <div
@@ -521,7 +584,9 @@ function SibatAlertsContent() {
               <p className="mt-0.5 text-2xl font-black leading-none text-slate-900 tabular-nums">
                 {isLoading ? "—" : approvedCount}
               </p>
-              <p className="mt-1 text-[10px] text-slate-500 sm:text-xs">Official records</p>
+              <p className="mt-1 text-[10px] text-slate-500 sm:text-xs">
+                {dateFilter ? `On ${dateFilter}` : reportMonthFilter ? `In ${reportMonthFilter}` : "Official records"}
+              </p>
             </div>
           </div>
         </div>
