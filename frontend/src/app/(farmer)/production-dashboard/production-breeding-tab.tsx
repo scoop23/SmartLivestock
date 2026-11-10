@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import api from "@/lib/axios";
+import { executeOrQueueOffline } from "@/lib/offline-sync-queue";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
@@ -351,8 +352,20 @@ export default function ProductionBreedingTab({
   // Create breeding mutation
   const createMutation = useMutation({
     mutationFn: async (payload: BreedingPayload) => {
-      const res = await api.post("production/breeding/", payload);
-      return res.data;
+      const res = await executeOrQueueOffline<BreedingRecordItem>({
+        endpoint: "production/breeding/",
+        method: "POST",
+        data: payload as unknown as Record<string, unknown>,
+        title: `Logged Breeding for Dam #${payload.dam}`,
+        role: "FARMER",
+        category: "PRODUCTION",
+        fallbackResult: {
+          id: Date.now(),
+          ...payload,
+          status: "BRED",
+        } as unknown as BreedingRecordItem,
+      });
+      return ((res as { data?: BreedingRecordItem }).data ?? res) as BreedingRecordItem;
     },
     onSuccess: () => {
       toast.success("Breeding & insemination record saved successfully!");

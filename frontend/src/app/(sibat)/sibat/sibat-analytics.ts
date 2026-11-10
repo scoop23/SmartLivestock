@@ -1171,11 +1171,14 @@ export function useReviewClinicalHealth() {
 
       let payload: FormData | Record<string, unknown>;
       let headers: Record<string, string> = {};
-      const savedInspection = Object.fromEntries(
-        Object.entries(inspectionData).filter(([key, value]) =>
-          key !== "inspectorPhotoFile" && key !== "inspectorPhotoUrl" && value !== undefined,
+      const savedInspection: Record<string, unknown> = {
+        ...Object.fromEntries(
+          Object.entries(inspectionData).filter(([key, value]) =>
+            key !== "inspectorPhotoFile" && key !== "inspectorPhotoUrl" && value !== undefined,
+          ),
         ),
-      );
+        verifiedAt: (inspectionData as unknown as Record<string, unknown>).verifiedAt || new Date().toISOString(),
+      };
 
       if (inspectionData.inspectorPhotoFile) {
         const formData = new FormData();

@@ -59,6 +59,7 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 
 import api from "@/lib/axios";
+import { executeOrQueueOffline } from "@/lib/offline-sync-queue";
 import { localCalendarDateToday } from "@/lib/livestock-age";
 import {
   type EntryType,
@@ -701,7 +702,7 @@ function RegisterLivestockDialogContent({
           ? (formData.customBreed?.trim() || "Mixed / Crossbred")
           : resolveBreed(formData.livestockType, formData.breed);
 
-        let response;
+        let response: { data?: { id?: number | string; [key: string]: unknown } };
         if (photoFile) {
           const body = new FormData();
           body.append("livestock_type", String(typeId));
@@ -718,9 +719,25 @@ function RegisterLivestockDialogContent({
           body.append("photo", photoFile);
           if (formData.purchaseTransferId) body.append("purchase_transfer_id", formData.purchaseTransferId);
 
-          response = await api.post("/livestock/inventory/", body, {
-            headers: { "Content-Type": "multipart/form-data" },
+          const queued = await executeOrQueueOffline<{ id?: number | string; [key: string]: unknown }>({
+            endpoint: "livestock/inventory/",
+            method: "POST",
+            data: body,
+            title: `Registered ${formData.livestockType} (${formData.tagNumber.trim()})`,
+            role: "FARMER",
+            category: "REGISTRATION",
+            files: [{ fieldName: "photo", file: photoFile }],
+            fallbackResult: {
+              id: Date.now(),
+              tag_number: formData.tagNumber.trim(),
+              breed: finalBreed,
+              sex: formData.sex,
+              weight: formData.weight ? parseFloat(formData.weight) : null,
+              livestock_type: typeId,
+              livestock_type_name: formData.livestockType,
+            },
           });
+          response = { data: queued };
         } else {
           const payload: CreateInventoryPayload & { batch?: number | null; avatar_key?: string; purchase_transfer_id?: number } = {
             livestock_type: typeId,
@@ -737,7 +754,20 @@ function RegisterLivestockDialogContent({
           if (formData.avatarKey) payload.avatar_key = formData.avatarKey;
           if (formData.purchaseTransferId) payload.purchase_transfer_id = Number(formData.purchaseTransferId);
 
-          response = await api.post("/livestock/inventory/", payload);
+          const queued = await executeOrQueueOffline<{ id?: number | string; [key: string]: unknown }>({
+            endpoint: "livestock/inventory/",
+            method: "POST",
+            data: payload as unknown as Record<string, unknown>,
+            title: `Registered ${formData.livestockType} (${formData.tagNumber.trim()})`,
+            role: "FARMER",
+            category: "REGISTRATION",
+            fallbackResult: {
+              id: Date.now(),
+              ...payload,
+              livestock_type_name: formData.livestockType,
+            },
+          });
+          response = { data: queued };
         }
 
         if (response.data?.id) {
@@ -768,7 +798,7 @@ function RegisterLivestockDialogContent({
           ? formData.customFeed?.trim() || ""
           : formData.feedType?.trim() || "";
 
-        const response = await api.post("/livestock/batches/", {
+        const batchPayload = {
           livestock_type: typeId,
           batch_name: batchName,
           batch_code: batchTag,
@@ -783,7 +813,23 @@ function RegisterLivestockDialogContent({
             birth_date: a.birthDate || null,
             last_vaccination_date: a.lastVaccinationDate || null,
           })),
+        };
+
+        const batchQueued = await executeOrQueueOffline<{ id?: number | string; [key: string]: unknown }>({
+          endpoint: "livestock/batches/",
+          method: "POST",
+          data: batchPayload as Record<string, unknown>,
+          title: `Registered Herd ${batchName} (${batchAnimals.length} heads)`,
+          role: "FARMER",
+          category: "REGISTRATION",
+          fallbackResult: {
+            id: Date.now(),
+            ...batchPayload,
+            livestock_type_name: formData.livestockType,
+            animal_count: batchAnimals.length,
+          },
         });
+        const response = { data: batchQueued };
 
         if (response.data?.id) {
           if (batchPhotoFiles.length > 0) {
@@ -858,9 +904,10 @@ function RegisterLivestockDialogContent({
       } else {
         toast.success("Your livestock is now pending for review.");
         if (createdRecord?.id) {
+          const rec = createdRecord as Record<string, unknown>;
           setSubmittedLivestock({
-            id: String(createdRecord.id),
-            tagNumber: createdRecord.tag_number || formData.tagNumber,
+            id: String(rec.id),
+            tagNumber: (typeof rec.tag_number === "string" ? rec.tag_number : "") || formData.tagNumber,
           });
         }
       }
