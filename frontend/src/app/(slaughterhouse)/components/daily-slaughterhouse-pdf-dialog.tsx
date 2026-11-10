@@ -56,11 +56,10 @@ export function DailySlaughterhousePdfDialog({
 }: DailySlaughterhousePdfDialogProps) {
   const currentDate = new Date();
   const [customPeriod, setCustomPeriod] = useState<{ month: number; year: number } | null>(null);
-  const [includePending, setIncludePending] = useState(false);
 
   const eligibleRecords = useMemo(
-    () => (includePending ? records : records.filter((record) => record.status === "APPROVED")),
-    [records, includePending],
+    () => records.filter((record) => record.status === "APPROVED"),
+    [records],
   );
 
   const latestEligibleDate = useMemo(
@@ -265,27 +264,10 @@ export function DailySlaughterhousePdfDialog({
                 className="h-9 text-xs"
               />
             </div>
-
-            <div className="w-36">
-              <Select
-                value={includePending ? "ALL" : "APPROVED"}
-                onValueChange={(val) => setIncludePending(val === "ALL")}
-              >
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="APPROVED">Approved Only</SelectItem>
-                  <SelectItem value="ALL">Include Pending</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
             <p className="w-full text-[11px] text-slate-500" role="status">
               {loading
                 ? "Loading slaughter records…"
-                : includePending
-                ? "Showing all records (including pending submissions)."
-                : "Prefilled from approved slaughter records. Use dropdown to include pending."}
+                : "Prefilled from approved slaughter records."}
             </p>
           </div>
 
