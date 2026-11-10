@@ -190,17 +190,17 @@ export function DomainTabs({
               </div>
               <div className="text-left min-w-0 flex-1">
                 <p className="text-xs sm:text-sm font-black tracking-tight leading-tight text-slate-900 truncate">
-                  Slaughter Review
+                  Slaughter Records
                 </p>
                 {!isOverviewCollapsed && (
                   <p className="text-[10px] font-medium text-slate-400 group-data-[state=active]:text-slate-500 whitespace-normal break-words mt-0.5">
-                    Farmer &amp; Facility Reports
+                    Direct Abattoir Submissions
                   </p>
                 )}
               </div>
             </div>
-            <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 font-mono shrink-0">
-              {isOverviewCollapsed ? "MAO" : "MAO Queue"}
+            <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 font-mono shrink-0">
+              {isOverviewCollapsed ? "MAO" : "Direct MAO"}
             </span>
           </TabsTrigger>
         </TabsList>
@@ -216,13 +216,13 @@ export function DomainTabs({
           />
           <span className="font-black text-slate-900 truncate">
             {activeTab === "slaughter"
-              ? "Slaughterhouse Review Queue"
+              ? "Slaughterhouse Records"
               : `${DOMAIN_CARD_CONFIG[activeDomain].title} Validation Queue`}
           </span>
           <span className="text-slate-300 hidden sm:inline">&bull;</span>
           <span className="text-slate-500 font-medium truncate hidden sm:inline">
             {activeTab === "slaughter"
-              ? "Farmer declarations and facility slaughter logs awaiting MAO certification"
+              ? "Abattoir facility slaughter logs transmitted directly to MAO records"
               : VALIDATION_DOMAINS.find((d) => d.id === activeDomain)?.description}
           </span>
         </div>

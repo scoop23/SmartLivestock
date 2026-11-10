@@ -87,22 +87,22 @@ export function SlaughterReviewQueue() {
   const emptyState = (
     <div className="flex flex-col items-center justify-center space-y-2 py-10">
       <CheckCircle2 className="size-10 text-green-500" />
-      <p className="text-sm font-bold text-gray-800">Review queue is clear</p>
-      <p className="text-xs font-medium text-gray-400">Farmer-reported slaughter reports and facility submissions awaiting review will appear here.</p>
+      <p className="text-sm font-bold text-gray-800">No reviews required</p>
+      <p className="text-xs font-medium text-gray-400">Slaughterhouse entries are submitted directly to MAO official records without manual review.</p>
     </div>
   );
 
   return (
     <div className="space-y-4">
-      <Card className="rounded-2xl border-amber-200/80 bg-amber-50/50 shadow-sm">
+      <Card className="rounded-2xl border-emerald-200/80 bg-emerald-50/50 shadow-sm">
         <CardContent className="flex items-start gap-3 px-4 py-3.5 sm:px-5">
-          <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
-            <Clock className="size-4" />
+          <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+            <CheckCircle2 className="size-4" />
           </div>
           <div className="min-w-0 space-y-1">
-            <p className="text-xs font-black uppercase tracking-wider text-slate-800">MAO review queue</p>
+            <p className="text-xs font-black uppercase tracking-wider text-slate-800">Direct Municipal Submission</p>
             <p className="text-xs leading-relaxed text-slate-600 sm:text-sm">
-              Facility totals enter official analytics after approval. Approving a farmer-reported slaughter also reconciles the selected animals in inventory.
+              Slaughterhouse abattoir records are submitted directly into municipal records. Manual validation is not required.
             </p>
           </div>
         </CardContent>

@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import api from "@/lib/axios";
 import { cn } from "@/lib/utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -33,7 +32,6 @@ import {
   FileSpreadsheet,
   FileText,
   Printer,
-  RotateCcw,
   Search,
   X,
 } from "lucide-react";
@@ -99,10 +97,8 @@ export function SlaughterRecordsView({
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 8;
 
-  // Selected row for details/review dialog
+  // Selected row for details dialog
   const [selectedRecord, setSelectedRecord] = useState<DailySlaughterSummary | null>(null);
-  const [reviewRemarks, setReviewRemarks] = useState("");
-  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   // Dialog for PDF monthly report (internal fallback)
@@ -321,45 +317,6 @@ export function SlaughterRecordsView({
   const totalPages = Math.ceil(totalItems / pageSize) || 1;
   const startIndex = (currentPage - 1) * pageSize;
   const paginatedRecords = filteredRecords.slice(startIndex, startIndex + pageSize);
-
-  // Review handler connected directly to the backend database
-  const handleReview = async (status: "APPROVED" | "SUBJECT_TO_REVISION") => {
-    if (!selectedRecord) return;
-
-    if (status === "SUBJECT_TO_REVISION" && !reviewRemarks.trim()) {
-      toast.error("Please enter review remarks to specify needed revisions.");
-      return;
-    }
-
-    setIsSubmittingReview(true);
-    try {
-      const targetIds = selectedRecord.recordIds || (typeof selectedRecord.id === "number" ? [selectedRecord.id] : []);
-
-      if (targetIds.length > 0) {
-        // Execute real review action on the backend for each record in the group
-        for (const id of targetIds) {
-          await api.post(`/production/slaughterhouse/records/${id}/review/`, {
-            status,
-            remarks: reviewRemarks.trim(),
-          });
-        }
-        await queryClient.invalidateQueries({ queryKey: ["slaughterhouse-review-records"] });
-      }
-
-      toast.success(
-        status === "APPROVED"
-          ? `Record for ${selectedRecord.farmer} (${selectedRecord.date}) approved.`
-          : `Record for ${selectedRecord.farmer} returned for revision.`
-      );
-      setSelectedRecord(null);
-      setReviewRemarks("");
-    } catch (err: unknown) {
-      const data = (err as { response?: { data?: { detail?: string } } })?.response?.data;
-      toast.error(data?.detail ?? "Could not review slaughter record.");
-    } finally {
-      setIsSubmittingReview(false);
-    }
-  };
 
   // Convert daily records to SlaughterRecordData format for PDF dialog
   const pdfRecords: SlaughterRecordData[] = useMemo(() => {
