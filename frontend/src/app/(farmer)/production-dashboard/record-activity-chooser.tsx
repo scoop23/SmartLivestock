@@ -1,7 +1,8 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Baby,BarChart3,Beef,Egg,HeartHandshake,Milk,Pill,Scale,Scissors,ShoppingBag,Wheat } from "lucide-react";
+import { cowHead } from "@lucide/lab";
+import { BarChart3,Beef,Egg,HeartHandshake,Icon as LucideIcon,Milk,Pill,Scale,Scissors,ShoppingBag,Wheat } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
@@ -9,11 +10,15 @@ import type { LivestockInventoryItem } from "../livestock-inventory/livestock-in
 import type { ProductionType } from "./production-analytics";
 import { getProductionTypesForLivestock } from "./production-wizard";
 
+const CowHeadIcon = ({ className, ...props }: { className?: string; [key: string]: any }) => (
+  <LucideIcon iconNode={cowHead} className={className} {...props} />
+);
+
 type Activity = {
   id: string;
   title: string;
   description: string;
-  icon: typeof Milk;
+  icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean | "true" | "false" }>;
   species: string[];
   productionType?: ProductionType;
 };
@@ -77,7 +82,7 @@ export default function RecordActivityChooser({
         id: "calving",
         title: "Animal birth",
         description: "Register a newborn and its birth details.",
-        icon: Baby,
+        icon: CowHeadIcon,
         species,
       });
       items.push({
