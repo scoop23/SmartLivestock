@@ -61,7 +61,6 @@ PanelRightOpen,
 Radio,
 RotateCcw,
 ShieldAlert,
-TrendingUp,
 Zap,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
@@ -213,7 +212,6 @@ export function GISControls({
   const canUse3D = !userScope || userScope.allowed_modes?.includes('3D');
   const canUseSim = Boolean(userScope?.can_use_simulation) && !isFarmerRole && !isCbat;
   const canUseSurveillance = true;
-  const canUseTrend = !isCbat && !isFarmerRole;
   const canUseHaversineForecaster = Boolean(onOpenForecaster);
 
   return (
@@ -424,8 +422,8 @@ export function GISControls({
         </div>
       )}
 
-      {/* Historical Date Timeline Button for Cattle, Mortality, and Disease Surveillance */}
-      {(currentLayer === 'cattle' || currentLayer === 'mortality' || (currentLayer === 'disease' && diseaseSubMode === 'surveillance')) && onToggleHistoricalTimeline && (
+      {/* Historical Date Timeline Button for Cattle and Mortality */}
+      {(currentLayer === 'cattle' || currentLayer === 'mortality') && onToggleHistoricalTimeline && (
         <div className="flex flex-wrap items-center gap-2 max-w-fit animate-in fade-in slide-in-from-top-1 duration-150">
           <button
             type="button"
@@ -606,8 +604,8 @@ export function GISControls({
 
               {diseaseSectionOpen && (
                 <div className="flex flex-col gap-1.5 pt-0.5">
-                  {(canUseSurveillance || canUseSim || canUseTrend) && (
-                    <div className={`grid grid-cols-2 gap-1.5 ${canUseSim && canUseTrend ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
+                  {(canUseSurveillance || canUseSim) && (
+                    <div className={`grid grid-cols-2 gap-1.5 ${canUseSim ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
                       <button
                         type="button"
                         onClick={() => onDiseaseSubModeChange('reported')}
@@ -651,22 +649,6 @@ export function GISControls({
                         >
                           <Zap className="size-3" />
                           <span>Example</span>
-                        </button>
-                      )}
-
-                      {canUseTrend && (
-                        <button
-                          type="button"
-                          onClick={() => onDiseaseSubModeChange('trend')}
-                          className={`min-h-[40px] sm:min-h-[30px] px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 border focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-600 ${
-                            diseaseSubMode === 'trend'
-                              ? 'bg-purple-700 text-white border-purple-800 shadow-2xs ring-2 ring-purple-400/50'
-                              : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-purple-50 hover:text-purple-800'
-                          }`}
-                          title="Report trend: Approved disease reports from the last 90 days"
-                        >
-                          <TrendingUp className="size-3" />
-                          <span>Report Trend</span>
                         </button>
                       )}
                     </div>
@@ -808,18 +790,6 @@ export function GISControls({
                           </button>
                         ))}
                       </div>
-                    </div>
-                  )}
-
-                  {diseaseSubMode === 'trend' && (
-                    <div className="bg-purple-50/80 px-2.5 py-1.5 rounded-lg border border-purple-200 text-[10.5px] text-purple-900 leading-tight">
-                      This view shows approved disease reports from the last 90 days. Approval does not confirm disease. For forecasts, see{' '}
-                      <a
-                        href="/analysis/predictive"
-                        className="font-bold underline underline-offset-2 hover:text-purple-950"
-                      >
-                        Future estimates &rarr;
-                      </a>
                     </div>
                   )}
                 </div>

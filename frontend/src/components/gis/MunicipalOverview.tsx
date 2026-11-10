@@ -268,7 +268,7 @@ export function MunicipalOverview({
                 {summary.active_disease_cases}
               </div>
               <div className="text-[10px] font-bold uppercase tracking-wider">
-                🚨 Reports (90 days)
+                🚨 Not recovered or closed (90 days)
               </div>
             </div>
           )}

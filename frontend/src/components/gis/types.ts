@@ -224,15 +224,36 @@ export interface AdjacentDiseaseAlert {
   recent_diseases: string[];
 }
 
+export interface DiseaseRecord {
+  id: number;
+  barangay: string;
+  barangay_id: number;
+  date: string;
+  disease: string;
+  affected: number;
+  clinical_status: string;
+  is_fmd: boolean;
+}
+
+export interface TimelineEventDates {
+  cattle: string[];
+  disease: string[];
+  mortality: string[];
+  movement?: string[];
+  all: string[];
+}
+
 export interface GISTelemetryResponse {
   barangays: BarangayGISData[];
   barangays_dict: Record<string, BarangayGISData>;
   movements: MovementRecord[];
+  disease_records?: DiseaseRecord[];
   summary: MunicipalSummary;
   period?: string;
   user_scope?: GISUserScope;
   farmer_stats?: FarmerPersonalStats | null;
   adjacent_disease_alerts?: AdjacentDiseaseAlert[];
+  timeline_event_dates?: TimelineEventDates;
 }
 
 export interface EnvironmentalWindInput {

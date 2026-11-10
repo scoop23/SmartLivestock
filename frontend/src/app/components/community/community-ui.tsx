@@ -62,7 +62,7 @@ export const AUDIENCE_LABEL: Record<string, string> = {
   FARMER_AND_SIBAT: "Farmer and CBAT",
   FARMER_ONLY: "Farmer Only",
   SIBAT_ONLY: "CBAT Only",
-  ALL: "All (Farmer, CBAT, Auction, Slaughterhouse)",
+  ALL: "All Users",
   SIBAT_BARANGAY: "CBAT — Their Barangay Only",
   FARMER: "Farmer Only",
   SIBAT: "CBAT Only",

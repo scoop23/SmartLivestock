@@ -152,7 +152,7 @@ export function PrescriptiveAnalyticsContent({ selectedDomainProp }: { selectedD
     if (d === 'mortality') return 'MORTALITY';
     if (d === 'auction') return 'AUCTION';
     if (d === 'slaughter') return 'SLAUGHTER';
-    if (d === 'inventory' || d === 'barangay') return 'VACCINATION';
+    if (d === 'inventory' || d === 'barangay') return 'DATA_QUALITY';
     return 'ALL';
   }, [domainParam]);
 
@@ -172,7 +172,8 @@ export function PrescriptiveAnalyticsContent({ selectedDomainProp }: { selectedD
     staleTime: 60_000,
   });
 
-  const allRecommendations = useMemo(() => data?.recommendations ?? [], [data]);
+  const allowedCategories = selectedDomainProp === 'disease' ? ['DISEASE', 'MORTALITY', 'VACCINATION'] : selectedDomainProp === 'auction' ? ['AUCTION', 'PRICE'] : selectedDomainProp === 'slaughter' ? ['SLAUGHTER'] : selectedDomainProp ? ['DATA_QUALITY'] : null;
+  const allRecommendations = (data?.recommendations ?? []).filter(rec => !allowedCategories || allowedCategories.includes(rec.category_key || (rec.rule === 'DISEASE_SURVEILLANCE_PRESSURE' ? 'DISEASE' : rec.rule === 'LOW_VACCINATION_COVERAGE' ? 'VACCINATION' : 'DATA_QUALITY')));
 
   const filteredRecommendations = useMemo(() => {
     if (selectedCategory === 'ALL') return allRecommendations;
@@ -244,7 +245,7 @@ export function PrescriptiveAnalyticsContent({ selectedDomainProp }: { selectedD
             { id: 'PRICE', label: 'Cattle-price Monitoring', category: 'Recorded prices', icon: Scale },
             { id: 'DATA_QUALITY', label: 'Forecast Readiness', category: 'Data follow-up', icon: FileCheck2 },
             { id: 'VACCINATION', label: 'Vaccination Records', category: 'Record coverage', icon: ShieldCheck },
-          ] as const).map(item => {
+          ] as const).filter(item => !allowedCategories || item.id === 'ALL' || allowedCategories.includes(item.id)).map(item => {
             const count = item.id === 'ALL' ? allRecommendations.length : allRecommendations.filter(rec => rec.category_key === item.id).length;
             return { ...item, status: `${count} recommendations`, badge: `${count} items`, ready: count > 0 };
           }).map((card) => {

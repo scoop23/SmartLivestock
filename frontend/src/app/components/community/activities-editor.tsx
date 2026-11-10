@@ -309,7 +309,7 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
           <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs sm:p-6">
             <div className="mb-5 flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
               <div>
-                <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">{editing ? "Edit activity" : "Create an activity"}</h2>
+                <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">{editing ? "Edit Announcement" : "Create Announcement"}</h2>
                 <p className="mt-0.5 text-xs sm:text-sm font-medium text-slate-500">Share clear information with the people who need it.</p>
               </div>
               <button type="button" aria-label="Close announcement editor" onClick={close} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"><X className="size-4" /></button>
@@ -317,7 +317,7 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
             <form onSubmit={(event: FormEvent) => { event.preventDefault(); void save(editing?.is_published ?? false); }} className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
               <div className="space-y-4">
                 <div>
-                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">Activity details</p>
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">Announcement details</p>
                   <label htmlFor="activity-title" className="text-xs sm:text-sm font-bold text-slate-700">Title</label>
                   <Input id="activity-title" required maxLength={200} value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="e.g. Cattle vaccination drive" className="mt-1.5 h-10 text-sm font-medium" />
                 </div>
@@ -368,7 +368,7 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
                       <SelectItem value="FARMER_AND_SIBAT" className="text-xs sm:text-sm font-medium">FARMER AND CBAT</SelectItem>
                       <SelectItem value="FARMER_ONLY" className="text-xs sm:text-sm font-medium">FARMER</SelectItem>
                       <SelectItem value="SIBAT_ONLY" className="text-xs sm:text-sm font-medium">CBAT</SelectItem>
-                      <SelectItem value="ALL" className="text-xs sm:text-sm font-medium">ALL with (SLAUGHTERHOUSE AND AUCTION)</SelectItem>
+                      <SelectItem value="ALL" className="text-xs sm:text-sm font-medium">ALL USERS</SelectItem>
                       <SelectItem value="SIBAT_BARANGAY" className="text-xs sm:text-sm font-medium">CBAT — THEIR BARANGAY ONLY</SelectItem>
                     </SelectContent>
                   </Select>
@@ -419,7 +419,7 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
         <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs sm:p-5">
           <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">Manage activities</h2>
+              <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">Manage announcements</h2>
               <p className="text-xs sm:text-sm font-medium text-slate-500">Search and filter published announcements and drafts.</p>
             </div>
             <label className="relative block w-full sm:max-w-xs">

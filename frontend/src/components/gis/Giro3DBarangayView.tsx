@@ -97,12 +97,13 @@ function getMetricValue(
       if (diseaseSubMode === 'simulation' && simulation) {
         return simulationColorMode === 'pressure' ? simulation.transmissionPressure : simulation.cases;
       }
+      if (diseaseSubMode === 'reported') return data.disease_cases ?? 0;
       if ((data.active_cases ?? 0) > 0 || (data.fmd_active_cases ?? 0) > 0) {
         return Math.max(data.active_cases, data.fmd_active_cases ?? 0);
       }
       // Haversine buffer zone elevated warning tier in 3D
       if (Boolean(data.is_in_monitoring_radius) || data.disease_risk === 'medium' || data.disease_zone === 'monitoring_radius') {
-        return 3;
+        return 0;
       }
       return 0;
     case 'milk':
@@ -152,6 +153,7 @@ function getLayerColor(
   }
 
   if (layer === 'disease') {
+    if (diseaseSubMode === 'reported') return (data?.disease_cases ?? 0) > 0 ? '#0284c7' : '#94a3b8';
     if (diseaseSubMode === 'simulation') {
       if (simulation && !simulation.hasLivestock && simulation.cases === 0) return '#94a3b8';
       if (simulationColorMode === 'pressure') {
@@ -221,7 +223,7 @@ function getPolygonLabelAnchor(geometry: Geometry): [number, number] {
 // Convert a layer value into the extrusion height shared by the polygon mesh and its outline.
 function getExtrusionHeight(value: number, largestMetric: number, heightScale: number): number {
   const ratio = value > 0 && largestMetric > 0
-    ? Math.log1p(value) / Math.log1p(largestMetric)
+    ? Math.min(1, Math.log1p(value) / Math.log1p(largestMetric))
     : 0;
   return (50 + ratio * 2_200) * heightScale;
 }
@@ -310,6 +312,9 @@ export function Giro3DBarangayView({
   isCircling = false,
   onCirclingChange,
 }: Giro3DBarangayViewProps) {
+  // Snapshot responses allocate a new scope object on every date change.
+  // Scene lifetime follows permission values, not the response object's identity.
+  const sceneScopeKey = JSON.stringify(userScope ?? null);
   const hostRef = useRef<HTMLDivElement>(null);
   const instanceRef = useRef<Instance | null>(null);
   const collectionRef = useRef<FeatureCollection | null>(null);
@@ -737,18 +742,6 @@ export function Giro3DBarangayView({
               material.color.set('#ffffff');
             } else if (feature.get('hovered')) {
               material.color.set('#fff200');
-            } else if (activeLayer === 'disease') {
-              const name = String(feature.get('name') ?? '');
-              const bData = barangaysByNameRef.current[name] || barangaysByNameRef.current[name.toLowerCase()];
-              const hasReport = (bData?.active_cases ?? 0) > 0 || (bData?.fmd_active_cases ?? 0) > 0 || bData?.disease_risk === 'high' || bData?.disease_zone === 'outbreak';
-              const isBuffer = !hasReport && (Boolean(bData?.is_in_monitoring_radius) || bData?.disease_risk === 'medium' || bData?.disease_zone === 'monitoring_radius');
-              if (hasReport) {
-                material.color.set('#ef4444');
-              } else if (isBuffer) {
-                material.color.set('#f97316');
-              } else {
-                material.color.set('#10b981');
-              }
             } else {
               material.color.set('#000000');
             }
@@ -818,6 +811,12 @@ export function Giro3DBarangayView({
                 label.style.border = '1px solid rgba(234,88,12,0.7)';
                 label.style.boxShadow = '0 4px 12px rgba(234,88,12,0.3)';
               } else {
+                if (diseaseSubMode === 'reported') {
+                  const count = bData?.disease_cases ?? 0;
+                  label.innerHTML = `<div style="font-weight:800;color:white">${name}</div><div style="color:#bae6fd;font-size:10px">${count} approved reports in 90-day window</div>`;
+                  label.style.background = 'rgba(15,23,42,0.94)';
+                  label.style.border = '1px solid #38bdf8';
+                } else {
                 const hasApprovedReport = (bData?.active_cases ?? 0) > 0 || (bData?.fmd_active_cases ?? 0) > 0 || bData?.disease_risk === 'high' || bData?.disease_zone === 'outbreak';
                 const isOrangeBuffer = !hasApprovedReport && (Boolean(bData?.is_in_monitoring_radius) || bData?.disease_risk === 'medium' || bData?.disease_zone === 'monitoring_radius');
 
@@ -850,6 +849,7 @@ export function Giro3DBarangayView({
                   label.style.border = '1.5px solid rgba(16, 185, 129, 0.8)';
                   label.style.boxShadow = '0 4px 14px rgba(16, 185, 129, 0.3)';
                   label.style.background = 'rgba(15, 23, 42, 0.94)';
+                }
                 }
               }
             } else {
@@ -1139,7 +1139,7 @@ export function Giro3DBarangayView({
     simulationColorMode,
     selectedLivestockType,
     suppressClickUntilRef,
-    userScope,
+    sceneScopeKey,
   ]);
 
   // A timeline step changes the metric values, not the map itself, so update and animate the existing scene.
@@ -2074,11 +2074,42 @@ export function Giro3DBarangayView({
       heightAnimFrameRef.current = null;
     }
 
+    // Simulation has its own geometry animation; never run two height writers.
+    if (activeLayer === 'disease' && diseaseSubMode === 'simulation') return;
+
+    // Rebase geometry and borders to this snapshot before applying height ratios.
+    // Cached heights from an earlier date are not the dimensions of rebuilt meshes.
+    largestMetricRef.current = Math.max(1, ...Object.values(barangaysByName).map(data =>
+      getMetricValue(data, activeLayer, diseaseSubMode, simulatedStatesRef.current?.[data.name], selectedLivestockType, simulationColorMode)
+    ));
+    collection.traverse(object => {
+      if (object.type === 'SurfaceMesh') setVerticalScale(object, 1);
+    });
+    collection.updateStyles();
+    for (const [feature, lines] of borderLinesRef.current) {
+      const name = String(feature.get('name') ?? '');
+      const value = getMetricValue(barangaysByName[name], activeLayer, diseaseSubMode, simulatedStatesRef.current?.[name], selectedLivestockType, simulationColorMode);
+      const height = getExtrusionHeight(value, largestMetricRef.current, heightScaleRef.current);
+      fullExtrusionHeightsRef.current.set(feature, height);
+      const geometry = feature.getGeometry();
+      if (!geometry) continue;
+      const positions = getBorderPositions(geometry, height);
+      const attribute = lines.geometry.getAttribute('position');
+      if (attribute && attribute.count * 3 === positions.length) {
+        for (let vertex = 0; vertex < attribute.count; vertex++) {
+          attribute.setXYZ(vertex, positions[vertex * 3], positions[vertex * 3 + 1], positions[vertex * 3 + 2]);
+        }
+        attribute.needsUpdate = true;
+        lines.geometry.computeBoundingSphere();
+      }
+      setVerticalScale(lines, 1);
+    }
+
     movementDisplayModeRef.current = movementDisplayMode;
 
     const isMovementLayer = activeLayer === 'movement';
     const isFlat = isMovementLayer && movementDisplayMode === 'lines';
-    const durationMs = 450;
+    const durationMs = activeLayer === 'cattle' || activeLayer === 'mortality' ? 700 : 450;
     const startTime = performance.now();
 
     // Query live SurfaceMesh objects directly from collection hierarchy

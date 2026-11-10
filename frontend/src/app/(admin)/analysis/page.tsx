@@ -701,7 +701,7 @@ function AnalysisOverviewContent() {
               <button
                 key={domainId}
                 type="button"
-                onClick={() => setSelectedDomain(domainId)}
+                onClick={() => { setSelectedDomain(domainId); if (activeTab === 'surveillance' && domainId !== 'disease') setActiveTab('descriptive'); }}
                 className={`group flex items-start gap-3 rounded-2xl p-3.5 text-left transition-all duration-150 border cursor-pointer ${
                   isSelected
                     ? 'border-2 border-emerald-500 bg-emerald-50/40 shadow-xs'
@@ -780,7 +780,7 @@ function AnalysisOverviewContent() {
                 subtitle: 'Disease & health risks',
                 icon: ShieldAlert,
               },
-            ].map((tab) => {
+            ].filter((tab) => tab.id !== 'surveillance' || selectedDomain === 'disease').map((tab) => {
               const isTabActive = activeTab === tab.id;
               const TabIcon = tab.icon;
 
@@ -1151,7 +1151,7 @@ function AnalysisOverviewContent() {
           </Suspense>
         )}
 
-        {activeTab === 'surveillance' && (
+        {activeTab === 'surveillance' && selectedDomain === 'disease' && (
           <Suspense fallback={<div className="h-96 w-full animate-pulse rounded-2xl bg-slate-100" />}>
             <SurveillanceAnalytics selectedDomainProp={selectedDomain} />
           </Suspense>
@@ -1160,7 +1160,7 @@ function AnalysisOverviewContent() {
         {/* ----------------------------------------------------------------- */}
         {/* 5. PREDICTIVE AND PRESCRIPTIVE OVERVIEW SECTION (Retained as user requested) */}
         {/* ----------------------------------------------------------------- */}
-        <section aria-labelledby="advanced-overview-heading" className="space-y-3 pt-2">
+        {selectedDomain === 'disease' && <section aria-labelledby="advanced-overview-heading" className="space-y-3 pt-2">
           <div>
             <h2 id="advanced-overview-heading" className="text-base font-bold tracking-tight text-slate-900">
               Predictive and prescriptive overview
@@ -1299,7 +1299,7 @@ function AnalysisOverviewContent() {
               </button>
             </article>
           </div>
-        </section>
+        </section>}
 
         {/* Other Barangays Breakdown Dialog */}
         <Dialog open={othersDialogOpen} onOpenChange={setOthersDialogOpen}>

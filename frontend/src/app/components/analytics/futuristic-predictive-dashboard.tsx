@@ -413,7 +413,9 @@ export function FuturisticPredictiveDashboard({ selectedDomainProp }: { selected
     }
   }, [targetFromParam]);
   const [horizonMonths, setHorizonMonths] = useState<number>(6);
-  const [populationSelected, setPopulationSelected] = useState(false);
+  const populationDomain = selectedDomainProp === "inventory" || selectedDomainProp === "barangay";
+  const [populationSelected, setPopulationSelected] = useState(populationDomain);
+  useEffect(() => { setPopulationSelected(populationDomain); }, [populationDomain]);
   const populationQuery = usePopulationForecast(horizonMonths);
   const [viewMode, setViewMode] = useState<"overview" | "backtest" | "models" | "checklist">("overview");
   const [cattlePriceView, setCattlePriceView] = useState<"trend" | "profile">("profile");
@@ -435,7 +437,14 @@ export function FuturisticPredictiveDashboard({ selectedDomainProp }: { selected
   });
 
   const summaryCards = (data?.summary_cards || []).filter(
-    (card) => card.domain.toLowerCase() !== "production",
+    (card) => {
+      if (card.domain.toLowerCase() === "production") return false;
+      if (!selectedDomainProp) return true;
+      if (populationDomain) return false;
+      if (selectedDomainProp === "disease") return /disease|mortality|vaccination/i.test(card.domain + card.id);
+      if (selectedDomainProp === "auction") return /auction|sales|price/i.test(card.domain + card.id);
+      return /slaughter/i.test(card.domain + card.id);
+    },
   );
   const registeredCattlePriceCard = summaryCards.find((card) => card.id === "registered_cattle_price");
   const externalCattlePriceCard = summaryCards.find((card) => card.id === "external_cattle_price");
@@ -604,7 +613,7 @@ export function FuturisticPredictiveDashboard({ selectedDomainProp }: { selected
     return <PredictiveLoadingScreen />;
   }
 
-  if (!isPending && summaryCards.length === 0) {
+  if (!isPending && summaryCards.length === 0 && !populationDomain) {
     return (
       <Card className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
         <h3 className="text-base font-bold text-slate-900">No forecast topics available</h3>
@@ -672,7 +681,7 @@ export function FuturisticPredictiveDashboard({ selectedDomainProp }: { selected
       {/* B. FORECAST TARGET SELECTOR (Light Emerald Segmented Cards)       */}
       {/* ----------------------------------------------------------------- */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" onClickCapture={(event) => { if (!(event.target as HTMLElement).closest("[data-population-card]")) setPopulationSelected(false); }}>
-        {(user?.role === "MAO" || user?.role === "ADMIN") && <button type="button" data-population-card aria-pressed={populationSelected} onClick={() => setPopulationSelected(true)} className={`rounded-2xl border p-4 text-left transition-colors ${populationSelected ? "border-2 border-emerald-600 bg-emerald-50" : "border-slate-200 bg-white hover:bg-slate-50"}`}>
+        {(!selectedDomainProp || populationDomain) && (user?.role === "MAO" || user?.role === "ADMIN") && <button type="button" data-population-card aria-pressed={populationSelected} onClick={() => setPopulationSelected(true)} className={`rounded-2xl border p-4 text-left transition-colors ${populationSelected ? "border-2 border-emerald-600 bg-emerald-50" : "border-slate-200 bg-white hover:bg-slate-50"}`}>
           <div className="mb-4 flex justify-between gap-3"><span className="rounded-xl bg-emerald-50 p-2 text-emerald-700"><TrendingUp className="size-5" /></span><span className="text-xs text-slate-500">{populationQuery.isError ? "Could not load" : populationQuery.isPending ? "Loading?" : populationQuery.data?.forecast_available ? "Balance estimate available" : "Current count available"}</span></div>
           <p className="text-xs uppercase tracking-wide text-slate-500">Population ? Registered records</p><p className="mt-1 font-bold">Active Registered Livestock Population</p>
           <p className="mt-2 text-sm text-emerald-800">{populationQuery.data ? `${populationQuery.data.current_heads.toLocaleString()} active heads` : "Approved, active individual animals"}</p><p className="mt-2 text-xs text-slate-500">Registrations + births ? sales ? deaths ? other removals</p>

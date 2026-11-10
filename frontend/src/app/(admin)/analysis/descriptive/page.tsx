@@ -269,6 +269,7 @@ export function DescriptiveAnalyticsContent({ selectedDomainProp }: { selectedDo
             },
           ].map((card) => {
             const isSelected = selectedDomain === card.id;
+            if (selectedDomainProp && card.id !== selectedDomainProp) return null;
             const Icon = card.icon;
 
             return (

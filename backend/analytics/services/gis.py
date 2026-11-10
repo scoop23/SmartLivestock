@@ -406,6 +406,9 @@ def get_gis_aggregated_data(user=None, report_as_of=None) -> Dict[str, Any]:
       - movements: Geo-referenced active movement/inspection flows.
     """
     u_role = role_name(user)
+    user_scope = get_user_gis_scope(user)
+    allowed_barangays_set = user_scope["allowed_barangays"]
+    allowed_layers = user_scope["allowed_layers"]
 
     # Reference setup belongs to migrations/management commands. A GIS read must
     # never insert barangays; missing references remain empty map entries below.
@@ -562,6 +565,33 @@ def get_gis_aggregated_data(user=None, report_as_of=None) -> Dict[str, Any]:
         )
         if row["recent_cases_cnt"] and d_name and d_name not in b_entry["recent_diseases"]:
             b_entry["recent_diseases"].append(d_name)
+
+    disease_records = []
+    if "disease" in allowed_layers:
+        indiv_qs = (
+            disease_qs.annotate(
+                b_id=Coalesce("livestock__farmer__barangay_id", "batch__farmer__barangay_id")
+            )
+            .values("id", "b_id", "record_date", "name", "affected_count", "clinical_status", "inspection_details")
+            .order_by("record_date")
+        )
+        for c in indiv_qs:
+            c_name = pk_to_canonical.get(c["b_id"])
+            if c_name:
+                insp = c.get("inspection_details") or {}
+                is_fmd = False
+                if isinstance(insp, dict):
+                    is_fmd = insp.get("fmdAssessment") == "SUSPECTED"
+                disease_records.append({
+                    "id": c["id"],
+                    "barangay": c_name,
+                    "barangay_id": c["b_id"],
+                    "date": c["record_date"].isoformat() if c["record_date"] else None,
+                    "disease": c["name"] or "Unspecified Symptoms",
+                    "affected": c["affected_count"] or 1,
+                    "clinical_status": c["clinical_status"] or "NOT_RECORDED",
+                    "is_fmd": is_fmd,
+                })
 
     # -------------------------------------------------------------------------
     # Precautionary report-alert mapping (Haversine distance & monitoring radius):
@@ -1091,6 +1121,68 @@ def get_gis_aggregated_data(user=None, report_as_of=None) -> Dict[str, Any]:
         except Exception as e:
             logger.warning("Failed to create biosecurity notification for farmer %s: %s", getattr(user, "pk", None), e)
 
+    # 12. Timeline Event Dates (Days where actual database records changed)
+    # Supports "Changes Only" cycling in GIS historical playback, jumping directly
+    # between active dates and skipping empty days.
+    calendar_today = timezone.localdate()
+    calendar_year_ago = calendar_today - timedelta(days=365)
+
+    cattle_event_dates = sorted(list({
+        d.isoformat() for d in (
+            list(
+                official_inventory(user)
+                .filter(created_at__date__gte=calendar_year_ago, created_at__date__lte=calendar_today)
+                .annotate(d=TruncDate("created_at"))
+                .values_list("d", flat=True)
+                .distinct()
+            )
+            + list(
+                scope_reviewer_queryset(LivestockBatch.objects.all(), user)
+                .filter(status=LivestockBatch.StatusType.ACTIVE, created_at__date__gte=calendar_year_ago, created_at__date__lte=calendar_today)
+                .annotate(d=TruncDate("created_at"))
+                .values_list("d", flat=True)
+                .distinct()
+            )
+        )
+        if d
+    }))
+
+    disease_event_dates = sorted(list({
+        d.isoformat() for d in (
+            scope_reviewer_queryset(DiseaseCase.objects.all(), user)
+            .filter(status=DiseaseCase.DiseaseStatus.APPROVED, record_date__gte=calendar_year_ago, record_date__lte=calendar_today)
+            .values_list("record_date", flat=True)
+            .distinct()
+        )
+        if d
+    }))
+
+    mortality_event_dates = sorted(list({
+        d.isoformat() for d in (
+            scope_reviewer_queryset(MortalityRecord.objects.all(), user)
+            .filter(status=MortalityRecord.MortalityRecordStatus.APPROVED, record_date__gte=calendar_year_ago, record_date__lte=calendar_today)
+            .values_list("record_date", flat=True)
+            .distinct()
+        )
+        if d
+    }))
+
+    movement_event_dates = sorted(list({
+        m["date"] for m in movements_list if m.get("date") and calendar_year_ago.isoformat() <= m["date"] <= calendar_today.isoformat()
+    }))
+
+    all_event_dates = sorted(list(
+        set(cattle_event_dates) | set(disease_event_dates) | set(mortality_event_dates) | set(movement_event_dates)
+    ))
+
+    timeline_event_dates = {
+        "cattle": cattle_event_dates,
+        "disease": disease_event_dates,
+        "mortality": mortality_event_dates,
+        "movement": movement_event_dates,
+        "all": all_event_dates,
+    }
+
     # Convert user_scope allowed_barangays set to sorted list for JSON serialization
     serialized_scope = dict(user_scope)
     serialized_scope["allowed_barangays"] = sorted(list(user_scope["allowed_barangays"]))
@@ -1100,6 +1192,8 @@ def get_gis_aggregated_data(user=None, report_as_of=None) -> Dict[str, Any]:
         "barangays": all_b,
         "barangays_dict": barangays_data,
         "movements": movements_list,
+        "disease_records": disease_records,
+        "timeline_event_dates": timeline_event_dates,
         "user_scope": serialized_scope,
         "farmer_stats": farmer_stats,
         "adjacent_disease_alerts": adjacent_disease_alerts,

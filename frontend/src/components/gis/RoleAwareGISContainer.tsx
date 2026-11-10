@@ -73,6 +73,7 @@ const PadreGarciaForecaster = dynamic(
   }
 );
 import { MovementTimelinePlayer } from './MovementTimelinePlayer';
+import { DiseaseTimelinePlayer } from './DiseaseTimelinePlayer';
 import {
 computeAnnualSimulationTrajectory,
 DEFAULT_SIMULATION_PARAMETERS,
@@ -148,23 +149,17 @@ export function RoleAwareGISContainer({
   const [reportAsOf, setReportAsOf] = useState(reportTimelineDates[365]);
   const lastFetchedDayRef = useRef(reportTimelineDay);
 
-  // Synchronize telemetry date parameter without freezing or flooding the network during day-by-day animation
+  // Synchronize telemetry date parameter without freezing or flooding the network
   useEffect(() => {
     if (isHistoricalPlaying) {
-      // During active day-by-day cycling, sample telemetry every 5 days or at boundary values (0 and 365)
-      const dayDiff = Math.abs(reportTimelineDay - lastFetchedDayRef.current);
-      if (dayDiff >= 5 || reportTimelineDay === 0 || reportTimelineDay >= 365) {
-        lastFetchedDayRef.current = reportTimelineDay;
-        setReportAsOf(reportTimelineDates[reportTimelineDay]);
-      }
-    } else {
-      // When paused or dragging slider manually, debounce slightly (120ms) for snappy response
-      lastFetchedDayRef.current = reportTimelineDay;
-      const timer = setTimeout(() => {
-        setReportAsOf(reportTimelineDates[reportTimelineDay]);
-      }, 120);
-      return () => clearTimeout(timer);
+      // During active cycling, reportAsOf is updated directly on each change step
+      return;
     }
+    lastFetchedDayRef.current = reportTimelineDay;
+    const timer = setTimeout(() => {
+      setReportAsOf(reportTimelineDates[reportTimelineDay]);
+    }, 120);
+    return () => clearTimeout(timer);
   }, [reportTimelineDay, isHistoricalPlaying, reportTimelineDates]);
 
   const scopeKey = JSON.stringify([user?.email, user?.role, user?.accessScope, user?.assignedBarangayId]);
@@ -288,45 +283,110 @@ export function RoleAwareGISContainer({
   // Historical date scrubber state (Cattle Inventory, Mortality, Disease Surveillance)
   const [showHistoricalTimeline, setShowHistoricalTimeline] = useState<boolean>(true);
 
-  // Day-by-day continuous timeline cycle animation loop
-  useEffect(() => {
-    if (!isHistoricalPlaying) return;
+  // Compute the specific dates where database records changed for the active layer
+  const activeHistoricalEventDates = useMemo(() => {
+    const datesObj = gisData?.timeline_event_dates;
+    const list = activeLayer === 'cattle' ? datesObj?.cattle : activeLayer === 'mortality' ? datesObj?.mortality : datesObj?.disease;
+    return Array.from(new Set((list ?? []).filter(date => reportTimelineDates.includes(date)))).sort();
+  }, [gisData?.timeline_event_dates, activeLayer, reportTimelineDates]);
 
-    // 1x = 80ms/day (~29s full year), 2x = 40ms/day (~14s full year), 4x = 20ms/day (~7s full year)
-    const stepIntervalMs = historicalPlaybackSpeed === 4 ? 20 : historicalPlaybackSpeed === 2 ? 40 : 80;
+  // Map each change event date to its 0..365 day index in reportTimelineDates
+  const historicalEventIndices = useMemo(() => {
+    const dateToIndex = new Map<string, number>();
+    reportTimelineDates.forEach((d, idx) => dateToIndex.set(d, idx));
+
+    return activeHistoricalEventDates
+      .map((d) => dateToIndex.get(d))
+      .filter((idx): idx is number => idx !== undefined)
+      .sort((a, b) => a - b);
+  }, [activeHistoricalEventDates, reportTimelineDates]);
+
+  // Advance only after the selected record-date snapshot has finished loading.
+  useEffect(() => {
+    if (!isHistoricalPlaying || telemetry.isFetching || !showHistoricalTimeline || (activeLayer !== 'cattle' && activeLayer !== 'mortality')) return;
+    if (historicalEventIndices.length <= 1) { setIsHistoricalPlaying(false); return; }
+    const timer = setTimeout(() => {
+      const next = historicalEventIndices.find(day => day > historicalDayRef.current);
+      if (next === undefined) { setIsHistoricalPlaying(false); return; }
+      setReportTimelineDay(next);
+      setReportAsOf(reportTimelineDates[next]);
+    }, 1100 / historicalPlaybackSpeed);
+    return () => clearTimeout(timer);
+  }, [isHistoricalPlaying, telemetry.isFetching, showHistoricalTimeline, activeLayer, historicalEventIndices, historicalPlaybackSpeed, reportTimelineDates, reportTimelineDay]);
+
+  useEffect(() => { setIsHistoricalPlaying(false); }, [activeLayer]);
+
+  const selectHistoricalRecordDay = useCallback((day: number | undefined) => {
+    if (day === undefined) return;
+    setReportTimelineDay(day);
+    setReportAsOf(reportTimelineDates[day]);
+  }, [reportTimelineDates]);
+
+  const handleToggleHistoricalPlay = useCallback(() => {
+    if (isHistoricalPlaying) { setIsHistoricalPlaying(false); return; }
+    if (historicalEventIndices.length <= 1) return;
+    const last = historicalEventIndices[historicalEventIndices.length - 1];
+    if (reportTimelineDay >= last) selectHistoricalRecordDay(historicalEventIndices[0]);
+    setIsHistoricalPlaying(true);
+  }, [isHistoricalPlaying, historicalEventIndices, reportTimelineDay, selectHistoricalRecordDay]);
+
+  const handleHistoricalStepBackward = useCallback(() => {
+    setIsHistoricalPlaying(false);
+    selectHistoricalRecordDay(historicalEventIndices.filter(day => day < reportTimelineDay).at(-1) ?? historicalEventIndices[0]);
+  }, [historicalEventIndices, reportTimelineDay, selectHistoricalRecordDay]);
+
+  const handleHistoricalStepForward = useCallback(() => {
+    setIsHistoricalPlaying(false);
+    selectHistoricalRecordDay(historicalEventIndices.find(day => day > reportTimelineDay) ?? historicalEventIndices.at(-1));
+  }, [historicalEventIndices, reportTimelineDay, selectHistoricalRecordDay]);
+
+  // Dedicated Day-by-Day Disease Timeline Player states (for Disease Reports & Report Alerts)
+  const [isDiseasePlaying, setIsDiseasePlaying] = useState<boolean>(false);
+  const [diseasePlaybackSpeed, setDiseasePlaybackSpeed] = useState<1 | 2 | 4>(1);
+
+  // Compute daily date progression from recorded disease cases (only days when cases occurred) through today
+  const diseaseTimelineDates = useMemo(() => {
+    const records = gisData?.disease_records || [];
+    const recordDates = Array.from(new Set(records.map((r) => r.date).filter(Boolean))).sort();
+    return recordDates;
+  }, [gisData?.disease_records]);
+
+  const [currentDiseaseDateIndex, setCurrentDiseaseDateIndex] = useState<number>(-1);
+
+  // Initialize disease timeline index to the latest date
+  useEffect(() => {
+    if (diseaseTimelineDates.length > 0) {
+      setCurrentDiseaseDateIndex(-1);
+    }
+  }, [diseaseTimelineDates.length]);
+
+  // Entering a disease view resets playback to its latest snapshot.
+  useEffect(() => {
+    setIsDiseasePlaying(false);
+    setCurrentDiseaseDateIndex(-1);
+  }, [diseaseSubMode, activeLayer]);
+
+  const diseaseDayRef = useRef(currentDiseaseDateIndex);
+  diseaseDayRef.current = currentDiseaseDateIndex;
+
+  // Day-by-day continuous playback timer
+  useEffect(() => {
+    if (!isDiseasePlaying || diseaseTimelineDates.length <= 1 || activeLayer !== 'disease' || diseaseSubMode === 'simulation') return;
+
+    // 1x = 500ms/day, 2x = 250ms/day, 4x = 120ms/day
+    const stepIntervalMs = diseasePlaybackSpeed === 4 ? 120 : diseasePlaybackSpeed === 2 ? 250 : 500;
 
     const timer = setInterval(() => {
-      const current = historicalDayRef.current;
-      if (current >= 365) {
-        setIsHistoricalPlaying(false);
+      const current = diseaseDayRef.current;
+      if (current >= diseaseTimelineDates.length - 1) {
+        setCurrentDiseaseDateIndex(0);
       } else {
-        const next = current + 1;
-        setReportTimelineDay(next);
-        if (next >= 365) {
-          setIsHistoricalPlaying(false);
-        }
+        setCurrentDiseaseDateIndex(current + 1);
       }
     }, stepIntervalMs);
 
     return () => clearInterval(timer);
-  }, [isHistoricalPlaying, historicalPlaybackSpeed]);
-
-  useEffect(() => {
-    if (!showHistoricalTimeline) {
-      setIsHistoricalPlaying(false);
-    }
-  }, [showHistoricalTimeline]);
-
-  const handleToggleHistoricalPlay = useCallback(() => {
-    if (isHistoricalPlaying) {
-      setIsHistoricalPlaying(false);
-    } else {
-      if (reportTimelineDay >= 365) {
-        setReportTimelineDay(0);
-      }
-      setIsHistoricalPlaying(true);
-    }
-  }, [isHistoricalPlaying, reportTimelineDay]);
+  }, [isDiseasePlaying, diseasePlaybackSpeed, diseaseTimelineDates.length, activeLayer, diseaseSubMode]);
 
   // Baseline on the current month, then show 12 months of scenario projections.
   const [currentMonthIndex, setCurrentMonthIndex] = useState<number>(0);
@@ -412,6 +472,132 @@ export function RoleAwareGISContainer({
   const spatialMatrices = useMemo(() => {
     return precomputeSpatialMatrices(gisData?.barangays || []);
   }, [gisData?.barangays]);
+
+  // Dynamic day-by-day evaluation for Disease Reports and Report Alerts
+  const effectiveBarangaysByName = useMemo(() => {
+    if (activeLayer !== 'disease' || (diseaseSubMode !== 'reported' && diseaseSubMode !== 'surveillance')) {
+      return barangaysByName;
+    }
+    const records = gisData?.disease_records;
+    if (!records || records.length === 0) {
+      return barangaysByName;
+    }
+
+    const currentDate = currentDiseaseDateIndex === -1 ? reportTimelineDates[365] : diseaseTimelineDates[currentDiseaseDateIndex];
+    if (!currentDate) return barangaysByName;
+
+    const activeCasesByBarangay: Record<string, number> = {};
+    const totalCasesByBarangay: Record<string, number> = {};
+    const recentDiseasesByBarangay: Record<string, Set<string>> = {};
+    const affectedHeadsByBarangay: Record<string, number> = {};
+    const fmdCasesByBarangay: Record<string, number> = {};
+
+    const currentTs = new Date(currentDate).getTime();
+    const ninetyDaysMs = 90 * 24 * 60 * 60 * 1000;
+
+    for (const rec of records) {
+      if (!rec.date || rec.date > currentDate) continue;
+      const recTs = new Date(rec.date).getTime();
+      const daysDiff = currentTs - recTs;
+
+      // The displayed report count follows the same 90-day window as the map alerts.
+      if (daysDiff >= 0 && daysDiff <= ninetyDaysMs) {
+        totalCasesByBarangay[rec.barangay] = (totalCasesByBarangay[rec.barangay] || 0) + 1;
+      }
+
+      // Active cases: within 90 days of currentDate and open/unresolved
+      const isOpenOrUnresolved = rec.clinical_status === 'OPEN' || rec.clinical_status === 'NOT_RECORDED';
+      if (daysDiff >= 0 && daysDiff <= ninetyDaysMs && isOpenOrUnresolved) {
+        activeCasesByBarangay[rec.barangay] = (activeCasesByBarangay[rec.barangay] || 0) + 1;
+        affectedHeadsByBarangay[rec.barangay] = (affectedHeadsByBarangay[rec.barangay] || 0) + (rec.affected || 1);
+        if (rec.is_fmd) {
+          fmdCasesByBarangay[rec.barangay] = (fmdCasesByBarangay[rec.barangay] || 0) + 1;
+        }
+        if (!recentDiseasesByBarangay[rec.barangay]) {
+          recentDiseasesByBarangay[rec.barangay] = new Set();
+        }
+        if (rec.disease) {
+          recentDiseasesByBarangay[rec.barangay].add(rec.disease);
+        }
+      }
+    }
+
+    // Determine alert barangays for 3.5 km surveillance radius
+    const alertBarangays = Object.keys(activeCasesByBarangay).filter(
+      (b) => activeCasesByBarangay[b] > 0
+    );
+
+    const updated: Record<string, BarangayGISData> = {};
+    for (const [name, b] of Object.entries(barangaysByName)) {
+      const active = activeCasesByBarangay[name] || 0;
+      const total = totalCasesByBarangay[name] || 0;
+      const fmd = fmdCasesByBarangay[name] || 0;
+      const affected = affectedHeadsByBarangay[name] || 0;
+      const diseases = recentDiseasesByBarangay[name] ? Array.from(recentDiseasesByBarangay[name]) : [];
+
+      let risk: 'low' | 'medium' | 'high' = 'low';
+      let zone: 'outbreak' | 'monitoring_radius' | 'safe' = 'safe';
+      let zoneLabel = 'No recent report shown';
+
+      if (active > 0) {
+        risk = 'high';
+        zone = 'outbreak';
+        zoneLabel = 'Recent Approved Disease Report - Needs Follow-up';
+      } else {
+        const isNearby = alertBarangays.some(
+          (alertB) => (spatialMatrices.distances[name]?.[alertB] ?? 999) <= 3.5
+        );
+        if (isNearby) {
+          risk = 'medium';
+          zone = 'monitoring_radius';
+          zoneLabel = 'Within 3.5 km Precautionary Monitoring Radius';
+        }
+      }
+
+      updated[name] = {
+        ...b,
+        disease_cases: total,
+        active_cases: active,
+        fmd_active_cases: fmd,
+        affected_heads: affected,
+        recent_diseases: diseases,
+        disease_risk: risk,
+        disease_zone: zone,
+        disease_zone_label: zoneLabel,
+      };
+    }
+
+    return updated;
+  }, [
+    activeLayer,
+    diseaseSubMode,
+    gisData?.disease_records,
+    barangaysByName,
+    diseaseTimelineDates,
+    currentDiseaseDateIndex,
+    reportTimelineDates,
+    spatialMatrices,
+  ]);
+
+  const activeSelectedBarangay = useMemo(() => {
+    if (!selectedBarangay) return null;
+    return effectiveBarangaysByName[selectedBarangay.name] || selectedBarangay;
+  }, [selectedBarangay, effectiveBarangaysByName]);
+
+  const activeSummary = useMemo(() => {
+    const base = gisData?.summary || DEFAULT_SUMMARY;
+    if (activeLayer !== 'disease' || (diseaseSubMode !== 'reported' && diseaseSubMode !== 'surveillance')) {
+      return base;
+    }
+    const barangayList = Object.values(effectiveBarangaysByName);
+    const totalDisease = barangayList.reduce((acc, b) => acc + (b.disease_cases || 0), 0);
+    const activeDisease = barangayList.reduce((acc, b) => acc + (b.active_cases || 0), 0);
+    return {
+      ...base,
+      total_disease_cases: totalDisease,
+      active_disease_cases: activeDisease,
+    };
+  }, [gisData?.summary, activeLayer, diseaseSubMode, effectiveBarangaysByName]);
 
   // High-performance simulation trajectory precomputation (Admin/MAO only)
   const simulationTrajectory = useMemo(() => {
@@ -611,8 +797,13 @@ export function RoleAwareGISContainer({
 
   const handleDiseaseSubModeChange = useCallback((subMode: DiseaseSubMode) => {
     setDiseaseSubMode(subMode);
+    setIsDiseasePlaying(false);
+    setCurrentDiseaseDateIndex(-1);
     if (subMode !== 'simulation') {
       setIsPlaying(false);
+    }
+    if (subMode !== 'reported' && subMode !== 'surveillance') {
+      setIsDiseasePlaying(false);
     }
   }, []);
 
@@ -662,11 +853,10 @@ export function RoleAwareGISContainer({
 
       {/* 1. Full Viewport Interactive GIS Map Container */}
       <div className="relative w-full h-full flex-1 min-h-0 overflow-hidden">
-        {/* Historical Scrubber Timeline for Livestock Inventory, Mortality, and Disease Surveillance */}
+        {/* Historical Scrubber Timeline for Livestock Inventory and Mortality */}
         {showHistoricalTimeline && (
           activeLayer === 'cattle' ||
-          activeLayer === 'mortality' ||
-          (activeLayer === 'disease' && (diseaseSubMode === 'surveillance' || diseaseSubMode === 'reported'))
+          activeLayer === 'mortality'
         ) && (
           <div className={`${chromeStyles.chrome} absolute bottom-24 sm:bottom-4 left-1/2 -translate-x-1/2 z-[900] w-[calc(100%-2rem)] max-w-lg rounded-2xl border border-slate-200 bg-white/95 p-3 sm:p-3.5 shadow-xl backdrop-blur flex flex-col gap-2`}>
             <div className="flex items-center justify-between gap-2 text-xs font-bold text-slate-800">
@@ -698,36 +888,39 @@ export function RoleAwareGISContainer({
                 id="report-alert-timeline"
                 type="range"
                 min={0}
-                max={365}
-                value={reportTimelineDay}
+                max={Math.max(0, historicalEventIndices.length - 1)}
+                disabled={!historicalEventIndices.length}
+                value={Math.max(0, historicalEventIndices.findIndex(index => index >= reportTimelineDay))}
                 onChange={(event) => {
                   if (isHistoricalPlaying) setIsHistoricalPlaying(false);
-                  setReportTimelineDay(Number(event.target.value));
+                  const day = historicalEventIndices[Number(event.target.value)];
+                  if (day !== undefined) { setReportTimelineDay(day); setReportAsOf(reportTimelineDates[day]); }
                 }}
                 className="w-full accent-emerald-600 cursor-pointer"
                 aria-valuetext={reportAsOf}
               />
               <div className="flex justify-between items-center text-[10px] text-slate-500 mt-0.5">
-                <span>{reportTimelineDates[0]}</span>
+                <span>{activeHistoricalEventDates[0] ?? "No records"}</span>
                 <span className="font-semibold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60 font-mono text-[11px]">
-                  Day {reportTimelineDay + 1}/366 · {reportTimelineDates[reportTimelineDay]}
+                  {activeHistoricalEventDates.indexOf(reportTimelineDates[reportTimelineDay]) !== -1 ? (
+                    `Change ${activeHistoricalEventDates.indexOf(reportTimelineDates[reportTimelineDay]) + 1}/${activeHistoricalEventDates.length} · ${reportTimelineDates[reportTimelineDay]}`
+                  ) : (
+                    `Snapshot ${activeHistoricalEventDates.length} record dates · ${reportTimelineDates[reportTimelineDay]}`
+                  )}
                 </span>
-                <span>{reportTimelineDates[365]}</span>
+                <span>{activeHistoricalEventDates.at(-1) ?? ""}</span>
               </div>
             </div>
 
             {/* Cycling & Step Controls */}
             <div className="flex flex-wrap items-center justify-between gap-1.5 pt-1 border-t border-slate-100">
               <div className="flex items-center gap-1">
-                {/* Step back 1 day */}
+                {/* Step back */}
                 <button
                   type="button"
-                  onClick={() => {
-                    if (isHistoricalPlaying) setIsHistoricalPlaying(false);
-                    setReportTimelineDay((prev) => Math.max(0, prev - 1));
-                  }}
-                  title="Step backward 1 day"
-                  aria-label="Step backward 1 day"
+                  onClick={handleHistoricalStepBackward}
+                  title="Previous record date"
+                  aria-label="Step backward"
                   className="size-7 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 flex items-center justify-center transition-colors cursor-pointer"
                 >
                   <ChevronLeft className="size-3.5" />
@@ -737,7 +930,7 @@ export function RoleAwareGISContainer({
                 <button
                   type="button"
                   onClick={handleToggleHistoricalPlay}
-                  title={isHistoricalPlaying ? "Pause cycling" : "Cycle through days smoothly"}
+                  title={isHistoricalPlaying ? "Pause cycling" : "Play record dates only"}
                   aria-label={isHistoricalPlaying ? "Pause timeline cycle" : "Start timeline cycle"}
                   className={`h-7 px-2.5 rounded-lg border flex items-center gap-1.5 text-xs font-bold transition-all cursor-pointer ${
                     isHistoricalPlaying
@@ -758,15 +951,12 @@ export function RoleAwareGISContainer({
                   )}
                 </button>
 
-                {/* Step forward 1 day */}
+                {/* Step forward */}
                 <button
                   type="button"
-                  onClick={() => {
-                    if (isHistoricalPlaying) setIsHistoricalPlaying(false);
-                    setReportTimelineDay((prev) => Math.min(365, prev + 1));
-                  }}
-                  title="Step forward 1 day"
-                  aria-label="Step forward 1 day"
+                  onClick={handleHistoricalStepForward}
+                  title="Next record date"
+                  aria-label="Step forward"
                   className="size-7 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 flex items-center justify-center transition-colors cursor-pointer"
                 >
                   <ChevronRight className="size-3.5" />
@@ -790,71 +980,15 @@ export function RoleAwareGISContainer({
                     </button>
                   ))}
                 </div>
+
+                <span className="text-xs">Record dates only</span>
               </div>
 
-              {/* Quick Jump Presets */}
-              <div className="flex items-center gap-1 text-[10.5px]">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isHistoricalPlaying) setIsHistoricalPlaying(false);
-                    setReportTimelineDay(0);
-                  }}
-                  className={`px-1.5 py-0.5 rounded border transition-colors cursor-pointer ${
-                    reportTimelineDay === 0
-                      ? 'bg-emerald-100 text-emerald-900 border-emerald-300 font-bold'
-                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                  }`}
-                  title="Jump to 1 year ago"
-                >
-                  1y ago
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isHistoricalPlaying) setIsHistoricalPlaying(false);
-                    setReportTimelineDay(183);
-                  }}
-                  className={`px-1.5 py-0.5 rounded border transition-colors cursor-pointer ${
-                    reportTimelineDay >= 170 && reportTimelineDay <= 195
-                      ? 'bg-emerald-100 text-emerald-900 border-emerald-300 font-bold'
-                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                  }`}
-                  title="Jump to 6 months ago"
-                >
-                  6m ago
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isHistoricalPlaying) setIsHistoricalPlaying(false);
-                    setReportTimelineDay(275);
-                  }}
-                  className={`px-1.5 py-0.5 rounded border transition-colors cursor-pointer ${
-                    reportTimelineDay >= 265 && reportTimelineDay <= 285
-                      ? 'bg-emerald-100 text-emerald-900 border-emerald-300 font-bold'
-                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                  }`}
-                  title="Jump to 3 months ago"
-                >
-                  3m ago
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isHistoricalPlaying) setIsHistoricalPlaying(false);
-                    setReportTimelineDay(365);
-                  }}
-                  className={`px-2 py-0.5 rounded border transition-colors cursor-pointer ${
-                    reportTimelineDay === 365
-                      ? 'bg-emerald-800 text-white border-emerald-900 font-bold'
-                      : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100 font-semibold'
-                  }`}
-                  title="Jump to Latest (Today)"
-                >
-                  Latest
-                </button>
-              </div>
+              <button type="button" disabled={!historicalEventIndices.length} onClick={() => {
+                setIsHistoricalPlaying(false);
+                const day = historicalEventIndices.at(-1);
+                if (day !== undefined) { setReportTimelineDay(day); setReportAsOf(reportTimelineDates[day]); }
+              }}>Latest record</button>
             </div>
 
             <p className="text-[10px] text-slate-500">
@@ -868,14 +1002,14 @@ export function RoleAwareGISContainer({
           </div>
         )}
         <GISMap
-          barangaysByName={barangaysByName}
+          barangaysByName={effectiveBarangaysByName}
           movements={activeDisplayMovements}
           movementLabelRecords={movementLabelRecords}
           activeLayer={activeLayer}
           viewMode={viewMode}
           diseaseSubMode={activeDiseaseSubMode}
           simulationColorMode={simulationColorMode}
-          selectedBarangay={selectedBarangay}
+          selectedBarangay={activeSelectedBarangay}
           onSelectBarangay={handleSelectBarangay}
           resetTrigger={resetTrigger}
           simulatedStates={activeSimulatedStates}
@@ -1063,6 +1197,29 @@ export function RoleAwareGISContainer({
           </div>
         )}
 
+        {/* 4c. Disease Daily Timeline Player (for Disease Reports & Report Alerts) */}
+        {activeLayer === 'disease' && (diseaseSubMode === 'reported' || diseaseSubMode === 'surveillance') && (
+          <div className={`${chromeStyles.chrome} absolute bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] sm:bottom-4 left-1/2 -translate-x-1/2 z-[900] px-2 sm:px-4 w-full max-w-xl`}>
+            <DiseaseTimelinePlayer
+              diseaseSubMode={diseaseSubMode}
+              latestDate={reportTimelineDates[365]}
+              dates={diseaseTimelineDates}
+              currentDateIndex={currentDiseaseDateIndex}
+              onDateIndexChange={setCurrentDiseaseDateIndex}
+              isPlaying={isDiseasePlaying}
+              onTogglePlay={() => { if (!isDiseasePlaying && currentDiseaseDateIndex === -1) setCurrentDiseaseDateIndex(0); setIsDiseasePlaying(prev => !prev); }}
+              playbackSpeed={diseasePlaybackSpeed}
+              onPlaybackSpeedChange={setDiseasePlaybackSpeed}
+              records={gisData?.disease_records || []}
+              effectiveBarangays={effectiveBarangaysByName}
+              onReset={() => {
+                setIsDiseasePlaying(false);
+                setCurrentDiseaseDateIndex(-1);
+              }}
+            />
+          </div>
+        )}
+
         {/* 4b. Movement Historical Timeline Scrubber (When in Movement Layer AND timeline opened) */}
         {activeLayer === 'movement' && showMovementTimeline && movementYears.length > 0 && (
           <div className={`${chromeStyles.chrome} absolute bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] sm:bottom-4 left-1/2 -translate-x-1/2 z-[900] px-2 sm:px-4 w-full max-w-lg animate-in fade-in slide-in-from-bottom-2 duration-200`}>
@@ -1112,12 +1269,12 @@ export function RoleAwareGISContainer({
           renderMode="desktop"
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
-          selectedBarangay={selectedBarangay}
+          selectedBarangay={activeSelectedBarangay}
           onClearSelectedBarangay={handleClearSelectedBarangay}
           onSelectBarangay={handleSelectBarangay}
-          summary={gisData?.summary || DEFAULT_SUMMARY}
+          summary={activeSummary}
           movements={gisData?.movements || []}
-          allBarangays={gisData?.barangays || []}
+          allBarangays={Object.values(effectiveBarangaysByName)}
           onRefresh={() => fetchGISTelemetry(true)}
           isLoading={isLoading}
           diseaseSubMode={activeDiseaseSubMode}
@@ -1139,12 +1296,12 @@ export function RoleAwareGISContainer({
           renderMode="mobile-sheet"
           isOpen={mobileDrawerOpen}
           onClose={() => setMobileDrawerOpen(false)}
-          selectedBarangay={selectedBarangay}
+          selectedBarangay={activeSelectedBarangay}
           onClearSelectedBarangay={handleClearSelectedBarangay}
           onSelectBarangay={handleSelectBarangay}
-          summary={gisData?.summary || DEFAULT_SUMMARY}
+          summary={activeSummary}
           movements={gisData?.movements || []}
-          allBarangays={gisData?.barangays || []}
+          allBarangays={Object.values(effectiveBarangaysByName)}
           onRefresh={() => fetchGISTelemetry(true)}
           isLoading={isLoading}
           diseaseSubMode={activeDiseaseSubMode}
