@@ -1,10 +1,12 @@
 // SmartLivestock Service Worker — Padre Garcia Biosecurity & Field PWA
-const CACHE_NAME = "smartlivestock-pwa-v1";
+const CACHE_NAME = "smartlivestock-pwa-v2";
 const OFFLINE_URL = "/offline.html";
 
-// Static core assets to precache immediately
+// Static core assets & dashboard shells to precache immediately
 const PRECACHE_ASSETS = [
   "/",
+  "/farmer",
+  "/sibat",
   OFFLINE_URL,
   "/manifest.webmanifest",
   "/manifest.json",
@@ -23,9 +25,13 @@ self.addEventListener("install", (event) => {
     caches
       .open(CACHE_NAME)
       .then((cache) => {
-        return cache.addAll(PRECACHE_ASSETS).catch((err) => {
-          console.warn("[SmartLivestock SW] Precache warning:", err);
-        });
+        return Promise.allSettled(
+          PRECACHE_ASSETS.map((url) =>
+            cache.add(url).catch((err) => {
+              console.warn(`[SmartLivestock SW] Precache skipped for ${url}:`, err);
+            })
+          )
+        );
       })
       .then(() => self.skipWaiting())
   );
@@ -51,8 +57,8 @@ self.addEventListener("activate", (event) => {
 
 // Fetch Strategy:
 // 1. Never cache mutations or dynamic API endpoints (/api/, /admin/, /auth/)
-// 2. HTML Navigation requests: Network-first -> Cache -> offline.html
-// 3. Static assets (_next/static, icons, images, fonts): Stale-While-Revalidate
+// 2. HTML Navigation requests: Network-first -> Exact Cache -> App Shell -> offline.html
+// 3. Static assets (_next/static, icons, images, fonts, rsc): Stale-While-Revalidate
 self.addEventListener("fetch", (event) => {
   const { request } = event;
 
@@ -75,8 +81,9 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Navigation requests (HTML pages)
-  if (request.mode === "navigate") {
+  // Next.js RSC (React Server Component) client navigation requests
+  const isRsc = url.searchParams.has("_rsc") || request.headers.get("RSC") === "1";
+  if (isRsc) {
     event.respondWith(
       fetch(request)
         .then((response) => {
@@ -89,8 +96,46 @@ self.addEventListener("fetch", (event) => {
         .catch(async () => {
           const cached = await caches.match(request);
           if (cached) return cached;
+          return new Response("", { status: 503, statusText: "Offline RSC" });
+        })
+    );
+    return;
+  }
+
+  // HTML Navigation requests (Full page loads / refreshes)
+  if (request.mode === "navigate") {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, responseClone));
+          }
+          return response;
+        })
+        .catch(async () => {
+          // 1. Try exact requested page in cache
+          const cached = await caches.match(request);
+          if (cached) return cached;
+
+          // 2. Try role-specific dashboard shells
+          if (url.pathname.startsWith("/farmer")) {
+            const farmerShell = await caches.match("/farmer");
+            if (farmerShell) return farmerShell;
+          }
+          if (url.pathname.startsWith("/sibat")) {
+            const sibatShell = await caches.match("/sibat");
+            if (sibatShell) return sibatShell;
+          }
+
+          // 3. Try main app shell
+          const appShell = await caches.match("/");
+          if (appShell) return appShell;
+
+          // 4. Fallback to offline guidance screen
           const offlinePage = await caches.match(OFFLINE_URL);
           if (offlinePage) return offlinePage;
+
           return new Response("Offline - SmartLivestock Padre Garcia", {
             headers: { "Content-Type": "text/html" },
           });
