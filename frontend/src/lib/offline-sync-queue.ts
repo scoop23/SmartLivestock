@@ -212,6 +212,7 @@ export interface ExecuteOrQueueParams<T> {
   endpoint: string;
   method?: "POST" | "PUT" | "PATCH";
   data?: Record<string, unknown> | FormData;
+  headers?: Record<string, string>;
   title: string;
   role: "CBAT" | "SIBAT" | "FARMER" | "MAO" | "ADMIN";
   category?: OfflineQueuedItem["category"];
@@ -223,6 +224,7 @@ export async function executeOrQueueOffline<T>({
   endpoint,
   method = "POST",
   data = {},
+  headers,
   title,
   role,
   category = "GENERAL",
@@ -249,6 +251,7 @@ export async function executeOrQueueOffline<T>({
       url: endpoint,
       method,
       data,
+      headers,
     });
     return res.data;
   } catch (err: unknown) {

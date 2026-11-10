@@ -71,6 +71,7 @@ interface SibatReviewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onReviewSuccess?: () => void;
+  onOptimisticUpdate?: (updated: UnifiedSubmissionItem) => void;
   hideFooterClose?: boolean;
 }
 
@@ -197,12 +198,21 @@ export default function SibatReviewDialog(props: SibatReviewDialogProps) {
 }
 
 function SibatReviewDialogContent({
-  submission,
+  submission: initialSubmission,
   open,
   onOpenChange,
   onReviewSuccess,
+  onOptimisticUpdate,
   hideFooterClose = false,
 }: SibatReviewDialogProps) {
+  const [optimisticSubmission, setOptimisticSubmission] = useState<UnifiedSubmissionItem | null>(initialSubmission);
+
+  useEffect(() => {
+    setOptimisticSubmission(initialSubmission);
+  }, [initialSubmission]);
+
+  const submission = optimisticSubmission ?? initialSubmission;
+
   const [remarks, setRemarks] = useState(submission?.reviewRemarks || "");
   const [inspectionUpload, setInspectionUpload] = useState<{ submissionId: string; file: File } | null>(null);
   const inspectionInputRef = useRef<HTMLInputElement>(null);
@@ -331,29 +341,84 @@ function SibatReviewDialogContent({
   }
 
   const handleSaveEdits = async () => {
+    if (!submission) return;
+    const previousState = submission;
     try {
       const payload: Record<string, string | number | null> = {};
+      const optimisticUpdate: UnifiedSubmissionItem = { ...submission };
+
       if (isBatch) {
-        if (editHousingPen !== undefined) payload.housing_pen = editHousingPen;
-        if (editFeedType !== undefined) payload.feed_type = editFeedType;
-        if (editTargetWeight) payload.target_weight = parseFloat(editTargetWeight);
+        if (editHousingPen !== undefined) {
+          payload.housing_pen = editHousingPen;
+          optimisticUpdate.housingPen = editHousingPen;
+        }
+        if (editFeedType !== undefined) {
+          payload.feed_type = editFeedType;
+          optimisticUpdate.feedType = editFeedType;
+        }
+        if (editTargetWeight) {
+          const tw = parseFloat(editTargetWeight);
+          payload.target_weight = tw;
+          optimisticUpdate.targetWeight = tw;
+        }
       } else {
-        if (editTagNumber.trim()) payload.tag_number = editTagNumber.trim();
-        if (editBreed.trim()) payload.breed = editBreed.trim();
-        if (editSex) payload.sex = editSex;
-        if (editWeight !== "") payload.weight = parseFloat(editWeight);
-        if (editBirthDate) payload.birth_date = editBirthDate;
+        if (editTagNumber.trim()) {
+          const t = editTagNumber.trim();
+          payload.tag_number = t;
+          optimisticUpdate.tagNumber = t;
+        }
+        if (editBreed.trim()) {
+          const b = editBreed.trim();
+          payload.breed = b;
+          optimisticUpdate.breed = b;
+        }
+        if (editSex) {
+          payload.sex = editSex;
+          optimisticUpdate.sex = editSex;
+        }
+        if (editWeight !== "") {
+          const w = parseFloat(editWeight);
+          payload.weight = w;
+          optimisticUpdate.weight = w;
+        }
+        if (editBirthDate) {
+          payload.birth_date = editBirthDate;
+          optimisticUpdate.birthDate = editBirthDate;
+        }
         payload.last_vaccination_date = editLastVaccinationDate || null;
+        optimisticUpdate.lastVaccinationDate = editLastVaccinationDate || null;
+
         payload.batch = editBatchId ?? null;
+        optimisticUpdate.batchId = editBatchId ?? null;
+        if (editBatchId != null) {
+          const foundBatch = availableBatches.find((b) => b.id === editBatchId);
+          if (foundBatch) {
+            optimisticUpdate.batchCode = foundBatch.batch_code;
+            optimisticUpdate.batchName = foundBatch.batch_name;
+          }
+        } else {
+          optimisticUpdate.batchCode = undefined;
+          optimisticUpdate.batchName = undefined;
+        }
       }
+
+      // Optimistic update: instantly update dialog view & notify parent registry
+      setOptimisticSubmission(optimisticUpdate);
+      onOptimisticUpdate?.(optimisticUpdate);
+      setIsEditing(false);
+
       await updateMutation.mutateAsync({
         id: submission.rawId,
         isBatch,
         data: payload,
       });
       toast.success("Record details updated successfully!");
-      setIsEditing(false);
     } catch (err: unknown) {
+      // Rollback on failure
+      setOptimisticSubmission(previousState);
+      if (previousState) {
+        onOptimisticUpdate?.(previousState);
+      }
       toast.error("Failed to update record details", {
         description: httpError(err)?.response?.data?.error || "Check your inputs.",
       });

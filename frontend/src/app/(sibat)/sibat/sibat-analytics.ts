@@ -970,7 +970,138 @@ export function useUpdateSubmissionData() {
       const response = await api.patch(endpoint, data);
       return response.data;
     },
-    onSuccess: () => {
+    onMutate: async ({ id, isBatch, data }) => {
+      // 1. Cancel outgoing queries
+      await queryClient.cancelQueries({ queryKey: ["sibat", "livestock-registry"] });
+      await queryClient.cancelQueries({ queryKey: ["sibat-inventory-records"] });
+      await queryClient.cancelQueries({ queryKey: ["inventory"] });
+
+      // 2. Snapshot previous values
+      const previousRegistryInventory = queryClient.getQueriesData({
+        queryKey: ["sibat", "livestock-registry", "inventory"],
+      });
+      const previousRegistryBatches = queryClient.getQueriesData({
+        queryKey: ["sibat", "livestock-registry", "batches"],
+      });
+      const previousSibatRecords = queryClient.getQueriesData({
+        queryKey: ["sibat-inventory-records"],
+      });
+
+      // 3. Optimistically update cached items
+      if (!isBatch) {
+        queryClient.setQueriesData(
+          { queryKey: ["sibat", "livestock-registry", "inventory"] },
+          (old: unknown) => {
+            if (!old) return old;
+            const updateItem = (item: any) => {
+              if (item?.id === id) {
+                return {
+                  ...item,
+                  tag_number: data.tag_number !== undefined ? data.tag_number : item.tag_number,
+                  breed: data.breed !== undefined ? data.breed : item.breed,
+                  sex: data.sex !== undefined ? data.sex : item.sex,
+                  weight: data.weight !== undefined ? data.weight : item.weight,
+                  birth_date: data.birth_date !== undefined ? data.birth_date : item.birth_date,
+                  last_vaccination_date:
+                    data.last_vaccination_date !== undefined
+                      ? data.last_vaccination_date
+                      : item.last_vaccination_date,
+                  batch: data.batch !== undefined ? data.batch : item.batch,
+                  batch_id: data.batch !== undefined ? data.batch : item.batch_id,
+                };
+              }
+              return item;
+            };
+
+            if (Array.isArray(old)) {
+              return old.map(updateItem);
+            }
+            if ((old as any)?.results && Array.isArray((old as any).results)) {
+              return {
+                ...(old as any),
+                results: (old as any).results.map(updateItem),
+              };
+            }
+            return old;
+          }
+        );
+
+        queryClient.setQueriesData(
+          { queryKey: ["sibat-inventory-records"] },
+          (old: unknown) => {
+            if (!Array.isArray(old)) return old;
+            return old.map((record: any) => {
+              if (record.rawId === id || record.id === `inv-${id}` || record.id === String(id)) {
+                return {
+                  ...record,
+                  tagNumber: data.tag_number !== undefined ? data.tag_number : record.tagNumber,
+                  breed: data.breed !== undefined ? data.breed : record.breed,
+                  sex: data.sex !== undefined ? data.sex : record.sex,
+                  weight: data.weight !== undefined ? data.weight : record.weight,
+                  birthDate: data.birth_date !== undefined ? data.birth_date : record.birthDate,
+                  lastVaccinationDate:
+                    data.last_vaccination_date !== undefined
+                      ? data.last_vaccination_date
+                      : record.lastVaccinationDate,
+                  batchId: data.batch !== undefined ? data.batch : record.batchId,
+                };
+              }
+              return record;
+            });
+          }
+        );
+      } else {
+        queryClient.setQueriesData(
+          { queryKey: ["sibat", "livestock-registry", "batches"] },
+          (old: unknown) => {
+            if (!old) return old;
+            const updateBatch = (batch: any) => {
+              if (batch?.id === id) {
+                return {
+                  ...batch,
+                  housing_pen: data.housing_pen !== undefined ? data.housing_pen : batch.housing_pen,
+                  feed_type: data.feed_type !== undefined ? data.feed_type : batch.feed_type,
+                  target_weight: data.target_weight !== undefined ? data.target_weight : batch.target_weight,
+                };
+              }
+              return batch;
+            };
+
+            if (Array.isArray(old)) {
+              return old.map(updateBatch);
+            }
+            if ((old as any)?.results && Array.isArray((old as any).results)) {
+              return {
+                ...(old as any),
+                results: (old as any).results.map(updateBatch),
+              };
+            }
+            return old;
+          }
+        );
+      }
+
+      return { previousRegistryInventory, previousRegistryBatches, previousSibatRecords };
+    },
+    onError: (_err, _variables, context) => {
+      if (context?.previousRegistryInventory) {
+        for (const [key, val] of context.previousRegistryInventory) {
+          queryClient.setQueryData(key, val);
+        }
+      }
+      if (context?.previousRegistryBatches) {
+        for (const [key, val] of context.previousRegistryBatches) {
+          queryClient.setQueryData(key, val);
+        }
+      }
+      if (context?.previousSibatRecords) {
+        for (const [key, val] of context.previousSibatRecords) {
+          queryClient.setQueryData(key, val);
+        }
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["sibat", "livestock-registry"] });
       queryClient.invalidateQueries({ queryKey: ["sibat-inventory-records"] });
       queryClient.invalidateQueries({ queryKey: ["sibat-batches-drilldown"] });
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
@@ -1052,8 +1183,18 @@ export function useReviewClinicalHealth() {
         };
       }
 
-      const response = await api.post(endpoint, payload, { headers });
-      return response.data;
+      const title = `Verified ${recordId} (${action})`;
+      const response = await executeOrQueueOffline({
+        endpoint,
+        method: "POST",
+        data: payload,
+        headers,
+        title,
+        role: "CBAT",
+        category: "VERIFICATION",
+        fallbackResult: { success: true, action, recordId, offline: true },
+      });
+      return response;
     },
     onMutate: async ({ recordId, action }) => {
       await Promise.all([

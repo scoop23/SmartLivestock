@@ -1592,6 +1592,9 @@ function SibatLivestockRegistryContent() {
               if (reviewId) router.replace("/sibat/livestock-registry", { scroll: false });
             }
           }}
+          onOptimisticUpdate={(updated) => {
+            setSelectedSubmission(updated);
+          }}
           onReviewSuccess={() => {
             void queryClient.invalidateQueries({ queryKey: ["sibat", "livestock-registry"] });
           }}
