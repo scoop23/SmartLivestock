@@ -1751,7 +1751,7 @@ function SibatBatchesVerificationContent() {
             title="Loading Livestock Batches & Herds"
             subtitle="Connecting registered animal batches, head counts, and barangay records..."
             badgeLabel="Livestock Sync"
-            authorityText="SIBAT Field Inspection · Padre Garcia, Batangas"
+            authorityText="CBAT Field Inspection · Padre Garcia, Batangas"
             items={[
               {
                 id: "batches",
@@ -3338,10 +3338,11 @@ export default function SibatBatchesVerificationPage() {
         <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
           <ValidationLoadingScreen
             isLoading={true}
+            role="CBAT"
             title="Loading Livestock Batches"
             subtitle="Connecting livestock batches, animal counts, and inspection records..."
-            badgeLabel="SIBAT Batch Operations"
-            authorityText="SIBAT Field Review · Padre Garcia MAO"
+            badgeLabel="CBAT Batch Operations"
+            authorityText="CBAT Field Review · Padre Garcia MAO"
             items={[
               {
                 id: "batches",

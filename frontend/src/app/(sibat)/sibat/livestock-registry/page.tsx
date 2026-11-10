@@ -646,7 +646,7 @@ function SibatLivestockRegistryContent() {
             title="Loading Farmer Records"
             subtitle="Synchronizing individual livestock registrations, herd submissions, and barangay records..."
             badgeLabel="Livestock Records Sync"
-            authorityText="SIBAT Field Validation · Padre Garcia, Batangas"
+            authorityText="CBAT Field Validation · Padre Garcia, Batangas"
             items={[
               {
                 id: "individual",
@@ -1635,7 +1635,7 @@ export default function SibatLivestockRegistryPage() {
               title="Loading Livestock Records"
               subtitle="Synchronizing individual livestock registrations, herd submissions, and barangay records..."
               badgeLabel="Livestock Records Sync"
-              authorityText="SIBAT Field Validation · Padre Garcia, Batangas"
+              authorityText="CBAT Field Validation · Padre Garcia, Batangas"
               items={[
                 {
                   id: "individual",

@@ -525,10 +525,10 @@ function SibatPortalContent() {
             <ValidationLoadingScreen
               isLoading={isInitialQueueLoading}
               role="CBAT"
-              title="Loading SIBAT Field Inspection Center"
+              title="Loading CBAT Field Inspection Center"
               subtitle="Connecting your authorized livestock, calving, health, mortality, and census review queues."
-              badgeLabel="SIBAT Queue Sync"
-              authorityText="SIBAT Field Review · Barangay-scoped records"
+              badgeLabel="CBAT Queue Sync"
+              authorityText="CBAT Field Review · Barangay-scoped records"
               items={[
                 {
                   id: "submissions",
@@ -924,10 +924,10 @@ export default function SibatPortal() {
     <Suspense fallback={
       <ValidationLoadingScreen
         role="CBAT"
-        title="Opening SIBAT Field Inspection Center"
+        title="Opening CBAT Field Inspection Center"
         subtitle="Preparing the authorized review workspace."
-        badgeLabel="SIBAT Workspace"
-        authorityText="SIBAT Field Review · Barangay-scoped records"
+        badgeLabel="CBAT Workspace"
+        authorityText="CBAT Field Review · Barangay-scoped records"
       />
     }>
 
