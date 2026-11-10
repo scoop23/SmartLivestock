@@ -108,6 +108,7 @@ export function AdminChartsView({ data, isFetching, refetchAll }: ReturnType<typ
     animalsSoldTrend,
     animalsSoldBySpecies,
     surveillanceTrends,
+    surveillanceTrendsBySpecies,
     sectorCompliance,
     vaccinationTotals,
   } = data;
@@ -132,8 +133,28 @@ export function AdminChartsView({ data, isFetching, refetchAll }: ReturnType<typ
   const selectedPeriodLabel = productionTimeframe === '6M' ? 'Last 6 months' : 'Last 12 months';
   const totalSlaughterYield = slicedSlaughterYield.reduce((sum, row) => sum + row.value, 0);
   const totalAnimalsSold = slicedAnimalsSold.reduce((sum, row) => sum + row.value, 0);
-  const totalReportedCases = surveillanceTrends.reduce((sum, row) => sum + (row.reported || 0), 0);
-  const totalDeaths = surveillanceTrends.reduce((sum, row) => sum + (row.deaths || 0), 0);
+
+  // Filter surveillance series (disease incidence & mortality) by selected species when active
+  const filteredSurveillanceRows = selectedSpecies
+    ? surveillanceTrendsBySpecies.filter(
+        (row) => row.species.toLocaleLowerCase() === selectedSpecies.toLocaleLowerCase()
+      )
+    : null;
+
+  const displayedSurveillance = filteredSurveillanceRows
+    ? (surveillanceTrends.length > 0 ? surveillanceTrends : filteredSurveillanceRows).map((base) => {
+        const match = filteredSurveillanceRows.find((r) => r.month === base.month);
+        return {
+          month: base.month,
+          label: base.label,
+          reported: match ? match.reported : 0,
+          deaths: match ? match.deaths : 0,
+        };
+      })
+    : surveillanceTrends;
+
+  const totalReportedCases = displayedSurveillance.reduce((sum, row) => sum + (row.reported || 0), 0);
+  const totalDeaths = displayedSurveillance.reduce((sum, row) => sum + (row.deaths || 0), 0);
   const fatalityRate = totalReportedCases > 0 ? ((totalDeaths / totalReportedCases) * 100).toFixed(1) : "0.0";
   const recoveredOrActive = Math.max(0, totalReportedCases - totalDeaths);
   const surveillanceDonutData = totalReportedCases > 0 || totalDeaths > 0
@@ -364,7 +385,9 @@ export function AdminChartsView({ data, isFetching, refetchAll }: ReturnType<typ
                 {selectedSpecies ? `${selectedSpecies} · Clear` : "Choose a type"}
               </Button>
             </div>
-            <p className="text-xs text-slate-500 font-medium mb-1">Click a slice or type to filter official slaughter and sold-animal charts.</p>
+            <p className="text-xs text-slate-500 font-medium mb-1">
+              Click a slice or type to filter biosecurity surveillance, official slaughter, and sold-animal charts.
+            </p>
 
             <div className="h-[170px] w-full relative">
               <ResponsiveContainer width="100%" height="100%" debounce={150}>
@@ -429,10 +452,12 @@ export function AdminChartsView({ data, isFetching, refetchAll }: ReturnType<typ
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-1.5">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
-                <h3 className="text-[13px] font-black text-slate-900 tracking-tight">Biosecurity & Health Overview</h3>
+                <h3 className="text-[13px] font-black text-slate-900 tracking-tight">
+                  Biosecurity & Health Overview{selectedSpecies ? ` · ${selectedSpecies}` : ""}
+                </h3>
               </div>
               <Badge variant="outline" className="text-[10px] font-black uppercase tracking-wider text-slate-600 bg-slate-50 border-slate-200">
-                12-Month Scope
+                {selectedSpecies ? `${selectedSpecies} Filter` : "12-Month Scope"}
               </Badge>
             </div>
             <p className="text-xs text-slate-500 font-medium mb-2">
@@ -490,7 +515,9 @@ export function AdminChartsView({ data, isFetching, refetchAll }: ReturnType<typ
                       {totalReportedCases.toLocaleString()}
                     </span>
                   </div>
-                  <p className="text-[10px] text-slate-500 mt-0.5 truncate">Reported disease heads</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5 truncate">
+                    {selectedSpecies ? `Reported ${selectedSpecies.toLowerCase()} heads` : "Reported disease heads"}
+                  </p>
                 </div>
 
                 <div className="rounded-lg border border-rose-200/80 bg-rose-50/60 p-2">
@@ -503,7 +530,9 @@ export function AdminChartsView({ data, isFetching, refetchAll }: ReturnType<typ
                       {totalDeaths.toLocaleString()}
                     </span>
                   </div>
-                  <p className="text-[10px] text-slate-500 mt-0.5 truncate">Recorded animal deaths</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5 truncate">
+                    {selectedSpecies ? `Recorded ${selectedSpecies.toLowerCase()} deaths` : "Recorded animal deaths"}
+                  </p>
                 </div>
               </div>
             </div>
@@ -527,15 +556,19 @@ export function AdminChartsView({ data, isFetching, refetchAll }: ReturnType<typ
             <div>
               <h3 className="text-[13px] font-black text-slate-900 tracking-tight flex items-center gap-1.5">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
-                Disease Incidence vs Mortality
+                Disease Incidence vs Mortality{selectedSpecies ? ` — ${selectedSpecies}` : ""}
               </h3>
-              <p className="text-xs text-slate-500 font-medium">Certified cases reported vs. recorded livestock deaths</p>
+              <p className="text-xs text-slate-500 font-medium">
+                {selectedSpecies
+                  ? `Certified cases reported vs. recorded deaths for ${selectedSpecies}`
+                  : "Certified cases reported vs. recorded livestock deaths"}
+              </p>
             </div>
           </div>
 
           <div className="h-[230px] w-full">
             <ResponsiveContainer width="100%" height="100%" debounce={150}>
-              <AreaChart data={surveillanceTrends} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+              <AreaChart data={displayedSurveillance} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorReported" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.4} />

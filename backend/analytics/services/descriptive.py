@@ -280,6 +280,24 @@ def descriptive_summary(today=None, *, user=None):
         ).values("barangay_id", "barangay").annotate(cases=Count("id"), affected_heads=Sum("affected_count"))
         .order_by("-affected_heads", "barangay")
     )
+    disease_species_expr = Coalesce(
+        "livestock__livestock_type__name",
+        "batch__livestock_type__name",
+        Value("Unknown"),
+        output_field=CharField(),
+    )
+    disease_by_species_monthly = list(
+        disease.annotate(month=TruncMonth("record_date"), species=disease_species_expr)
+        .values("month", "species")
+        .annotate(cases=Count("id"), affected_heads=Sum("affected_count"))
+        .order_by("month", "species")
+    )
+    disease_by_species = list(
+        disease.annotate(species=disease_species_expr)
+        .values("species")
+        .annotate(cases=Count("id"), affected_heads=Sum("affected_count"))
+        .order_by("-affected_heads", "species")
+    )
 
     mortality = scope_reviewer_queryset(MortalityRecord.objects.all(), user).filter(status=MortalityRecord.MortalityRecordStatus.APPROVED, record_date__range=(start, today))
     mortality_totals = mortality.aggregate(records=Count("id"), deaths=Sum("death_count"))
@@ -298,6 +316,26 @@ def descriptive_summary(today=None, *, user=None):
             barangay=Coalesce("livestock__farmer__barangay__barangay_name", "batch__farmer__barangay__barangay_name"),
         ).values("barangay_id", "barangay").annotate(records=Count("id"), deaths=Sum("death_count"))
         .order_by("-deaths", "barangay")
+    )
+    mortality_species_expr = Coalesce(
+        "livestock__livestock_type__name",
+        "batch__livestock_type__name",
+        "source_disease_case__livestock__livestock_type__name",
+        "source_disease_case__batch__livestock_type__name",
+        Value("Unknown"),
+        output_field=CharField(),
+    )
+    mortality_by_species_monthly = list(
+        mortality.annotate(month=TruncMonth("record_date"), species=mortality_species_expr)
+        .values("month", "species")
+        .annotate(records=Count("id"), deaths=Sum("death_count"))
+        .order_by("month", "species")
+    )
+    mortality_by_species = list(
+        mortality.annotate(species=mortality_species_expr)
+        .values("species")
+        .annotate(records=Count("id"), deaths=Sum("death_count"))
+        .order_by("-deaths", "species")
     )
 
     # Empirical mortality risk indicator (comparing recent 3 months against 12-month baseline)
@@ -745,6 +783,43 @@ def descriptive_summary(today=None, *, user=None):
         case_point["deaths"] = death_point["deaths"]
         case_point["reported_heads"] = case_point.get("affected_heads", 0)
 
+    # Monthly surveillance trend segmented by species
+    species_surveillance_map = {}
+    known_species = {row["species"] for row in population.get("by_species", []) if row.get("species")}
+
+    for row in disease_by_species_monthly:
+        m = row["month"]
+        sp = (row["species"] or "Unknown").strip()
+        known_species.add(sp)
+        key = (m, sp)
+        if key not in species_surveillance_map:
+            species_surveillance_map[key] = {"reported_heads": 0, "cases": 0, "deaths": 0}
+        species_surveillance_map[key]["reported_heads"] += row["affected_heads"] or 0
+        species_surveillance_map[key]["cases"] += row["cases"] or 0
+
+    for row in mortality_by_species_monthly:
+        m = row["month"]
+        sp = (row["species"] or "Unknown").strip()
+        known_species.add(sp)
+        key = (m, sp)
+        if key not in species_surveillance_map:
+            species_surveillance_map[key] = {"reported_heads": 0, "cases": 0, "deaths": 0}
+        species_surveillance_map[key]["deaths"] += row["deaths"] or 0
+
+    surveillance_species_trend = []
+    for sp in sorted(known_species):
+        for m in _months(start):
+            entry = species_surveillance_map.get((m, sp), {"reported_heads": 0, "cases": 0, "deaths": 0})
+            surveillance_species_trend.append({
+                "month": m.isoformat(),
+                "label": f"{calendar.month_abbr[m.month]} {m.year}",
+                "species": sp,
+                "reported": entry["reported_heads"],
+                "reported_heads": entry["reported_heads"],
+                "deaths": entry["deaths"],
+                "cases": entry["cases"],
+            })
+
     # -------------------------------------------------------------------------
     # LIVESTOCK INSPECTION & CLEARANCE ANALYTICS
     # -------------------------------------------------------------------------
@@ -878,14 +953,20 @@ def descriptive_summary(today=None, *, user=None):
                        "farmer_meat_by_barangay": farmer_meat_by_barangay,
                        "monthly_trend_by_species": production_species_trend,
                        "by_barangay": production_by_barangay, "valuation": estimated_values},
-        "disease": {"cases": disease_totals["cases"], "affected_heads": disease_totals["affected_heads"] or 0,
-                    "trend": [{"month": row["month"].isoformat(), "cases": row["cases"], "affected_heads": row["affected_heads"] or 0} for row in disease_monthly],
-                    "by_type": disease_by_type, "by_barangay": disease_by_barangay},
+        "disease": {
+            "cases": disease_totals["cases"],
+            "affected_heads": disease_totals["affected_heads"] or 0,
+            "trend": [{"month": row["month"].isoformat(), "cases": row["cases"], "affected_heads": row["affected_heads"] or 0} for row in disease_monthly],
+            "by_type": disease_by_type,
+            "by_species": disease_by_species,
+            "by_barangay": disease_by_barangay,
+        },
         "mortality": {
             "records": mortality_totals["records"],
             "deaths": mortality_totals["deaths"] or 0,
             "trend": [{"month": row["month"].isoformat(), "deaths": row["deaths"] or 0} for row in mortality_monthly],
             "by_cause": mortality_by_cause,
+            "by_species": mortality_by_species,
             "by_barangay": mortality_by_barangay,
             "risk_indicator": mortality_risk_indicator,
         },
@@ -924,6 +1005,7 @@ def descriptive_summary(today=None, *, user=None):
         },
         "inspection": inspection_analytics,
         "per_barangay_report": per_barangay_report,
+        "surveillance_species_series": surveillance_species_trend,
     }
     return {
         "monthly_dairy_yield_l": milk_this_month["milk_l"] if milk_this_month else 0,
@@ -932,6 +1014,7 @@ def descriptive_summary(today=None, *, user=None):
         "period": f"{today.year}-{today.month:02d}",
         "production_series": milk_monthly,
         "surveillance_series": surveillance,
+        "surveillance_species_series": surveillance_species_trend,
         "vaccination_coverage": coverage,
         "vaccination_totals": {"vaccinated": vaccinated_heads, "total": total_heads},
         "descriptive": descriptive,

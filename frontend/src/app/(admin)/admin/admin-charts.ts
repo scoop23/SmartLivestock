@@ -221,6 +221,14 @@ export interface BiosecuritySurveillanceChartData {
   deaths: number;
 }
 
+export interface SpeciesSurveillanceChartData {
+  month: string;
+  label: string;
+  species: string;
+  reported: number;
+  deaths: number;
+}
+
 export interface SectorComplianceChartData {
   sector: string;
   rate: number;
@@ -242,6 +250,7 @@ export interface AdminAnalyticsMetrics {
   animalsSoldTrend: ApprovedTransferTrendPoint[];
   animalsSoldBySpecies: SpeciesTransferTrendPoint[];
   surveillanceTrends: BiosecuritySurveillanceChartData[];
+  surveillanceTrendsBySpecies: SpeciesSurveillanceChartData[];
   sectorCompliance: SectorComplianceChartData[];
   vaccinationTotals: { vaccinated: number; total: number };
 }
@@ -488,6 +497,17 @@ export function computeAdminAnalytics(summary?: DashboardAnalytics | null): Admi
     animalsSoldBySpecies: summary?.descriptive.ownership_transfers?.monthly_trend_by_species ?? [],
     surveillanceTrends: (summary?.surveillance_series ?? []).map((row) => ({
       month: row.month, label: row.label, reported: row.affected_heads ?? row.reported_heads ?? 0, deaths: row.deaths,
+    })),
+    surveillanceTrendsBySpecies: (
+      (summary as any)?.surveillance_species_series ??
+      (summary as any)?.descriptive?.surveillance_species_series ??
+      []
+    ).map((row: any) => ({
+      month: row.month,
+      label: row.label,
+      species: row.species,
+      reported: row.reported ?? row.reported_heads ?? row.affected_heads ?? 0,
+      deaths: row.deaths ?? 0,
     })),
     sectorCompliance: (summary?.vaccination_coverage ?? []).map((row) => ({ sector: row.barangay, rate: row.coverage_pct })),
     vaccinationTotals: summary?.vaccination_totals ?? { vaccinated: 0, total: 0 },
