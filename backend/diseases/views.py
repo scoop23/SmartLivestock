@@ -363,9 +363,10 @@ def disease_case_list_create(request):
         if request.query_params.get("mine", "").lower() == "true":
             records = records.filter(created_by=user)
     else:
-        # MAO, SIBAT: list all municipal disease cases
+        # MAO, SIBAT: list disease cases
         require_action(user, "disease", "read_all")
-        records = scope_reviewer_queryset(DiseaseCase.objects.all(), request.user)
+        is_field_reviewer = role_name in ("SIBAT", "CBAT")
+        records = scope_reviewer_queryset(DiseaseCase.objects.all(), request.user, assigned_only=is_field_reviewer)
 
     # Apply optional query param filters
     status_param = request.query_params.get("status")
@@ -643,9 +644,10 @@ def mortality_record_list_create(request):
         if request.query_params.get("mine", "").lower() == "true":
             records = records.filter(created_by=user)
     else:
-        # MAO, SIBAT: list all municipal mortality records
+        # MAO, SIBAT: list mortality records
         require_action(user, "mortality", "read_all")
-        records = scope_reviewer_queryset(MortalityRecord.objects.all(), request.user)
+        is_field_reviewer = role_name in ("SIBAT", "CBAT")
+        records = scope_reviewer_queryset(MortalityRecord.objects.all(), request.user, assigned_only=is_field_reviewer)
 
     # Apply optional query param filters
     status_param = request.query_params.get("status")

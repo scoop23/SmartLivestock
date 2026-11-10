@@ -10,7 +10,7 @@ from django.utils import timezone
 from analytics.models import SurveillanceCoverageReport
 from diseases.models import DiseaseCase, MortalityRecord
 from livestock.models import Barangay
-from smartlivestock.workflows import scope_reviewer_queryset
+from smartlivestock.workflows import SIBAT, role_name, scope_reviewer_queryset
 
 
 def domain_model(domain):
@@ -37,16 +37,19 @@ def previous_month_start(today):
     return date(today.year, today.month - 1, 1)
 
 
-def _event_queryset(domain, user, start, end):
+def _event_queryset(domain, user, start, end, *, assigned_only=False):
     model, date_field, _ = domain_model(domain)
-    return scope_reviewer_queryset(model.objects.all(), user).filter(
+    effective_assigned_only = assigned_only or (
+        role_name(user) in (SIBAT, "CBAT") and getattr(user, "assigned_barangay_id", None) is not None
+    )
+    return scope_reviewer_queryset(model.objects.all(), user, assigned_only=effective_assigned_only).filter(
         **{f"{date_field}__gte": start, f"{date_field}__lt": end}
     )
 
 
-def _barangay_event_summary(domain, user, start, end):
+def _barangay_event_summary(domain, user, start, end, *, assigned_only=False):
     _, _, approved_status = domain_model(domain)
-    records = _event_queryset(domain, user, start, end)
+    records = _event_queryset(domain, user, start, end, assigned_only=assigned_only)
     return list(
         records.annotate(
             coverage_barangay_id=Coalesce(
@@ -63,17 +66,20 @@ def _barangay_event_summary(domain, user, start, end):
     )
 
 
-def month_snapshot(domain, user, report_month):
+def month_snapshot(domain, user, report_month, *, assigned_only=False):
     """Return aggregate-only status for a month within the caller's barangay scope."""
     start, end = month_bounds(report_month)
+    effective_assigned_only = assigned_only or (
+        role_name(user) in (SIBAT, "CBAT") and getattr(user, "assigned_barangay_id", None) is not None
+    )
     barangays = list(
-        scope_reviewer_queryset(Barangay.objects.all(), user)
+        scope_reviewer_queryset(Barangay.objects.all(), user, assigned_only=effective_assigned_only)
         .order_by("barangay_name", "pk")
         .values("id", "barangay_name")
     )
     event_summary = {
         row["coverage_barangay_id"]: row
-        for row in _barangay_event_summary(domain, user, start, end)
+        for row in _barangay_event_summary(domain, user, start, end, assigned_only=effective_assigned_only)
     }
     confirmations = SurveillanceCoverageReport.objects.filter(
         domain=domain.upper(), report_month=report_month,

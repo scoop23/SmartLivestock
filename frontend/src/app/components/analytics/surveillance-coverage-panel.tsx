@@ -4,8 +4,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, CheckCircle2, CircleHelp, LayoutGrid, List, MapPin, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/auth-context";
 
 import {
   AlertDialog,
@@ -179,6 +180,9 @@ function CompactSingleBarangayCard({
               <h2 id="single-barangay-title" className="text-sm font-black text-slate-900 tracking-tight truncate">
                 {row.barangay_name}
               </h2>
+              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-800 border border-emerald-200">
+                Assigned Barangay
+              </span>
               <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 border border-slate-200">
                 Monthly Attestation
               </span>
@@ -206,7 +210,7 @@ function CompactSingleBarangayCard({
               )}
             </div>
             <p className="text-[11px] text-slate-500 mt-0.5">
-              Confirm reporting for <span className="font-semibold text-slate-700">{formatReportMonth(reportMonth)}</span>
+              Confirm reporting for <span className="font-semibold text-slate-700">{formatReportMonth(reportMonth)}</span> · Confirmed coverage updates the MAO municipal records.
             </p>
           </div>
         </div>
@@ -395,6 +399,9 @@ function CompactSingleBarangayCard({
 export function SurveillanceCoveragePanel() {
   const queryClient = useQueryClient();
   const pathname = usePathname();
+  const { user } = useAuth();
+  const isSibatContext = pathname === "/sibat-alerts" || user?.role === "SIBAT" || user?.role === "CBAT";
+
   const [domain, setDomain] = useState<CoverageDomain>("DISEASE");
   const [reportMonth, setReportMonth] = useState(previousMonthValue);
   const [filterMode, setFilterMode] = useState<"ALL" | "UNCONFIRMED" | "CONFIRMED">("ALL");
@@ -418,9 +425,9 @@ export function SurveillanceCoveragePanel() {
         ...input,
       });
     },
-    onSuccess: async (_data, variables) => {
+    onSuccess: async () => {
       await queryClient.invalidateQueries({
-        queryKey: ["surveillance-coverage", variables.domain, variables.report_month],
+        queryKey: ["surveillance-coverage"],
       });
       toast.success("Monthly reporting coverage confirmed.");
     },
@@ -446,7 +453,24 @@ export function SurveillanceCoveragePanel() {
     return `/disease-mortality?tab=${recordTab}&barangay=${encodeURIComponent(barangayName)}&month=${reportMonth}&status=UNAPPROVED`;
   };
 
-  const rows = coverageQuery.data?.barangays ?? [];
+  const rawRows = coverageQuery.data?.barangays ?? [];
+  const rows = useMemo(() => {
+    if (!isSibatContext) return rawRows;
+
+    const assignedName = user?.assignedBarangayName || user?.barangay;
+    const assignedId = user?.assignedBarangayId;
+
+    if (assignedName || assignedId) {
+      const filtered = rawRows.filter((r) => {
+        if (assignedId && r.barangay_id === assignedId) return true;
+        if (assignedName && r.barangay_name.trim().toLowerCase() === assignedName.trim().toLowerCase()) return true;
+        return false;
+      });
+      if (filtered.length > 0) return filtered;
+    }
+
+    return rawRows;
+  }, [rawRows, isSibatContext, user?.assignedBarangayName, user?.assignedBarangayId, user?.barangay]);
   const isSingleBarangay = rows.length === 1;
   const singleRow = isSingleBarangay ? rows[0] : null;
   const confirmedCount = rows.filter((r) => r.state === "CONFIRMED").length;

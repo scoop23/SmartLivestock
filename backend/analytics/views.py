@@ -17,7 +17,7 @@ from livestock.permission import isMAO, isSibat, isFarmer
 from .services.descriptive import descriptive_summary
 from .services.overview import overview_summary
 from .services.population import official_inventory
-from smartlivestock.workflows import has_all_barangay_access, role_name, scope_reviewer_queryset
+from smartlivestock.workflows import SIBAT, has_all_barangay_access, role_name, scope_reviewer_queryset
 from .services.reports import build_report
 from .services.report_exports import excel_report, pdf_report
 from .services.review_workload import review_workload_summary
@@ -217,10 +217,12 @@ def surveillance_coverage(request):
     if coverage_status not in valid_statuses:
         raise ValidationError({"status": "Choose NO_REPORTS_RECEIVED or REPORTS_COMPLETE."})
 
+    is_sibat = role_name(request.user) in (SIBAT, "CBAT")
+    effective_assigned_only = is_sibat and getattr(request.user, "assigned_barangay_id", None) is not None
     barangay = get_object_or_404(
-        scope_reviewer_queryset(Barangay.objects.all(), request.user), pk=barangay_id
+        scope_reviewer_queryset(Barangay.objects.all(), request.user, assigned_only=effective_assigned_only), pk=barangay_id
     )
-    snapshot = surveillance_month_snapshot(domain, request.user, report_month)
+    snapshot = surveillance_month_snapshot(domain, request.user, report_month, assigned_only=effective_assigned_only)
     selected = next((row for row in snapshot["barangays"] if row["barangay_id"] == barangay.pk), None)
     if selected is None:
         raise ValidationError({"barangay_id": "This barangay is outside your authorized coverage."})

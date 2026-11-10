@@ -149,10 +149,20 @@ function SibatAlertsContent() {
   };
 
   const isCbat = user?.role === "CBAT";
-  const needsReviewCount = records.filter(
+  const userBarangay = (user?.assignedBarangayName || user?.barangay || "").trim().toLowerCase();
+
+  const scopedRecords = useMemo(() => {
+    if (!userBarangay) return records;
+    return records.filter((r) => {
+      if (!r.barangayName) return true;
+      return r.barangayName.trim().toLowerCase() === userBarangay;
+    });
+  }, [records, userBarangay]);
+
+  const needsReviewCount = scopedRecords.filter(
     (record) => (record.status || "").toUpperCase() === "PENDING"
   ).length;
-  const returnedCount = records.filter((record) => {
+  const returnedCount = scopedRecords.filter((record) => {
     const s = (record.status || "").toUpperCase();
     return (
       s === "SUBJECT_TO_REVISION" ||
@@ -161,10 +171,10 @@ function SibatAlertsContent() {
       s === "REJECTED"
     );
   }).length;
-  const forwardedCount = records.filter(
+  const forwardedCount = scopedRecords.filter(
     (record) => (record.status || "").toUpperCase() === "VERIFIED"
   ).length;
-  const approvedCount = records.filter(
+  const approvedCount = scopedRecords.filter(
     (record) => (record.status || "").toUpperCase() === "APPROVED"
   ).length;
 
@@ -277,7 +287,7 @@ function SibatAlertsContent() {
   const filtered = useMemo(() => {
     const cleanQuery = query.toLowerCase().trim();
 
-    return records.filter((d) => {
+    return scopedRecords.filter((d) => {
       if (typeFilter !== "ALL" && d.reportType !== typeFilter) {
         return false;
       }
@@ -317,7 +327,7 @@ function SibatAlertsContent() {
 
       return s === "APPROVED";
     });
-  }, [records, query, status, typeFilter, reportMonthFilter]);
+  }, [scopedRecords, query, status, typeFilter, reportMonthFilter]);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -349,10 +359,7 @@ function SibatAlertsContent() {
     return filtered.slice(start, start + pageSize);
   }, [filtered, safeCurrentPage, pageSize]);
 
-  const assignedScopeLabel =
-    user?.accessScope === "ALL_BARANGAYS"
-      ? "All Barangays"
-      : user?.assignedBarangayName || "your assigned barangays";
+  const assignedScopeLabel = user?.assignedBarangayName || user?.barangay || "your assigned barangay";
 
   useEffect(() => {
     if (!highlightedRecordId) return;
@@ -389,7 +396,7 @@ function SibatAlertsContent() {
         <div className="flex items-center gap-2.5 rounded-xl border border-sky-200 bg-sky-50 px-3.5 py-2.5 text-xs font-semibold text-sky-950 sm:px-4">
           <MapPin className="size-4.5 text-sky-700 shrink-0" />
           <span>
-            {user?.accessScope === "ALL_BARANGAYS" ? "Showing reports from all authorized barangays:" : "Showing only reports from your assigned barangay:"}{" "}
+            Showing only reports from your assigned barangay:{" "}
             <strong className="font-black text-sky-900">{assignedScopeLabel}</strong>.
           </span>
         </div>
