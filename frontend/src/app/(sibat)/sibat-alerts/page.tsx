@@ -373,7 +373,7 @@ function SibatAlertsContent() {
   }, [highlightedRecordId, notificationKey, filtered]);
 
   return (
-    <div className="min-h-screen w-full min-w-0 overflow-x-clip pb-16">
+    <div className="min-h-screen w-full min-w-0 overflow-x-clip pb-16 animate-in fade-in duration-300 motion-reduce:animate-none">
       {/* ── PageHeader ── */}
       <PageHeader
         title="Health Reports"
@@ -393,18 +393,24 @@ function SibatAlertsContent() {
 
       <div className="w-full min-w-0 px-3 py-4 space-y-4 sm:px-6 sm:py-6 sm:space-y-6 lg:px-8">
         {/* ── Scope Strip ── */}
-        <div className="flex items-center gap-2.5 rounded-xl border border-sky-200 bg-sky-50 px-3.5 py-2.5 text-xs font-semibold text-sky-950 sm:px-4">
-          <MapPin className="size-4.5 text-sky-700 shrink-0" />
+        <div className="flex items-center gap-2.5 rounded-xl border border-sky-200 bg-sky-50 px-3.5 py-2.5 text-xs font-semibold text-sky-950 sm:px-4 shadow-2xs animate-in fade-in slide-in-from-top-2 duration-400 ease-out fill-mode-both motion-reduce:animate-none">
+          <span className="relative flex size-2 shrink-0">
+            <span className="absolute inline-flex size-full animate-ping rounded-full bg-sky-400 opacity-75 motion-reduce:animate-none" />
+            <span className="relative inline-flex size-2 rounded-full bg-sky-600" />
+          </span>
+          <MapPin className="size-4 text-sky-700 shrink-0" />
           <span>
             Showing only reports from your assigned barangay:{" "}
             <strong className="font-black text-sky-900">{assignedScopeLabel}</strong>.
           </span>
         </div>
 
-        <SurveillanceCoveragePanel />
+        <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-75 fill-mode-both motion-reduce:animate-none">
+          <SurveillanceCoveragePanel />
+        </div>
 
         {/* ── Spatial Surveillance & Haversine Triage Shortcut ── */}
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-indigo-200 bg-indigo-50/70 p-3 sm:px-4 text-xs text-indigo-950 shadow-2xs">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-indigo-200 bg-indigo-50/70 p-3 sm:px-4 text-xs text-indigo-950 shadow-2xs transition-all duration-300 hover:shadow-sm hover:border-indigo-300 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100 fill-mode-both motion-reduce:animate-none">
           <div className="flex min-w-0 flex-1 items-center gap-2.5">
             <Radio className="size-4 text-indigo-600 animate-pulse shrink-0" />
             <div>
@@ -421,65 +427,85 @@ function SibatAlertsContent() {
             variant="outline"
             size="sm"
             onClick={() => router.push("/sibat-monitoring?layer=disease")}
-            className="border-indigo-300 bg-white text-indigo-800 hover:bg-indigo-100 font-bold text-xs h-8 cursor-pointer shrink-0"
+            className="border-indigo-300 bg-white text-indigo-800 hover:bg-indigo-600 hover:text-white font-bold text-xs h-8 cursor-pointer shrink-0 transition-all duration-200 shadow-2xs active:scale-95 group/btn"
           >
-            <Compass className="size-3.5 mr-1 text-indigo-600" />
+            <Compass className="size-3.5 mr-1 text-indigo-600 group-hover/btn:text-white group-hover/btn:rotate-45 transition-transform duration-300" />
             Open Disease GIS Map
           </Button>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-4 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-150 fill-mode-both motion-reduce:animate-none">
           <div
-            className="flex min-w-0 items-center gap-2 rounded-xl border border-rose-200 bg-gradient-to-r from-rose-50 to-white p-2.5 sm:gap-3 sm:p-4 shadow-2xs"
+            onClick={() => setStatus("Needs Review")}
+            className={`flex min-w-0 items-center gap-2 rounded-xl border p-2.5 sm:gap-3 sm:p-4 shadow-2xs transition-all duration-300 hover:-translate-y-1 hover:shadow-md cursor-pointer select-none group active:scale-98 ${
+              status === "Needs Review"
+                ? "border-rose-300 bg-gradient-to-r from-rose-100/90 to-white ring-2 ring-rose-400/50 shadow-xs"
+                : "border-rose-200 bg-gradient-to-r from-rose-50 to-white hover:border-rose-300"
+            }`}
           >
-            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-rose-100 text-rose-600 sm:size-12">
-              <Clock className="size-6" />
+            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-rose-100 text-rose-600 sm:size-12 group-hover:scale-110 transition-transform duration-200 shadow-2xs">
+              <Clock className="size-5 sm:size-6" />
             </span>
             <div className="min-w-0">
               <p className="text-[11px] font-bold text-rose-800 sm:text-xs">Needs Review</p>
-              <p className="mt-0.5 text-2xl font-black leading-none text-slate-900">
+              <p className="mt-0.5 text-2xl font-black leading-none text-slate-900 tabular-nums">
                 {isLoading ? "—" : needsReviewCount}
               </p>
               <p className="mt-1 text-[10px] text-slate-500 sm:text-xs">Awaiting initial review</p>
             </div>
           </div>
           <div
-            className="flex min-w-0 items-center gap-2 rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-white p-2.5 sm:gap-3 sm:p-4 shadow-2xs"
+            onClick={() => setStatus("Returned for Correction")}
+            className={`flex min-w-0 items-center gap-2 rounded-xl border p-2.5 sm:gap-3 sm:p-4 shadow-2xs transition-all duration-300 hover:-translate-y-1 hover:shadow-md cursor-pointer select-none group active:scale-98 ${
+              status === "Returned for Correction"
+                ? "border-amber-300 bg-gradient-to-r from-amber-100/90 to-white ring-2 ring-amber-400/50 shadow-xs"
+                : "border-amber-200 bg-gradient-to-r from-amber-50 to-white hover:border-amber-300"
+            }`}
           >
-            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-amber-100 text-amber-700 sm:size-12">
-              <RotateCcw className="size-6" />
+            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-amber-100 text-amber-700 sm:size-12 group-hover:scale-110 transition-transform duration-200 shadow-2xs">
+              <RotateCcw className="size-5 sm:size-6" />
             </span>
             <div className="min-w-0">
               <p className="text-[11px] font-bold text-amber-800 sm:text-xs">Returned for Correction</p>
-              <p className="mt-0.5 text-2xl font-black leading-none text-slate-900">
+              <p className="mt-0.5 text-2xl font-black leading-none text-slate-900 tabular-nums">
                 {isLoading ? "—" : returnedCount}
               </p>
               <p className="mt-1 text-[10px] text-slate-500 sm:text-xs">Sent back to farmer</p>
             </div>
           </div>
           <div
-            className="flex min-w-0 items-center gap-2 rounded-xl border border-sky-200 bg-gradient-to-r from-sky-50 to-white p-2.5 sm:gap-3 sm:p-4 shadow-2xs"
+            onClick={() => setStatus("Forwarded to MAO")}
+            className={`flex min-w-0 items-center gap-2 rounded-xl border p-2.5 sm:gap-3 sm:p-4 shadow-2xs transition-all duration-300 hover:-translate-y-1 hover:shadow-md cursor-pointer select-none group active:scale-98 ${
+              status === "Forwarded to MAO"
+                ? "border-sky-300 bg-gradient-to-r from-sky-100/90 to-white ring-2 ring-sky-400/50 shadow-xs"
+                : "border-sky-200 bg-gradient-to-r from-sky-50 to-white hover:border-sky-300"
+            }`}
           >
-            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-sky-100 text-sky-600 sm:size-12">
-              <ShieldCheck className="size-6" />
+            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-sky-100 text-sky-600 sm:size-12 group-hover:scale-110 transition-transform duration-200 shadow-2xs">
+              <ShieldCheck className="size-5 sm:size-6" />
             </span>
             <div className="min-w-0">
               <p className="text-[11px] font-bold text-sky-800 sm:text-xs">Forwarded to MAO</p>
-              <p className="mt-0.5 text-2xl font-black leading-none text-slate-900">
+              <p className="mt-0.5 text-2xl font-black leading-none text-slate-900 tabular-nums">
                 {isLoading ? "—" : forwardedCount}
               </p>
               <p className="mt-1 text-[10px] text-slate-500 sm:text-xs">Sent for further review</p>
             </div>
           </div>
           <div
-            className="flex min-w-0 items-center gap-2 rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-white p-2.5 sm:gap-3 sm:p-4 shadow-2xs"
+            onClick={() => setStatus("MAO Approved")}
+            className={`flex min-w-0 items-center gap-2 rounded-xl border p-2.5 sm:gap-3 sm:p-4 shadow-2xs transition-all duration-300 hover:-translate-y-1 hover:shadow-md cursor-pointer select-none group active:scale-98 ${
+              status === "MAO Approved"
+                ? "border-emerald-300 bg-gradient-to-r from-emerald-100/90 to-white ring-2 ring-emerald-400/50 shadow-xs"
+                : "border-emerald-200 bg-gradient-to-r from-emerald-50 to-white hover:border-emerald-300"
+            }`}
           >
-            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-600 sm:size-12">
-              <CheckCircle2 className="size-6" />
+            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-600 sm:size-12 group-hover:scale-110 transition-transform duration-200 shadow-2xs">
+              <CheckCircle2 className="size-5 sm:size-6" />
             </span>
             <div className="min-w-0">
               <p className="text-[11px] font-bold text-emerald-800 sm:text-xs">MAO Approved</p>
-              <p className="mt-0.5 text-2xl font-black leading-none text-slate-900">
+              <p className="mt-0.5 text-2xl font-black leading-none text-slate-900 tabular-nums">
                 {isLoading ? "—" : approvedCount}
               </p>
               <p className="mt-1 text-[10px] text-slate-500 sm:text-xs">Official records</p>
@@ -488,7 +514,7 @@ function SibatAlertsContent() {
         </div>
 
         {/* ── Filter Card ── */}
-        <Card className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
+        <Card className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs animate-in fade-in slide-in-from-bottom-2 duration-500 delay-200 fill-mode-both motion-reduce:animate-none">
           <CardContent className="flex flex-col items-stretch gap-2.5 p-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:p-3.5">
             {/* Search Box */}
             <div className="relative flex-1">
@@ -498,7 +524,7 @@ function SibatAlertsContent() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search by farmer, barangay, or report ID..."
-                className="h-10 rounded-lg border-slate-200 bg-white pl-10 pr-9 text-sm font-medium focus-visible:ring-[#1A365D]/30"
+                className="h-10 rounded-lg border-slate-200 bg-white pl-10 pr-9 text-sm font-medium focus-visible:ring-[#1A365D]/30 transition-all duration-200"
               />
               {query && (
                 <Button
@@ -507,7 +533,7 @@ function SibatAlertsContent() {
                   size="icon"
                   onClick={() => setQuery("")}
                   aria-label="Clear search"
-                  className="absolute right-1 top-1/2 size-9 -translate-y-1/2 rounded-lg text-slate-500 hover:bg-slate-200/70 hover:text-slate-900"
+                  className="absolute right-1 top-1/2 size-9 -translate-y-1/2 rounded-lg text-slate-500 hover:bg-slate-200/70 hover:text-slate-900 transition-colors"
                 >
                   <X className="size-4" />
                 </Button>
@@ -519,7 +545,7 @@ function SibatAlertsContent() {
               <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as "ALL" | "DISEASE" | "MORTALITY")}>
                 <SelectTrigger
                   aria-label="Filter report category"
-                  className="h-10 w-full rounded-lg border-slate-200 bg-white text-xs font-bold text-slate-800 focus-visible:ring-[#1A365D]/30"
+                  className="h-10 w-full rounded-lg border-slate-200 bg-white text-xs font-bold text-slate-800 focus-visible:ring-[#1A365D]/30 transition-all"
                 >
                   <SelectValue />
                 </SelectTrigger>
@@ -536,7 +562,7 @@ function SibatAlertsContent() {
               <Select value={status} onValueChange={(value) => setStatus(value as StatusFilterOption)}>
                 <SelectTrigger
                   aria-label="Filter disease status"
-                  className="h-10 w-full rounded-lg border-slate-200 bg-white text-xs font-bold text-slate-800 focus-visible:ring-[#1A365D]/30"
+                  className="h-10 w-full rounded-lg border-slate-200 bg-white text-xs font-bold text-slate-800 focus-visible:ring-[#1A365D]/30 transition-all"
                 >
                   <SelectValue />
                 </SelectTrigger>
@@ -557,7 +583,7 @@ function SibatAlertsContent() {
                 aria-label="Filter reports by month"
                 value={reportMonthFilter}
                 onChange={(event) => handleReportMonthFilterChange(event.target.value)}
-                className="h-10 w-full rounded-lg border-slate-200 bg-white text-xs font-bold text-slate-800"
+                className="h-10 w-full rounded-lg border-slate-200 bg-white text-xs font-bold text-slate-800 transition-all"
               />
             </div>
 
@@ -580,9 +606,9 @@ function SibatAlertsContent() {
                   url.searchParams.delete("month");
                   router.replace(`${pathname}${url.search}${url.hash}`, { scroll: false });
                 }}
-                className="h-10 rounded-lg text-xs font-bold text-slate-600 gap-1.5 shrink-0"
+                className="h-10 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-100 hover:text-slate-900 gap-1.5 shrink-0 transition-all duration-200 active:scale-95 cursor-pointer group"
               >
-                <RotateCcw className="size-3.5" />
+                <RotateCcw className="size-3.5 group-hover:-rotate-180 transition-transform duration-500" />
                 <span>Reset</span>
               </Button>
             )}
@@ -631,7 +657,7 @@ function SibatAlertsContent() {
           </div>
         ) : (
           <div className="space-y-2">
-            {paginatedRecords.map((d) => {
+            {paginatedRecords.map((d, index) => {
               const isDisease = d.reportType === "DISEASE";
               const isFmdSuspected = d.inspection?.fmdAssessment === "SUSPECTED";
               const hasPossibleFmd = isDisease && hasPossibleFmdSigns([
@@ -658,14 +684,19 @@ function SibatAlertsContent() {
                 <Card
                   key={d.id}
                   id={`sibat-alert-record-${d.id}`}
-                  className={`overflow-hidden rounded-xl border shadow-2xs transition-all ${d.id === highlightedRecordId ? "border-emerald-500 bg-emerald-50/70 ring-2 ring-emerald-300" : "border-slate-200 bg-white"}`}
+                  style={{ animationDelay: `${Math.min(index * 50, 350)}ms` }}
+                  className={`group overflow-hidden rounded-xl border shadow-2xs transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md animate-in fade-in slide-in-from-bottom-2 fill-mode-both motion-reduce:animate-none ${
+                    d.id === highlightedRecordId
+                      ? "border-emerald-500 bg-emerald-50/70 ring-2 ring-emerald-400 shadow-md"
+                      : "border-slate-200 bg-white hover:border-slate-300"
+                  }`}
                 >
                   <CardContent className="grid gap-3 p-3 sm:grid-cols-[minmax(0,1.15fr)_minmax(220px,0.95fr)_auto] sm:items-center sm:p-3.5">
                       {/* Left: Report Marker + Info */}
                       <div className="flex items-start gap-3.5 flex-1 min-w-0">
                         {/* report-marker */}
                         <div
-                          className={`grid size-11 shrink-0 place-items-center rounded-full border ${
+                          className={`grid size-11 shrink-0 place-items-center rounded-full border transition-transform duration-200 group-hover:scale-105 group-hover:shadow-xs ${
                             isDisease
                               ? "bg-rose-50 text-rose-700 border-rose-200"
                               : "bg-amber-50 text-amber-700 border-amber-200"
@@ -738,7 +769,7 @@ function SibatAlertsContent() {
                         </div>
                       </div>
 
-                      <div className="min-h-16 rounded-lg bg-slate-50 px-3 py-2.5 text-xs text-slate-700">
+                      <div className="min-h-16 rounded-lg bg-slate-50 px-3 py-2.5 text-xs text-slate-700 transition-colors duration-200 group-hover:bg-slate-100/80">
                         <p className="mb-1 text-[11px] font-semibold text-slate-500">Reported signs</p>
                         <p className="line-clamp-2 leading-relaxed">{reportedSigns}</p>
                       </div>
@@ -747,10 +778,10 @@ function SibatAlertsContent() {
                         <Button
                           variant="secondary"
                           onClick={() => handleOpenInspection(d)}
-                          className="h-10 w-full gap-1.5 rounded-lg bg-sky-50 px-4 text-xs font-bold text-sky-700 hover:bg-sky-100 sm:w-auto"
+                          className="group/btn h-10 w-full gap-1.5 rounded-lg bg-sky-50 px-4 text-xs font-bold text-sky-700 transition-all duration-200 hover:bg-sky-600 hover:text-white active:scale-95 shadow-2xs sm:w-auto cursor-pointer"
                         >
                           <span>View Report</span>
-                          <ArrowRight className="size-3.5" />
+                          <ArrowRight className="size-3.5 transition-transform duration-200 group-hover/btn:translate-x-1" />
                         </Button>
                       </div>
                   </CardContent>
@@ -779,9 +810,9 @@ function SibatAlertsContent() {
 
             {/* ── Empty State ── */}
             {filtered.length === 0 && (
-              <Card className="rounded-xl border-dashed border-slate-300 bg-white py-14 text-center">
+              <Card className="rounded-xl border-dashed border-slate-300 bg-white py-14 text-center animate-in fade-in zoom-in-95 duration-300 motion-reduce:animate-none">
                 <CardContent className="flex flex-col items-center justify-center space-y-3 px-6">
-                  <div className="grid size-12 place-items-center rounded-full border border-rose-200 bg-rose-50 text-rose-600 shadow-2xs">
+                  <div className="grid size-12 place-items-center rounded-full border border-rose-200 bg-rose-50 text-rose-600 shadow-2xs transition-transform duration-300 hover:scale-110">
                     <Stethoscope className="size-6" />
                   </div>
                   <h3 className="text-base font-bold text-slate-900">
@@ -800,9 +831,9 @@ function SibatAlertsContent() {
                         setTypeFilter("ALL");
                         setCurrentPage(1);
                       }}
-                      className="rounded-xl text-xs font-bold gap-1.5 mt-1"
+                      className="rounded-xl text-xs font-bold gap-1.5 mt-1 transition-all duration-200 hover:bg-slate-100 active:scale-95 group/reset"
                     >
-                      <RotateCcw className="size-3.5" />
+                      <RotateCcw className="size-3.5 transition-transform duration-500 group-hover/reset:-rotate-180" />
                       <span>Reset Filters</span>
                     </Button>
                   )}
