@@ -16,6 +16,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import api from "@/lib/axios";
+import { executeOrQueueOffline } from "@/lib/offline-sync-queue";
 import { localCalendarDateToday } from "@/lib/livestock-age";
 import { useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
 import {
@@ -593,8 +594,17 @@ export default function ProductionDashboardView({
   // Mutations
   const submitMutation = useMutation({
     mutationFn: async (payload: ProductionPayload) => {
-      const res = await api.post("production/records/", payload);
-      return res.data;
+      const typeLabel = (payload as any).production_type || (payload as any).product_type || "Production";
+      const res = await executeOrQueueOffline<{ id?: string | number | null }>({
+        endpoint: "production/records/",
+        method: "POST",
+        data: payload as unknown as Record<string, unknown>,
+        title: `Logged ${typeLabel} (${payload.quantity} ${payload.unit || ""})`,
+        role: "FARMER",
+        category: "PRODUCTION",
+        fallbackResult: { id: Date.now(), ...payload },
+      });
+      return res;
     },
     onSuccess: (createdRecord) => {
       setSubmittedProductionId(createdRecord?.id ?? null);

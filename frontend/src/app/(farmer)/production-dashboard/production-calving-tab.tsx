@@ -6,6 +6,7 @@ import { FarmerRecordsTutorial } from "@/app/components/tutorials/farmer-page-tu
 import { Button } from "@/components/ui/button";
 import { KpiCard } from "@/components/ui/kpi-card";
 import api from "@/lib/axios";
+import { executeOrQueueOffline } from "@/lib/offline-sync-queue";
 import { useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
 import { cowHead } from "@lucide/lab";
 import { HeartPulse,Icon,Plus,Scale,Sparkles } from "lucide-react";
@@ -156,8 +157,17 @@ export default function ProductionCalvingTab({
 
   const recordCalvingMutation = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
-      const res = await api.post("production/calving/", payload);
-      return res.data;
+      const calfTag = payload.calf_tag || payload.tag_number || "Newborn";
+      const res = await executeOrQueueOffline<Record<string, unknown>>({
+        endpoint: "production/calving/",
+        method: "POST",
+        data: payload,
+        title: `Calving Record: ${calfTag}`,
+        role: "FARMER",
+        category: "CALVING",
+        fallbackResult: { id: Date.now(), ...payload },
+      });
+      return res;
     },
     onSuccess: () => {
       toast.success(`${terms.eventName} & birth record logged successfully!`);

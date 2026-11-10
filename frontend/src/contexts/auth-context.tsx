@@ -51,10 +51,17 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const PROFILE_STORAGE_KEY = "smartlivestock_user_profile";
+
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(() => {
     if (typeof window !== "undefined") {
       try {
+        const cached = localStorage.getItem(PROFILE_STORAGE_KEY);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && typeof parsed === "object") return parsed;
+        }
         const token = localStorage.getItem("access");
         if (token) {
           const decoded = jwtDecode<DecodedToken>(token);
@@ -117,7 +124,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const latestToken =
         typeof window !== "undefined" ? localStorage.getItem("access") : token;
 
-      setUser({
+      const userPayload: User = {
         id: data.id ?? null,
         username: data.username || null,
         firstName: data.first_name || null,
@@ -133,7 +140,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
         farmerId: data.farmer_id ?? null,
         rsbsaNumber: data.rsbsa_number ?? null,
         isNlpDeveloper: data.is_nlp_developer === true,
-      });
+      };
+
+      setUser(userPayload);
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(userPayload));
+        } catch {
+          // ignore storage quota error
+        }
+      }
       setAccessToken(latestToken);
     } catch (error: unknown) {
       if (httpError(error)?.response?.status === 401) {
@@ -143,10 +159,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (typeof window !== "undefined") {
           localStorage.removeItem("access");
           localStorage.removeItem("refresh");
+          localStorage.removeItem(PROFILE_STORAGE_KEY);
         }
       } else {
-        // Transient network error or temporary server error: maintain session from decoded JWT
+        // Transient network error or offline mode:
+        // Prioritize restoring the full cached profile from localStorage
         try {
+          const cached = typeof window !== "undefined" ? localStorage.getItem(PROFILE_STORAGE_KEY) : null;
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed && typeof parsed === "object") {
+              setUser(parsed);
+              return;
+            }
+          }
           const currentToken =
             typeof window !== "undefined" ? localStorage.getItem("access") : token;
           if (currentToken) {
@@ -181,6 +207,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (typeof window !== "undefined") {
       localStorage.removeItem("access");
       localStorage.removeItem("refresh");
+      localStorage.removeItem(PROFILE_STORAGE_KEY);
       window.location.replace("/login");
     }
     setUser(null);

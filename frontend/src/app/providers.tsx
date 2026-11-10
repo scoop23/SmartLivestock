@@ -2,6 +2,7 @@
 
 import { IncomingNotificationToastListener } from "@/app/components/incoming-notification-toast-listener";
 import { PrivacyConsentModal } from "@/app/components/privacy-consent-modal";
+import { OfflineSyncBar } from "@/components/offline-sync-bar";
 import { PwaInstaller } from "@/components/pwa-installer";
 import { Toaster } from "@/components/ui/sonner";
 import { AccessibilitySettingsProvider } from "@/contexts/accessibility-settings-context";
@@ -39,6 +40,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         <AuthProvider>
           <IncomingNotificationToastListener />
           <PwaInstaller />
+          <OfflineSyncBar />
           <Toaster
             id="incoming-notifications"
             position="top-right"

@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import api from "@/lib/axios";
+import { executeOrQueueOffline } from "@/lib/offline-sync-queue";
 import { formatCalendarDate } from "@/lib/livestock-age";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -155,8 +156,16 @@ export default function ProductionFeedingTab({
   // 4. Create Feeding Record Mutation
   const createMutation = useMutation({
     mutationFn: async (payload: FeedingPayload) => {
-      const res = await api.post("production/feedings/", payload);
-      return res.data;
+      const res = await executeOrQueueOffline<FeedingRecordItem>({
+        endpoint: "production/feedings/",
+        method: "POST",
+        data: payload as unknown as Record<string, unknown>,
+        title: `Feeding: ${payload.quantity_kg}kg of ${payload.feed_name || payload.feed_type || "feed"}`,
+        role: "FARMER",
+        category: "PRODUCTION",
+        fallbackResult: { id: Date.now(), ...payload } as unknown as FeedingRecordItem,
+      });
+      return res;
     },
     onSuccess: (data: FeedingRecordItem) => {
       toast.success(`Feeding recorded: ${data.quantity_kg} kg of ${data.feed_name || FEED_TYPE_LABELS[data.feed_type] || "feed"}`);

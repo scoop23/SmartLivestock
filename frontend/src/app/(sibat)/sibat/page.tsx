@@ -470,7 +470,7 @@ function SibatPortalContent() {
   const [clock] = useState(() => new Date());
   const currentHour = Number(new Intl.DateTimeFormat("en-US", { hour: "numeric", hourCycle: "h23", timeZone: "Asia/Manila" }).format(clock));
   const timeGreeting = currentHour < 12 ? "Good morning" : currentHour < 18 ? "Good afternoon" : "Good evening";
-  const officerName = user?.firstName || user?.username || "Juan";
+  const officerName = user?.firstName || user?.username?.split("@")[0] || "Field Officer";
 
   const failedDataSources = [
     ...failedHealthSources,

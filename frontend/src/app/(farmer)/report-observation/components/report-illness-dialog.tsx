@@ -19,6 +19,7 @@ SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import api from "@/lib/axios";
+import { executeOrQueueOffline } from "@/lib/offline-sync-queue";
 import { localCalendarDateToday } from "@/lib/livestock-age";
 import { saveAttachedPhoto } from "@/lib/photo-storage";
 import { cowHead } from "@lucide/lab";
@@ -391,19 +392,34 @@ function ReportIllnessDialogContent({
         if (description.trim()) requestData.append("description", description.trim());
         if (photoFile) requestData.append("photo", photoFile);
 
+        const reportTitle = `${reportType === "DISEASE" ? "Illness" : "Mortality"} Report: ${mainName}`;
+        const syntheticId = Date.now();
+
         let response;
         if (isEditMode && existingReport) {
           const endpointId = existingReport.rawItem?.id ?? existingReport.id.replace(/^DIS-|^MOR-/, "");
           const endpoint = reportType === "DISEASE"
             ? `diseases/cases/${endpointId}/`
             : `diseases/mortality/${endpointId}/`;
-          response = await api.patch(endpoint, requestData, {
-            headers: { "Content-Type": "multipart/form-data" },
+          response = await executeOrQueueOffline<{ data?: { id?: number | string; photo_url?: string; photo?: string } }>({
+            endpoint,
+            method: "PATCH",
+            data: requestData,
+            title: `Updated ${reportTitle}`,
+            role: "FARMER",
+            category: "OBSERVATION",
+            fallbackResult: { data: { id: endpointId, photo_url: photoDataUrl } },
           });
         } else {
           const endpoint = reportType === "DISEASE" ? "diseases/cases/" : "diseases/mortality/";
-          response = await api.post(endpoint, requestData, {
-            headers: { "Content-Type": "multipart/form-data" },
+          response = await executeOrQueueOffline<{ data?: { id?: number | string; photo_url?: string; photo?: string } }>({
+            endpoint,
+            method: "POST",
+            data: requestData,
+            title: reportTitle,
+            role: "FARMER",
+            category: "OBSERVATION",
+            fallbackResult: { data: { id: syntheticId, photo_url: photoDataUrl } },
           });
         }
         submittedCount += reportType === "MORTALITY" ? inventoryGroup.length : 1;

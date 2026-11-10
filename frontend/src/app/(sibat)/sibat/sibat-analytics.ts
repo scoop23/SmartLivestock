@@ -15,6 +15,7 @@ import {
 } from "@/app/(farmer)/production-dashboard/production-analytics";
 import type { BiosecurityAction,SeverityLevel,SibatInspectionData,SibatStatus,SibatValidationRecord } from "@/app/(sibat)/sibat-validation/sibat-inspection-dialog";
 import api from "@/lib/axios";
+import { executeOrQueueOffline } from "@/lib/offline-sync-queue";
 import { getAttachedPhoto } from "@/lib/photo-storage";
 import { useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
 
@@ -924,8 +925,20 @@ export function useReviewSubmission() {
       payload.append("status", status);
       payload.append("remarks", remarks);
       if (inspectionPhoto && item.sourceType === "INVENTORY" && status === "VERIFIED") payload.append("inspection_photo", inspectionPhoto);
-      const response = await api.post(endpoint, payload);
-      return response.data;
+
+      const animalLabel = item.tagNumber || item.detailsTitle || `Record #${item.rawId}`;
+      const title = `Verified ${animalLabel} (${status})`;
+
+      const response = await executeOrQueueOffline({
+        endpoint,
+        method: "POST",
+        data: payload,
+        title,
+        role: "CBAT",
+        category: "VERIFICATION",
+        fallbackResult: { success: true, status, offline: true, rawId: item.rawId },
+      });
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sibat-calving-records"] });
