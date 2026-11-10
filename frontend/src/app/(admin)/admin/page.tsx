@@ -11,6 +11,7 @@ import { ValidationLoadingScreen, useSeamlessLoadingState } from '@/components/v
 import { cowHead } from '@lucide/lab';
 import {
   AlertTriangle,
+  Beef,
   Building,
   CheckSquare,
   ChevronRight,
@@ -18,18 +19,23 @@ import {
   Clock,
   Database,
   Download,
+  ExternalLink,
   FileBarChart,
   FileSpreadsheet,
   FileText,
   Icon,
   LayoutDashboard,
+  Loader2,
   Map,
   ShieldCheck,
   Scale,
   TrendingUp,
+  Truck,
   Users
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import { downloadOfficialReport, type ReportType } from '../reports/report-api';
 import { useAdminDashboardAnalytics } from './admin-charts';
 import { AdminChartsView } from './admin-charts-view';
 import { AdminOperationsView } from './admin-operations-view';
@@ -86,12 +92,57 @@ export default function AdminDashboard() {
   }
 
   // --- Handlers ---
-  const handleExportExcel = (reportType: string) => {
-    alert(`Generating ${reportType} report in Excel format...\nThis will download the report for Department of Agriculture submission.`);
-  };
+  const [downloadingReport, setDownloadingReport] = useState<{ type: ReportType; format: "xlsx" | "pdf" } | null>(null);
 
-  const handleExportPDF = (reportType: string) => {
-    alert(`Generating ${reportType} report in PDF format...\nThis will download the report for Department of Agriculture submission.`);
+  const handleDownloadReport = async (reportType: ReportType, title: string, format: "xlsx" | "pdf") => {
+    setDownloadingReport({ type: reportType, format });
+    const formatLabel = format === "xlsx" ? "Excel" : "PDF";
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const yearStart = `${new Date().getFullYear()}-01-01`;
+
+      const response = await downloadOfficialReport(
+        reportType,
+        yearStart,
+        today,
+        { species: "", barangay: "", purpose: "", direction: "" },
+        format
+      );
+
+      const blob = new Blob([response.data], {
+        type: format === "xlsx"
+          ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          : "application/pdf",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const cleanTitle = title.toLowerCase().replace(/[^a-z0-9]+/g, "_");
+      link.download = `padre_garcia_${cleanTitle}_${yearStart}_${today}.${format}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast.success(`Official ${title} (${formatLabel}) exported successfully!`);
+    } catch (err: unknown) {
+      let message = "Please check your network or try opening the Reports Builder.";
+      if (err && typeof err === "object" && "response" in err) {
+        const axiosErr = err as { response?: { data?: unknown } };
+        if (axiosErr.response?.data instanceof Blob) {
+          try {
+            const text = await axiosErr.response.data.text();
+            const parsed = JSON.parse(text);
+            message = parsed.detail || parsed.message || parsed.error || message;
+          } catch {
+            // Keep default message
+          }
+        }
+      }
+      toast.error(`Failed to export ${title}`, { description: message });
+    } finally {
+      setDownloadingReport(null);
+    }
   };
 
   // --- Executive Stats ---
@@ -298,50 +349,111 @@ export default function AdminDashboard() {
 
         {/* ── Generate Reports ── */}
         <div className="rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs p-5 sm:p-6 shadow-holo-card animate-in fade-in slide-in-from-bottom-2 duration-500 delay-200 fill-mode-both">
-          <div className="flex items-center gap-2 mb-1">
-            <FileText className="w-4 h-4 text-[#2D5A27]" />
-            <h3 className="font-black text-slate-900 text-sm sm:text-base tracking-tight">Generate Official Reports</h3>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <FileText className="w-4 h-4 text-[#2D5A27]" />
+                <h3 className="font-black text-slate-900 text-sm sm:text-base tracking-tight">Generate Official Reports</h3>
+              </div>
+              <p className="text-xs text-slate-500 font-medium">
+                Export comprehensive data packages for Department of Agriculture (DA) and Municipal Agriculture Office (MAO) submissions.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push('/reports')}
+              className="h-8 gap-1.5 text-xs font-semibold border-emerald-600/30 text-emerald-800 hover:bg-emerald-50 shrink-0 self-start sm:self-auto cursor-pointer"
+            >
+              <ExternalLink className="w-3.5 h-3.5 text-emerald-600" />
+              Full Reports Builder
+            </Button>
           </div>
-          <p className="text-xs text-slate-500 font-medium mb-3">
-            Export comprehensive data packages for Department of Agriculture (DA) and Municipal Agriculture Office (MAO) submissions.
-          </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2.5">
             {[
-              { title: 'Livestock Inventory', desc: 'Complete cattle census', icon: CowHeadIcon, color: 'bg-emerald-50 text-emerald-800' },
-              { title: 'Disease & Mortality', desc: 'Surveillance & clinical reports', icon: AlertTriangle, color: 'bg-rose-50 text-rose-800' },
-              { title: 'Farmer Registry', desc: `${data.totalBarangaysCount}-Barangay raisers directory`, icon: Users, color: 'bg-purple-50 text-purple-800' },
-              { title: 'Auction Ledger', desc: 'Trading center transactions', icon: Scale, color: 'bg-amber-50 text-amber-800' },
-              { title: 'Full DA Submission', desc: 'Quarterly compliance pack', icon: Download, color: 'bg-slate-100 text-slate-800' },
-            ].map(({ title, desc, icon: IconComponent, color }) => (
-              <div key={title} className="border border-slate-200/80 rounded-lg p-3 bg-white hover:border-[#2D5A27] transition-all flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <div className={`p-1.5 rounded-md ${color} shrink-0`}>
-                      <IconComponent className="w-3.5 h-3.5" />
+              {
+                reportType: 'inventory' as ReportType,
+                title: 'Livestock Inventory',
+                desc: 'Herd registry & multi-barangay census',
+                icon: CowHeadIcon,
+                color: 'bg-emerald-50 text-emerald-800',
+              },
+              {
+                reportType: 'disease_mortality' as ReportType,
+                title: 'Disease & Mortality',
+                desc: 'Surveillance & confirmed clinical logs',
+                icon: AlertTriangle,
+                color: 'bg-rose-50 text-rose-800',
+              },
+              {
+                reportType: 'slaughter' as ReportType,
+                title: 'Slaughter & Yield',
+                desc: 'Abattoir throughput & carcass records',
+                icon: Beef,
+                color: 'bg-purple-50 text-purple-800',
+              },
+              {
+                reportType: 'inspection' as ReportType,
+                title: 'Auction Ledger',
+                desc: 'Trading center & transfer certificates',
+                icon: Scale,
+                color: 'bg-amber-50 text-amber-800',
+              },
+              {
+                reportType: 'movement' as ReportType,
+                title: 'Movement & Clearance',
+                desc: 'Animal transit & veterinary permits',
+                icon: Truck,
+                color: 'bg-blue-50 text-blue-800',
+              },
+            ].map(({ reportType, title, desc, icon: IconComponent, color }) => {
+              const isExcelLoading = downloadingReport?.type === reportType && downloadingReport?.format === 'xlsx';
+              const isPdfLoading = downloadingReport?.type === reportType && downloadingReport?.format === 'pdf';
+              const isAnyDownloading = downloadingReport !== null;
+
+              return (
+                <div key={title} className="border border-slate-200/80 rounded-lg p-3 bg-white hover:border-[#2D5A27] transition-all flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <div className={`p-1.5 rounded-md ${color} shrink-0`}>
+                        <IconComponent className="w-3.5 h-3.5" />
+                      </div>
+                      <h4 className="text-xs font-bold text-slate-900 truncate">{title}</h4>
                     </div>
-                    <h4 className="text-xs font-bold text-slate-900 truncate">{title}</h4>
+                    <p className="text-[10px] text-slate-400 font-medium leading-tight line-clamp-1">{desc}</p>
                   </div>
-                  <p className="text-[10px] text-slate-400 font-medium leading-tight line-clamp-1">{desc}</p>
+                  <div className="flex gap-1.5 mt-2.5">
+                    <button
+                      disabled={isAnyDownloading}
+                      onClick={() => handleDownloadReport(reportType, title, 'xlsx')}
+                      className="flex-1 flex items-center justify-center gap-1 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white rounded-md text-[10px] font-bold shadow-2xs transition-colors cursor-pointer disabled:cursor-not-allowed"
+                      title={`Download ${title} in Excel format`}
+                    >
+                      {isExcelLoading ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <FileSpreadsheet className="w-3 h-3" />
+                      )}
+                      Excel
+                    </button>
+                    <button
+                      disabled={isAnyDownloading}
+                      onClick={() => handleDownloadReport(reportType, title, 'pdf')}
+                      className="flex-1 flex items-center justify-center gap-1 py-1 bg-rose-600 hover:bg-rose-700 disabled:bg-rose-400 text-white rounded-md text-[10px] font-bold shadow-2xs transition-colors cursor-pointer disabled:cursor-not-allowed"
+                      title={`Download ${title} in PDF format`}
+                    >
+                      {isPdfLoading ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <FileBarChart className="w-3 h-3" />
+                      )}
+                      PDF
+                    </button>
+                  </div>
                 </div>
-                <div className="flex gap-1.5 mt-2.5">
-                  <button
-                    onClick={() => handleExportExcel(title)}
-                    className="flex-1 flex items-center justify-center gap-1 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-[10px] font-bold shadow-2xs transition-colors cursor-pointer"
-                  >
-                    <FileSpreadsheet className="w-3 h-3" />
-                    Excel
-                  </button>
-                  <button
-                    onClick={() => handleExportPDF(title)}
-                    className="flex-1 flex items-center justify-center gap-1 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-md text-[10px] font-bold shadow-2xs transition-colors cursor-pointer"
-                  >
-                    <FileBarChart className="w-3 h-3" />
-                    PDF
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
