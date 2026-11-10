@@ -1,5 +1,5 @@
-// SmartLivestock Service Worker — Padre Garcia Biosecurity & Field PWA
-const CACHE_NAME = "smartlivestock-pwa-v2";
+// SmartLivestock Service Worker — Padre Garcia Biosecurity & Field PWA (v3)
+const CACHE_NAME = "smartlivestock-pwa-v3";
 const OFFLINE_URL = "/offline.html";
 
 // Static core assets & dashboard shells to precache immediately
@@ -19,21 +19,27 @@ const PRECACHE_ASSETS = [
   "/images/padre-garcia-seal.png",
 ];
 
-// Service Worker Install — Precache Shell & Assets
+// Service Worker Install — Precache Shell & Assets immediately
 self.addEventListener("install", (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches
       .open(CACHE_NAME)
       .then((cache) => {
         return Promise.allSettled(
           PRECACHE_ASSETS.map((url) =>
-            cache.add(url).catch((err) => {
-              console.warn(`[SmartLivestock SW] Precache skipped for ${url}:`, err);
-            })
+            fetch(url, { cache: "reload" })
+              .then((res) => {
+                if (res.ok) {
+                  return cache.put(url, res);
+                }
+              })
+              .catch((err) => {
+                console.warn(`[SmartLivestock SW] Precache skipped for ${url}:`, err);
+              })
           )
         );
       })
-      .then(() => self.skipWaiting())
   );
 });
 
@@ -46,6 +52,7 @@ self.addEventListener("activate", (event) => {
         return Promise.all(
           keys.map((key) => {
             if (key !== CACHE_NAME) {
+              console.log("[SmartLivestock SW] Purging old cache:", key);
               return caches.delete(key);
             }
           })
@@ -55,10 +62,16 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
+
 // Fetch Strategy:
 // 1. Never cache mutations or dynamic API endpoints (/api/, /admin/, /auth/)
-// 2. HTML Navigation requests: Network-first -> Exact Cache -> App Shell -> offline.html
-// 3. Static assets (_next/static, icons, images, fonts, rsc): Stale-While-Revalidate
+// 2. HTML Navigation requests: Network-first -> Exact Cache -> App Shell -> offline.html (with ignoreVary: true)
+// 3. Static assets (_next/, icons, images, fonts, rsc): Stale-While-Revalidate (with ignoreVary: true)
 self.addEventListener("fetch", (event) => {
   const { request } = event;
 
@@ -70,6 +83,9 @@ self.addEventListener("fetch", (event) => {
   // Exclude external cross-origin requests
   if (url.origin !== self.location.origin) return;
 
+  // Exclude WebSocket connections (e.g. Next.js HMR)
+  if (request.headers.get("upgrade") === "websocket") return;
+
   // Never cache dynamic backend APIs, Django Admin, or authentication tokens
   if (
     url.pathname.startsWith("/api/") ||
@@ -80,6 +96,8 @@ self.addEventListener("fetch", (event) => {
   ) {
     return;
   }
+
+  const matchOptions = { ignoreVary: true, ignoreSearch: true };
 
   // Next.js RSC (React Server Component) client navigation requests
   const isRsc = url.searchParams.has("_rsc") || request.headers.get("RSC") === "1";
@@ -94,7 +112,7 @@ self.addEventListener("fetch", (event) => {
           return response;
         })
         .catch(async () => {
-          const cached = await caches.match(request);
+          const cached = await caches.match(request, matchOptions);
           if (cached) return cached;
           return new Response("", { status: 503, statusText: "Offline RSC" });
         })
@@ -108,32 +126,40 @@ self.addEventListener("fetch", (event) => {
       fetch(request)
         .then((response) => {
           if (response && response.status === 200) {
-            const responseClone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, responseClone));
+            const copy1 = response.clone();
+            const copy2 = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(request, copy1);
+              cache.put(url.pathname, copy2);
+            });
           }
           return response;
         })
         .catch(async () => {
-          // 1. Try exact requested page in cache
-          const cached = await caches.match(request);
+          // 1. Try exact requested URL in cache
+          const cached = await caches.match(request, matchOptions);
           if (cached) return cached;
 
-          // 2. Try role-specific dashboard shells
+          // 2. Try URL pathname (/farmer, /sibat, /)
+          const pathnameMatch = await caches.match(url.pathname, matchOptions);
+          if (pathnameMatch) return pathnameMatch;
+
+          // 3. Try role-specific dashboard shell fallbacks
           if (url.pathname.startsWith("/farmer")) {
-            const farmerShell = await caches.match("/farmer");
+            const farmerShell = await caches.match("/farmer", matchOptions);
             if (farmerShell) return farmerShell;
           }
           if (url.pathname.startsWith("/sibat")) {
-            const sibatShell = await caches.match("/sibat");
+            const sibatShell = await caches.match("/sibat", matchOptions);
             if (sibatShell) return sibatShell;
           }
 
-          // 3. Try main app shell
-          const appShell = await caches.match("/");
+          // 4. Try main app shell
+          const appShell = await caches.match("/", matchOptions);
           if (appShell) return appShell;
 
-          // 4. Fallback to offline guidance screen
-          const offlinePage = await caches.match(OFFLINE_URL);
+          // 5. Fallback to offline guidance screen
+          const offlinePage = await caches.match(OFFLINE_URL, matchOptions);
           if (offlinePage) return offlinePage;
 
           return new Response("Offline - SmartLivestock Padre Garcia", {
@@ -144,9 +170,9 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Static Assets (_next/static, images, fonts, icons) — Stale-While-Revalidate
+  // Static Assets (_next/, images, fonts, icons) — Stale-While-Revalidate
   if (
-    url.pathname.startsWith("/_next/static/") ||
+    url.pathname.startsWith("/_next/") ||
     url.pathname.startsWith("/icons/") ||
     url.pathname.startsWith("/images/") ||
     url.pathname.endsWith(".png") ||
@@ -154,10 +180,12 @@ self.addEventListener("fetch", (event) => {
     url.pathname.endsWith(".jpeg") ||
     url.pathname.endsWith(".svg") ||
     url.pathname.endsWith(".ico") ||
-    url.pathname.endsWith(".woff2")
+    url.pathname.endsWith(".woff2") ||
+    url.pathname.endsWith(".css") ||
+    url.pathname.endsWith(".js")
   ) {
     event.respondWith(
-      caches.match(request).then((cachedResponse) => {
+      caches.match(request, matchOptions).then((cachedResponse) => {
         const fetchPromise = fetch(request)
           .then((networkResponse) => {
             if (networkResponse && networkResponse.status === 200) {

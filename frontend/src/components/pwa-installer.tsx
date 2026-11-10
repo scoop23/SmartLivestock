@@ -58,11 +58,13 @@ export function PwaInstaller() {
 
     // Register Service Worker
     if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
+      const registerSW = () => {
         navigator.serviceWorker
           .register("/sw.js", { scope: "/" })
           .then((reg) => {
-            // Check for service worker updates
+            // Check for updates immediately
+            reg.update().catch(() => {});
+
             reg.addEventListener("updatefound", () => {
               const newWorker = reg.installing;
               if (newWorker) {
@@ -77,7 +79,13 @@ export function PwaInstaller() {
           .catch((err) => {
             console.warn("[SmartLivestock PWA] SW registration:", err);
           });
-      });
+      };
+
+      if (document.readyState === "complete" || document.readyState === "interactive") {
+        registerSW();
+      } else {
+        window.addEventListener("load", registerSW);
+      }
     }
 
     // 2. Capture beforeinstallprompt event
