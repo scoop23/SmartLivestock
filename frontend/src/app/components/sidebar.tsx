@@ -712,7 +712,7 @@ function SidebarNav({
                 </div>
                 <div className="flex flex-col text-left">
                   <span>Alert Preferences</span>
-                  <span className="text-[10px] text-slate-400 font-normal">SMS biosecurity & emails</span>
+                  <span className="text-[10px] text-slate-400 font-normal">Biosecurity notices & emails</span>
                 </div>
               </Link>
 
