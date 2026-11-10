@@ -103,14 +103,18 @@ export default function DataOverviewPage() {
   const { user } = useAuth();
 
   // The Production & Trade tab count includes its separate ownership and movement registries.
-  // These keys match ProductionTradeRecords so React Query can share the same cached requests.
+  // Lazy-load only when the Sales/Trade tab is active to avoid downloading 18k+ records on initial overview load.
   const tradeOwnershipQuery = useQuery<unknown[]>({
     queryKey: ["admin", "data-overview", "ownership-transfers", user?.email, user?.accessScope, user?.assignedBarangayId],
     queryFn: async () => (await api.get<unknown[]>("livestock/ownership-transfers/")).data,
+    enabled: activeTab === "sales",
+    staleTime: 60 * 1000,
   });
   const tradeMovementQuery = useQuery({
     queryKey: ["admin", "data-overview", "movement-logs", user?.email, user?.accessScope, user?.assignedBarangayId],
     queryFn: () => fetchInspections(),
+    enabled: activeTab === "sales",
+    staleTime: 60 * 1000,
   });
 
   // Backend Data Queries
@@ -119,7 +123,8 @@ export default function DataOverviewPage() {
   const summaryQuery = useQuery<OverviewSummary>({
     queryKey: ["admin", "analytics", "overview", user?.email, user?.accessScope, user?.assignedBarangayId],
     queryFn: async ({ signal }) => (await municipalRead<OverviewSummary>("analytics/overview/", { signal })).data,
-    staleTime: 0, refetchOnWindowFocus: true,
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: false,
   });
   const summary = summaryQuery.data;
   const inventoryQuery = useAdminInventoryRecords();
@@ -173,78 +178,94 @@ export default function DataOverviewPage() {
   // Combine backend records with seed datasets
   const livestockList: LivestockRecord[] = useMemo(() => {
     if (!rawInventory || rawInventory.length === 0) return [];
+
+    // Pre-index batches by id, batch_code, and animal references for O(1) matching
+    const batchById = new Map<string | number, BatchApiItem>();
+    const batchByCode = new Map<string, BatchApiItem>();
+    const batchByAnimalId = new Map<string | number, BatchApiItem>();
+    const batchByAnimalTag = new Map<string, BatchApiItem>();
+
+    if (rawBatches && rawBatches.length > 0) {
+      for (let i = 0; i < rawBatches.length; i++) {
+        const b = rawBatches[i];
+        if (b.id != null) batchById.set(b.id, b);
+        if (b.batch_code) batchByCode.set(b.batch_code, b);
+        if (b.animals && b.animals.length > 0) {
+          for (let j = 0; j < b.animals.length; j++) {
+            const a = b.animals[j];
+            if (a.id != null) batchByAnimalId.set(a.id, b);
+            if (a.tag_number) batchByAnimalTag.set(a.tag_number, b);
+          }
+        }
+      }
+    }
+
     return rawInventory
       .filter((item) => !item.isBatch)
       .map((item) => {
-      // Find matching herd from rawBatches or item fields
-      const matchingBatch = rawBatches?.find(
-        (b) =>
-          (item.batchId && (b.id === item.batchId || b.id === item.batchId)) ||
-          (item.batch && (b.id === item.batch || b.id === item.batch)) ||
-          (item.batchCode && b.batch_code === item.batchCode) ||
-          (b.animals && b.animals.some((a) => a.id === item.id || a.tag_number === item.tagNumber))
-      );
+        const matchingBatch =
+          (item.batchId ? batchById.get(item.batchId) : undefined) ||
+          (item.batch ? batchById.get(item.batch) : undefined) ||
+          (item.batchCode ? batchByCode.get(item.batchCode) : undefined) ||
+          batchByAnimalId.get(item.id) ||
+          (item.tagNumber ? batchByAnimalTag.get(item.tagNumber) : undefined);
 
-      const batchCode =
-        item.batchCode ||
-        item.batchCode ||
-        matchingBatch?.batch_code ||
-        undefined;
+        const batchCode =
+          item.batchCode ||
+          matchingBatch?.batch_code ||
+          undefined;
 
-      const batchName =
-        item.batchName ||
-        item.batchName ||
-        matchingBatch?.batch_name ||
-        (matchingBatch ? `Batch #${matchingBatch.id}` : undefined);
+        const batchName =
+          item.batchName ||
+          matchingBatch?.batch_name ||
+          (matchingBatch ? `Batch #${matchingBatch.id}` : undefined);
 
-      const batchId =
-        item.batchId ||
-        item.batch ||
-        matchingBatch?.id ||
-        null;
+        const batchId =
+          item.batchId ||
+          item.batch ||
+          matchingBatch?.id ||
+          null;
 
-      const housingPen =
-        item.housingPen ||
-        item.housingPen ||
-        matchingBatch?.housing_pen ||
-        undefined;
+        const housingPen =
+          item.housingPen ||
+          matchingBatch?.housing_pen ||
+          undefined;
 
-      const feedType =
-        item.feedType ||
-        item.feedType ||
-        matchingBatch?.feed_type ||
-        undefined;
+        const feedType =
+          item.feedType ||
+          matchingBatch?.feed_type ||
+          undefined;
 
-      return {
-        id: `LIV-${item.id}`,
-        // Keep the numeric database key for actions like QR lookup while `id`
-        // remains a readable label for the table and record dialog.
-        rawId: item.id,
-        farmerName: item.farmerName || "Registered Farmer",
-        barangay: item.barangayName || "Unknown barangay",
-        cattleId: item.tagNumber || `TAG-${item.id}`,
-        tagNumber: item.tagNumber || undefined,
-        specie: item.livestockType || "Cattle",
-        breed: item.breed || "Standard",
-        sex: item.sex || "Female",
-        birthDate: item.birthDate ?? null,
-        age: item.age ?? null,
-        ageClassification: item.ageClassification ?? "UNKNOWN",
-        weightKg: item.weight || null,
-        entryType: item.entryType || (batchCode ? "BATCH" : "INDIVIDUAL"),
-        quantity: Number(item.quantity) || 1,
-        lastVaccinationDate: item.lastVaccinationDate || null,
-        operationalStatus: item.operationalStatus,
-        status: item.status || "PENDING",
-        registrationDate: item.createdAt?.slice(0, 10) || "",
-        notes: item.reviewRemarks || undefined,
-        batchId,
-        batchCode,
-        batchName,
-        housingPen,
-        feedType,
-      };
-    });
+        return {
+          id: `LIV-${item.id}`,
+          // Keep the numeric database key for actions like QR lookup while `id`
+          // remains a readable label for the table and record dialog.
+          rawId: item.id,
+          farmerName: item.farmerName || "Registered Farmer",
+          barangay: item.barangayName || "Unknown barangay",
+          cattleId: item.tagNumber || `TAG-${item.id}`,
+          tagNumber: item.tagNumber || undefined,
+          specie: item.livestockType || "Cattle",
+          breed: item.breed || "Standard",
+          sex: item.sex || "Female",
+          birthDate: item.birthDate ?? null,
+          age: item.age ?? null,
+          ageClassification: item.ageClassification ?? "UNKNOWN",
+          weightKg: item.weight || null,
+          entryType: item.entryType || (batchCode ? "BATCH" : "INDIVIDUAL"),
+          quantity: Number(item.quantity) || 1,
+          lastVaccinationDate: item.lastVaccinationDate || null,
+          operationalStatus: item.operationalStatus,
+          status: item.status || "PENDING",
+          registrationDate: item.createdAt?.slice(0, 10) || "",
+          notes: item.reviewRemarks || undefined,
+          batchId,
+          batchCode,
+          batchName,
+          housingPen,
+          feedType,
+        };
+      });
   }, [rawInventory, rawBatches]);
 
   const batchList: BatchRecord[] = useMemo(() => {
@@ -468,381 +489,395 @@ export default function DataOverviewPage() {
 
   // ── Connected Recent Municipal Activity Stream (Real-Time Multi-Domain) ──
   const recentActivityFeed: ActivityFeedItem[] = useMemo(() => {
+    // Fast O(1) record lookups instead of O(N) array scans across thousands of items
+    const livestockMap = new Map<string, LivestockRecord>();
+    for (let i = 0; i < livestockList.length; i++) {
+      const l = livestockList[i];
+      livestockMap.set(l.id, l);
+      if (l.cattleId) livestockMap.set(l.cattleId, l);
+      if (l.rawId != null) livestockMap.set(`LIV-${l.rawId}`, l);
+    }
+
+    const batchMap = new Map<string, BatchRecord>();
+    for (let i = 0; i < batchList.length; i++) {
+      const b = batchList[i];
+      batchMap.set(b.id, b);
+      batchMap.set(`BAT-${b.rawId}`, b);
+      if (b.batchCode) batchMap.set(b.batchCode, b);
+    }
+
+    const censusMap = new Map<string, CensusRecord>();
+    for (let i = 0; i < censusList.length; i++) {
+      const c = censusList[i];
+      censusMap.set(c.id, c);
+    }
+
+    const diseaseMap = new Map<string, DiseaseRecord>();
+    for (let i = 0; i < diseaseList.length; i++) {
+      const d = diseaseList[i];
+      diseaseMap.set(d.id, d);
+      diseaseMap.set(`DIS-${d.id}`, d);
+    }
+
+    const mortalityMap = new Map<string, MortalityRecord>();
+    for (let i = 0; i < mortalityList.length; i++) {
+      const m = mortalityList[i];
+      mortalityMap.set(m.id, m);
+      mortalityMap.set(`MOR-${m.id}`, m);
+    }
+
+    const salesMap = new Map<string, SalesRecord>();
+    for (let i = 0; i < salesList.length; i++) {
+      const s = salesList[i];
+      salesMap.set(s.id, s);
+      salesMap.set(`SAL-${s.id}`, s);
+    }
+
     const liveActivities: (ActivityFeedItem & { rawTimestamp: number })[] = [];
+    const isBarangayAll = filterBarangay === "all";
+    const filterBrgyLower = filterBarangay.toLowerCase();
+
+    // Helper to extract a bounded recent candidate window (max 35 items per domain)
+    const getCandidates = <T,>(arr: T[] | undefined | null, matchesBarangayFn: (item: T) => boolean, max = 35): T[] => {
+      if (!arr || arr.length === 0) return [];
+      const filtered = isBarangayAll ? arr : arr.filter(matchesBarangayFn);
+      return filtered.length > max ? filtered.slice(-max) : filtered;
+    };
 
     // 1. Live Animal Inventory Registrations
-    if (rawInventory && rawInventory.length > 0) {
-      rawInventory.forEach((inv) => {
-        const rawDate = inv.createdAt ? new Date(inv.createdAt).getTime() : 0;
-        const invStatus = (inv.status || "") as string;
-        const isInvRevision = invStatus === "SUBJECT_TO_REVISION" || invStatus === "SUBJECT_FOR_REVISION";
-        const statusBadge =
-          inv.status === "APPROVED"
-            ? "MAO Certified"
-            : isInvRevision
-            ? "Subject for Revision"
-            : inv.status === "VERIFIED"
-            ? "SIBAT Verified"
-            : "Pending Review";
-        const badgeVariant =
-          inv.status === "APPROVED"
-            ? "emerald"
-            : isInvRevision
-            ? "rose"
-            : inv.status === "VERIFIED"
-            ? "sky"
-            : "amber";
+    const invCandidates = getCandidates(rawInventory, (inv) => (inv.barangayName || "").toLowerCase() === filterBrgyLower);
+    invCandidates.forEach((inv) => {
+      const rawDate = inv.createdAt ? new Date(inv.createdAt).getTime() : 0;
+      const invStatus = (inv.status || "") as string;
+      const isInvRevision = invStatus === "SUBJECT_TO_REVISION" || invStatus === "SUBJECT_FOR_REVISION";
+      const statusBadge =
+        inv.status === "APPROVED"
+          ? "MAO Certified"
+          : isInvRevision
+          ? "Subject for Revision"
+          : inv.status === "VERIFIED"
+          ? "SIBAT Verified"
+          : "Pending Review";
+      const badgeVariant =
+        inv.status === "APPROVED"
+          ? "emerald"
+          : isInvRevision
+          ? "rose"
+          : inv.status === "VERIFIED"
+          ? "sky"
+          : "amber";
 
-        const matchingRecord = livestockList.find(
-          (l) => l.id === `LIV-${inv.id}` || l.cattleId === inv.tagNumber
-        );
+      const matchingRecord = livestockMap.get(`LIV-${inv.id}`) || (inv.tagNumber ? livestockMap.get(inv.tagNumber) : undefined);
 
-        liveActivities.push({
-          id: `act-inv-${inv.id}`,
-          domain: "livestock",
-          title: `${inv.livestockType || "Livestock"} Registered`,
-          description: `${inv.breed || "Standard"} (${inv.sex || "Animal"}) tagged #${inv.tagNumber || `ID-${inv.id}`} by ${inv.farmerName || "Farmer"}.`,
-          actor: inv.farmerName || "Farmer",
+      liveActivities.push({
+        id: `act-inv-${inv.id}`,
+        domain: "livestock",
+        title: `${inv.livestockType || "Livestock"} Registered`,
+        description: `${inv.breed || "Standard"} (${inv.sex || "Animal"}) tagged #${inv.tagNumber || `ID-${inv.id}`} by ${inv.farmerName || "Farmer"}.`,
+        actor: inv.farmerName || "Farmer",
+        barangay: inv.barangayName || "Padre Garcia",
+        timestamp: formatRelativeTime(inv.createdAt),
+        rawTimestamp: rawDate,
+        badge: statusBadge,
+        badgeVariant,
+        record: matchingRecord || {
+          id: `LIV-${inv.id}`,
+          rawId: inv.id,
+          cattleId: inv.tagNumber || `TAG-${inv.id}`,
+          farmerName: inv.farmerName || "Farmer",
           barangay: inv.barangayName || "Padre Garcia",
-          timestamp: formatRelativeTime(inv.createdAt),
-          rawTimestamp: rawDate,
-          badge: statusBadge,
-          badgeVariant,
-          record: matchingRecord || {
-            id: `LIV-${inv.id}`,
-            rawId: inv.id,
-            cattleId: inv.tagNumber || `TAG-${inv.id}`,
-            farmerName: inv.farmerName || "Farmer",
-            barangay: inv.barangayName || "Padre Garcia",
-            specie: inv.livestockType || "Livestock",
-            breed: inv.breed || "Standard",
-            sex: inv.sex || "Female",
-            weightKg: inv.weight || null,
-            status: inv.status || "PENDING",
-            registrationDate: inv.createdAt?.slice(0, 10) || "",
-            lastVaccinationDate: inv.lastVaccinationDate || null,
-            batchCode: inv.batchCode || inv.batchCode,
-            batchName: inv.batchName || inv.batchName,
-            housingPen: inv.housingPen || inv.housingPen,
-            feedType: inv.feedType || inv.feedType,
-          },
-        });
+          specie: inv.livestockType || "Livestock",
+          breed: inv.breed || "Standard",
+          sex: inv.sex || "Female",
+          weightKg: inv.weight || null,
+          status: inv.status || "PENDING",
+          registrationDate: inv.createdAt?.slice(0, 10) || "",
+          lastVaccinationDate: inv.lastVaccinationDate || null,
+          batchCode: inv.batchCode,
+          batchName: inv.batchName,
+          housingPen: inv.housingPen,
+          feedType: inv.feedType,
+        },
       });
-    }
+    });
 
     // 2. Live Production Declarations
-    if (rawProduction && rawProduction.length > 0) {
-      rawProduction.forEach((prod) => {
-        const dateStr = prod.createdAt || prod.recordDate;
-        const rawDate = dateStr ? new Date(dateStr).getTime() : 0;
-        const typeLabel = prod.productionType
-          ? prod.productionType.charAt(0).toUpperCase() + prod.productionType.slice(1).toLowerCase()
-          : "Dairy";
-        const prodStatus = (prod.status || "") as string;
-        const isProdRevision = prodStatus === "SUBJECT_TO_REVISION" || prodStatus === "SUBJECT_FOR_REVISION";
-        const badgeVariant =
-          prod.status === "APPROVED"
-            ? "emerald"
-            : isProdRevision
-            ? "rose"
-            : "sky";
+    const prodCandidates = getCandidates(rawProduction, (prod) => (prod.barangayName || "").toLowerCase() === filterBrgyLower);
+    prodCandidates.forEach((prod) => {
+      const dateStr = prod.createdAt || prod.recordDate;
+      const rawDate = dateStr ? new Date(dateStr).getTime() : 0;
+      const typeLabel = prod.productionType
+        ? prod.productionType.charAt(0).toUpperCase() + prod.productionType.slice(1).toLowerCase()
+        : "Dairy";
+      const prodStatus = (prod.status || "") as string;
+      const isProdRevision = prodStatus === "SUBJECT_TO_REVISION" || prodStatus === "SUBJECT_FOR_REVISION";
+      const badgeVariant =
+        prod.status === "APPROVED"
+          ? "emerald"
+          : isProdRevision
+          ? "rose"
+          : "sky";
 
-        const matchingRecord = productionList.find(
-          (p) => p.id === `PRD-${prod.id}`
-        );
-
-        liveActivities.push({
-          id: `act-prod-${prod.id}`,
-          domain: "production",
-          title: `${typeLabel} Yield Declared`,
-          description: `Farmer ${prod.farmerName || "Producer"} logged ${prod.quantity} ${prod.unit || "L"}.`,
-          actor: prod.farmerName || "Farmer",
+      liveActivities.push({
+        id: `act-prod-${prod.id}`,
+        domain: "production",
+        title: `${typeLabel} Yield Declared`,
+        description: `Farmer ${prod.farmerName || "Producer"} logged ${prod.quantity} ${prod.unit || "L"}.`,
+        actor: prod.farmerName || "Farmer",
+        barangay: prod.barangayName || "Padre Garcia",
+        timestamp: formatRelativeTime(dateStr),
+        rawTimestamp: rawDate,
+        badge: `${prod.quantity} ${prod.unit || "L"}`,
+        badgeVariant,
+        record: {
+          id: `PRD-${prod.id}`,
+          farmerName: prod.farmerName || "Farmer",
           barangay: prod.barangayName || "Padre Garcia",
-          timestamp: formatRelativeTime(dateStr),
-          rawTimestamp: rawDate,
-          badge: `${prod.quantity} ${prod.unit || "L"}`,
-          badgeVariant,
-          record: matchingRecord || {
-            id: `PRD-${prod.id}`,
-            farmerName: prod.farmerName || "Farmer",
-            barangay: prod.barangayName || "Padre Garcia",
-            cattleId: `TAG-LIV-${prod.livestockId || prod.id}`,
-            type: typeLabel,
-            quantity: `${prod.quantity} ${prod.unit || "L"}`,
-            quantityNumber: Number(prod.quantity) || 0,
-            unit: prod.unit || "LITERS",
-            qualityGrade: "Not recorded",
-            collectionCenter: "Not recorded",
-            estValuePhp: prod.valuationSnapshot ? Number(prod.valuationSnapshot.estimated_value) : null,
-            date: prod.recordDate || prod.createdAt?.slice(0, 10) || "",
-            status: prod.status === "APPROVED" ? "Certified" : "Pending Review",
-          },
-        });
+          cattleId: `TAG-LIV-${prod.livestockId || prod.id}`,
+          type: typeLabel,
+          quantity: `${prod.quantity} ${prod.unit || "L"}`,
+          quantityNumber: Number(prod.quantity) || 0,
+          unit: prod.unit || "LITERS",
+          qualityGrade: "Not recorded",
+          collectionCenter: "Not recorded",
+          estValuePhp: prod.valuationSnapshot ? Number(prod.valuationSnapshot.estimated_value) : null,
+          date: prod.recordDate || prod.createdAt?.slice(0, 10) || "",
+          status: prod.status === "APPROVED" ? "Certified" : "Pending Review",
+        },
       });
-    }
+    });
 
     // 3. Live Quarterly Census Batches
-    if (rawCensus && rawCensus.length > 0) {
-      rawCensus.forEach((cen) => {
-        const rawDate = cen.submissionDate ? new Date(cen.submissionDate).getTime() : 0;
-        const matchingRecord = censusList.find(
-          (c) => c.id === `CEN-${cen.id}`
-        );
+    const cenCandidates = getCandidates(rawCensus, (cen) => (cen.barangay || "").toLowerCase() === filterBrgyLower);
+    cenCandidates.forEach((cen) => {
+      const rawDate = cen.submissionDate ? new Date(cen.submissionDate).getTime() : 0;
+      const matchingRecord = censusMap.get(`CEN-${cen.id}`);
 
-        liveActivities.push({
-          id: `act-cen-${cen.id}`,
-          domain: "census",
-          title: `Q${cen.reportQuarter || 1} Census Batch Submitted`,
-          description: `${cen.totalHeads || 0} total head count logged in Brgy. ${cen.barangay} by ${cen.submittedBy || "SIBAT Officer"}.`,
-          actor: cen.submittedBy || "SIBAT Enumerator",
+      liveActivities.push({
+        id: `act-cen-${cen.id}`,
+        domain: "census",
+        title: `Q${cen.reportQuarter || 1} Census Batch Submitted`,
+        description: `${cen.totalHeads || 0} total head count logged in Brgy. ${cen.barangay} by ${cen.submittedBy || "SIBAT Officer"}.`,
+        actor: cen.submittedBy || "SIBAT Enumerator",
+        barangay: cen.barangay || "Padre Garcia",
+        timestamp: formatRelativeTime(cen.submissionDate),
+        rawTimestamp: rawDate,
+        badge:
+          cen.status === "APPROVED"
+            ? "MAO Verified"
+            : cen.status === "SUBJECT_TO_REVISION" || cen.status === "SUBJECT_FOR_REVISION"
+            ? "Subject for Revision"
+            : "Pending Audit",
+        badgeVariant:
+          cen.status === "APPROVED"
+            ? "emerald"
+            : cen.status === "SUBJECT_TO_REVISION" || cen.status === "SUBJECT_FOR_REVISION"
+            ? "rose"
+            : "sky",
+        record: matchingRecord || {
+          id: `CEN-${cen.id}`,
           barangay: cen.barangay || "Padre Garcia",
-          timestamp: formatRelativeTime(cen.submissionDate),
-          rawTimestamp: rawDate,
-          badge:
-            cen.status === "APPROVED"
-              ? "MAO Verified"
-              : cen.status === "SUBJECT_TO_REVISION" || cen.status === "SUBJECT_FOR_REVISION"
-              ? "Subject for Revision"
-              : "Pending Audit",
-          badgeVariant:
-            cen.status === "APPROVED"
-              ? "emerald"
-              : cen.status === "SUBJECT_TO_REVISION" || cen.status === "SUBJECT_FOR_REVISION"
-              ? "rose"
-              : "sky",
-          record: matchingRecord || {
-            id: `CEN-${cen.id}`,
-            barangay: cen.barangay || "Padre Garcia",
-            quarter: `Q${cen.reportQuarter || 1}`,
-            year: cen.reportYear || 2026,
-            totalHeads: cen.totalHeads || 0,
-            cattleCount: 0,
-            carabaoCount: 0,
-            swineCount: 0,
-            goatCount: 0,
-            enumerator: cen.submittedBy || "SIBAT Officer",
-            submissionDate: cen.submissionDate?.slice(0, 10) || "",
-            status: (cen.status === "APPROVED" ? "MAO Verified" : "Pending Audit"),
-          },
-        });
+          quarter: `Q${cen.reportQuarter || 1}`,
+          year: cen.reportYear || 2026,
+          totalHeads: cen.totalHeads || 0,
+          cattleCount: 0,
+          carabaoCount: 0,
+          swineCount: 0,
+          goatCount: 0,
+          enumerator: cen.submittedBy || "SIBAT Officer",
+          submissionDate: cen.submissionDate?.slice(0, 10) || "",
+          status: (cen.status === "APPROVED" ? "MAO Verified" : "Pending Audit"),
+        },
       });
-    }
+    });
 
     // 4. Live Incidents: Disease, Mortality, Sales, Calvings
-    if (rawIncidents && rawIncidents.length > 0) {
-      rawIncidents.forEach((inc) => {
-        const dateStr = inc.createdAt || inc.date;
-        const rawDate = dateStr ? new Date(dateStr).getTime() : 0;
+    const incCandidates = getCandidates(rawIncidents, (inc) => (inc.barangayName || "").toLowerCase() === filterBrgyLower, 45);
+    incCandidates.forEach((inc) => {
+      const dateStr = inc.createdAt || inc.date;
+      const rawDate = dateStr ? new Date(dateStr).getTime() : 0;
 
-        if (inc.type === "disease") {
-          const matchingRecord = diseaseList.find(
-            (d) => d.id === `DIS-${inc.id}` || d.id === String(inc.id)
-          );
-          liveActivities.push({
-            id: `act-${inc.id}`,
-            domain: "disease",
-            title: `Biosecurity Alert: ${inc.conditionName || "Disease Case"}`,
-            description: `${inc.details || "Suspected infection logged for veterinary review."} (${inc.farmerName})`,
-            actor: inc.reviewedBy || inc.farmerName || "Field Reporter",
-            barangay: inc.barangayName || "Padre Garcia",
-            timestamp: formatRelativeTime(dateStr),
-            rawTimestamp: rawDate,
-            badge:
-              inc.status === "APPROVED"
-                ? "MAO Approved"
-                : (inc.status as string) === "SUBJECT_TO_REVISION" || (inc.status as string) === "SUBJECT_FOR_REVISION"
-                ? "Subject for Revision"
-                : "Observation Active",
-            badgeVariant:
-              inc.status === "APPROVED"
-                ? "rose"
-                : (inc.status as string) === "SUBJECT_TO_REVISION" || (inc.status as string) === "SUBJECT_FOR_REVISION"
-                ? "rose"
-                : "rose",
-            record: matchingRecord || {
-              id: `DIS-${inc.id}`,
-              farmerName: inc.farmerName || "Farmer",
-              barangay: inc.barangayName || "Padre Garcia",
-              cattleId: inc.tagNumber || `INC-${inc.id}`,
-              specie: inc.livestockType || "Livestock",
-              disease: inc.conditionName || "Disease Case",
-              symptoms: [inc.conditionName || "Suspected Symptoms"],
-              affectedHeads: inc.headCount || 1,
-              severity: "Moderate",
-              status: inc.status,
-              veterinarian: inc.reviewedBy || "Municipal Veterinarian",
-              quarantineZone: false,
-              dateReported: dateStr?.slice(0, 10) || "",
-              notes: inc.details,
-            },
-          });
-        } else if (inc.type === "mortality") {
-          const matchingRecord = mortalityList.find(
-            (m) => m.id === `MOR-${inc.id}` || m.id === String(inc.id)
-          );
-          liveActivities.push({
-            id: `act-${inc.id}`,
-            domain: "mortality",
-            title: `Mortality Incident: ${inc.conditionName || "Death Reported"}`,
-            description: `${inc.headCount || 1} head(s) casualty. ${inc.details || ""}`,
-            actor: inc.reviewedBy || inc.farmerName || "Field Officer",
-            barangay: inc.barangayName || "Padre Garcia",
-            timestamp: formatRelativeTime(dateStr),
-            rawTimestamp: rawDate,
-            badge:
-              inc.status === "APPROVED"
-                ? "Verified Loss"
-                : inc.status === "SUBJECT_TO_REVISION"
-                ? "Subject to Revision"
-                : "Pending Review",
-            badgeVariant: "rose",
-            record: matchingRecord || {
-              id: `MOR-${inc.id}`,
-              farmerName: inc.farmerName || "Farmer",
-              barangay: inc.barangayName || "Padre Garcia",
-              cattleId: inc.tagNumber || `INC-${inc.id}`,
-              specie: inc.livestockType || "Livestock",
-              causeOfDeath: inc.conditionName || "Mortality Record",
-              deathCount: inc.headCount || 1,
-              dateOfDeath: dateStr?.slice(0, 10) || "",
-              disposalMethod: "Burial",
-              investigatedBy: inc.reviewedBy || "Field Officer",
-              status: inc.status === "APPROVED" ? "Verified" : "Pending Inspection",
-              notes: inc.details,
-            },
-          });
-        } else if (inc.type === "sale") {
-          const matchingRecord = salesList.find(
-            (s) => s.id === `SAL-${inc.id}` || s.id === String(inc.id)
-          );
-          liveActivities.push({
-            id: `act-${inc.id}`,
-            domain: "sales",
-            title: "Live Animal Trade Declared",
-            description: `${inc.details || "Livestock transaction logged for municipal trade clearance."}`,
-            actor: inc.farmerName || "Trader",
-            barangay: inc.barangayName || "Padre Garcia",
-            timestamp: formatRelativeTime(dateStr),
-            rawTimestamp: rawDate,
-            badge:
-              inc.status === "APPROVED"
-                ? "Cleared"
-                : inc.status === "SUBJECT_TO_REVISION"
-                ? "Subject to Revision"
-                : "Pending",
-            badgeVariant: inc.status === "APPROVED" ? "emerald" : "sky",
-            record: matchingRecord || {
-              id: `SAL-${inc.id}`,
-              farmerName: inc.farmerName || "Trader",
-              buyer: "Padre Garcia Trading Center",
-              barangay: inc.barangayName || "Padre Garcia",
-              product: "Livestock Trade",
-              specie: inc.livestockType || "Livestock",
-              cattleId: inc.tagNumber || `SAL-${inc.id}`,
-              quantity: `${inc.headCount || 1} Heads`,
-              amount: "Trade Completed",
-              amountNumber: 0,
-              paymentMethod: "Cash",
-              transportPermitNumber: `TPN-${inc.id}`,
-              date: dateStr?.slice(0, 10) || "",
-              status: inc.status === "APPROVED" ? "Completed" : "Pending Clearance",
-              notes: inc.details,
-            },
-          });
-        } else if (inc.type === "birth") {
-          const matchingRecord = livestockList.find(
-            (l) => l.cattleId === inc.tagNumber || l.id === `LIV-${inc.id}`
-          );
-          liveActivities.push({
-            id: `act-${inc.id}`,
-            domain: "livestock",
-            title: "Calf Birth Registered",
-            description: `${inc.details || "New calf birth entered into registry."}`,
-            actor: inc.farmerName || "Farmer",
-            barangay: inc.barangayName || "Padre Garcia",
-            timestamp: formatRelativeTime(dateStr),
-            rawTimestamp: rawDate,
-            badge: "Born Active",
-            badgeVariant: "emerald",
-            // A calving event is not an inventory record until reconciliation creates one.
-            record: matchingRecord,
-          });
-        }
-      });
-    }
-
-    // 5. Live Herds
-    if (rawBatches && rawBatches.length > 0) {
-      rawBatches.forEach((batch) => {
-        const rawDate = batch.created_at ? new Date(batch.created_at).getTime() : 0;
-        const matchingRecord = batchList.find(
-          (b) => b.id === `BAT-${batch.id}` || b.rawId === batch.id || b.batchCode === batch.batch_code
-        );
+      if (inc.type === "disease") {
+        const matchingRecord = diseaseMap.get(`DIS-${inc.id}`) || diseaseMap.get(String(inc.id));
         liveActivities.push({
-          id: `act-bat-${batch.id}`,
-          domain: "batches",
-          title: `Batch Registered: ${batch.batch_code || batch.batch_name}`,
-          description: `${batch.batch_name} (${batch.total_animals || 0} heads ${batch.livestock_type_name || "livestock"}) in ${batch.housing_pen || "pen"}.`,
-          actor: batch.farmer_name || "Farmer",
-          barangay: batch.barangay_name || "Padre Garcia",
-          timestamp: formatRelativeTime(batch.created_at),
+          id: `act-${inc.id}`,
+          domain: "disease",
+          title: `Biosecurity Alert: ${inc.conditionName || "Disease Case"}`,
+          description: `${inc.details || "Suspected infection logged for veterinary review."} (${inc.farmerName})`,
+          actor: inc.reviewedBy || inc.farmerName || "Field Reporter",
+          barangay: inc.barangayName || "Padre Garcia",
+          timestamp: formatRelativeTime(dateStr),
           rawTimestamp: rawDate,
-          badge: "Herd container",
-          badgeVariant: "sky",
+          badge:
+            inc.status === "APPROVED"
+              ? "MAO Approved"
+              : (inc.status as string) === "SUBJECT_TO_REVISION" || (inc.status as string) === "SUBJECT_FOR_REVISION"
+              ? "Subject for Revision"
+              : "Observation Active",
+          badgeVariant: "rose",
           record: matchingRecord || {
-            id: `BAT-${batch.id}`,
-            rawId: batch.id,
-            batchCode: batch.batch_code || `BAT-${batch.id}`,
-            batchName: batch.batch_name || `Batch #${batch.id}`,
-            farmerName: batch.farmer_name || "Farmer",
-            barangay: batch.barangay_name || "Padre Garcia",
-            specie: batch.livestock_type_name || "Livestock",
-            housingPen: batch.housing_pen || "General Pen",
-            feedType: batch.feed_type || "—",
-            totalAnimals: batch.total_animals || 0,
-            status: batch.status || "ACTIVE",
-            createdAt: batch.created_at?.slice(0, 10) || "",
-            animals: batch.animals || [],
+            id: `DIS-${inc.id}`,
+            farmerName: inc.farmerName || "Farmer",
+            barangay: inc.barangayName || "Padre Garcia",
+            cattleId: inc.tagNumber || `INC-${inc.id}`,
+            specie: inc.livestockType || "Livestock",
+            disease: inc.conditionName || "Disease Case",
+            symptoms: [inc.conditionName || "Suspected Symptoms"],
+            affectedHeads: inc.headCount || 1,
+            severity: "Moderate",
+            status: inc.status,
+            veterinarian: inc.reviewedBy || "Municipal Veterinarian",
+            quarantineZone: false,
+            dateReported: dateStr?.slice(0, 10) || "",
+            notes: inc.details,
           },
         });
+      } else if (inc.type === "mortality") {
+        const matchingRecord = mortalityMap.get(`MOR-${inc.id}`) || mortalityMap.get(String(inc.id));
+        liveActivities.push({
+          id: `act-${inc.id}`,
+          domain: "mortality",
+          title: `Mortality Incident: ${inc.conditionName || "Death Reported"}`,
+          description: `${inc.headCount || 1} head(s) casualty. ${inc.details || ""}`,
+          actor: inc.reviewedBy || inc.farmerName || "Field Officer",
+          barangay: inc.barangayName || "Padre Garcia",
+          timestamp: formatRelativeTime(dateStr),
+          rawTimestamp: rawDate,
+          badge:
+            inc.status === "APPROVED"
+              ? "Verified Loss"
+              : inc.status === "SUBJECT_TO_REVISION"
+              ? "Subject to Revision"
+              : "Pending Review",
+          badgeVariant: "rose",
+          record: matchingRecord || {
+            id: `MOR-${inc.id}`,
+            farmerName: inc.farmerName || "Farmer",
+            barangay: inc.barangayName || "Padre Garcia",
+            cattleId: inc.tagNumber || `INC-${inc.id}`,
+            specie: inc.livestockType || "Livestock",
+            causeOfDeath: inc.conditionName || "Mortality Record",
+            deathCount: inc.headCount || 1,
+            dateOfDeath: dateStr?.slice(0, 10) || "",
+            disposalMethod: "Burial",
+            investigatedBy: inc.reviewedBy || "Field Officer",
+            status: inc.status === "APPROVED" ? "Verified" : "Pending Inspection",
+            notes: inc.details,
+          },
+        });
+      } else if (inc.type === "sale") {
+        const matchingRecord = salesMap.get(`SAL-${inc.id}`) || salesMap.get(String(inc.id));
+        liveActivities.push({
+          id: `act-${inc.id}`,
+          domain: "sales",
+          title: "Live Animal Trade Declared",
+          description: `${inc.details || "Livestock transaction logged for municipal trade clearance."}`,
+          actor: inc.farmerName || "Trader",
+          barangay: inc.barangayName || "Padre Garcia",
+          timestamp: formatRelativeTime(dateStr),
+          rawTimestamp: rawDate,
+          badge:
+            inc.status === "APPROVED"
+              ? "Cleared"
+              : inc.status === "SUBJECT_TO_REVISION"
+              ? "Subject to Revision"
+              : "Pending",
+          badgeVariant: inc.status === "APPROVED" ? "emerald" : "sky",
+          record: matchingRecord || {
+            id: `SAL-${inc.id}`,
+            farmerName: inc.farmerName || "Trader",
+            buyer: "Padre Garcia Trading Center",
+            barangay: inc.barangayName || "Padre Garcia",
+            product: "Livestock Trade",
+            specie: inc.livestockType || "Livestock",
+            cattleId: inc.tagNumber || `SAL-${inc.id}`,
+            quantity: `${inc.headCount || 1} Heads`,
+            amount: "Trade Completed",
+            amountNumber: 0,
+            paymentMethod: "Cash",
+            transportPermitNumber: `TPN-${inc.id}`,
+            date: dateStr?.slice(0, 10) || "",
+            status: inc.status === "APPROVED" ? "Completed" : "Pending Clearance",
+            notes: inc.details,
+          },
+        });
+      } else if (inc.type === "birth") {
+        const matchingRecord = (inc.tagNumber ? livestockMap.get(inc.tagNumber) : undefined) || livestockMap.get(`LIV-${inc.id}`);
+        liveActivities.push({
+          id: `act-${inc.id}`,
+          domain: "livestock",
+          title: "Calf Birth Registered",
+          description: `${inc.details || "New calf birth entered into registry."}`,
+          actor: inc.farmerName || "Farmer",
+          barangay: inc.barangayName || "Padre Garcia",
+          timestamp: formatRelativeTime(dateStr),
+          rawTimestamp: rawDate,
+          badge: "Born Active",
+          badgeVariant: "emerald",
+          record: matchingRecord,
+        });
+      }
+    });
+
+    // 5. Live Herds
+    const batchCandidates = getCandidates(rawBatches, (batch) => (batch.barangay_name || "").toLowerCase() === filterBrgyLower);
+    batchCandidates.forEach((batch) => {
+      const rawDate = batch.created_at ? new Date(batch.created_at).getTime() : 0;
+      const matchingRecord = batchMap.get(`BAT-${batch.id}`) || (batch.batch_code ? batchMap.get(batch.batch_code) : undefined);
+      liveActivities.push({
+        id: `act-bat-${batch.id}`,
+        domain: "batches",
+        title: `Batch Registered: ${batch.batch_code || batch.batch_name}`,
+        description: `${batch.batch_name} (${batch.total_animals || 0} heads ${batch.livestock_type_name || "livestock"}) in ${batch.housing_pen || "pen"}.`,
+        actor: batch.farmer_name || "Farmer",
+        barangay: batch.barangay_name || "Padre Garcia",
+        timestamp: formatRelativeTime(batch.created_at),
+        rawTimestamp: rawDate,
+        badge: "Herd container",
+        badgeVariant: "sky",
+        record: matchingRecord || {
+          id: `BAT-${batch.id}`,
+          rawId: batch.id,
+          batchCode: batch.batch_code || `BAT-${batch.id}`,
+          batchName: batch.batch_name || `Batch #${batch.id}`,
+          farmerName: batch.farmer_name || "Farmer",
+          barangay: batch.barangay_name || "Padre Garcia",
+          specie: batch.livestock_type_name || "Livestock",
+          housingPen: batch.housing_pen || "General Pen",
+          feedType: batch.feed_type || "—",
+          totalAnimals: batch.total_animals || 0,
+          status: batch.status || "ACTIVE",
+          createdAt: batch.created_at?.slice(0, 10) || "",
+          animals: batch.animals || [],
+        },
       });
-    }
+    });
 
     // 6. Slaughterhouse & Movement Clearances (Real records)
-    if (slaughterList.length > 0) {
-      slaughterList.forEach((slg) => {
-        const rawDate = slg.date ? new Date(slg.date).getTime() : 0;
-        liveActivities.push({
-          id: `act-slg-${slg.id}`,
-          domain: "slaughter",
-          title: `Slaughter Record: ${slg.inspectionCertNo || slg.id}`,
-          description: `${slg.specie} (${slg.carcassWeightKg} kg) cleared for ${slg.destinationMarket} by ${slg.farmerName}.`,
-          actor: slg.farmerName || "Farmer",
-          barangay: slg.barangay || "Padre Garcia",
-          timestamp: formatRelativeTime(slg.date),
-          rawTimestamp: rawDate,
-          badge: slg.status || "Certified",
-          badgeVariant: "emerald",
-          record: slg,
-        });
+    const slaughterCandidates = getCandidates(slaughterList, (slg) => (slg.barangay || "").toLowerCase() === filterBrgyLower);
+    slaughterCandidates.forEach((slg) => {
+      const rawDate = slg.date ? new Date(slg.date).getTime() : 0;
+      liveActivities.push({
+        id: `act-slg-${slg.id}`,
+        domain: "slaughter",
+        title: `Slaughter Record: ${slg.inspectionCertNo || slg.id}`,
+        description: `${slg.specie} (${slg.carcassWeightKg} kg) cleared for ${slg.destinationMarket} by ${slg.farmerName}.`,
+        actor: slg.farmerName || "Farmer",
+        barangay: slg.barangay || "Padre Garcia",
+        timestamp: formatRelativeTime(slg.date),
+        rawTimestamp: rawDate,
+        badge: slg.status || "Certified",
+        badgeVariant: "emerald",
+        record: slg,
       });
-    }
+    });
 
     if (liveActivities.length === 0) {
       return [];
     }
 
-    // Sort chronologically descending (newest first)
+    // Sort chronologically descending (newest first) and take top 30
     liveActivities.sort((a, b) => b.rawTimestamp - a.rawTimestamp);
-
-    // If filtering by barangay in toolbar
-    if (filterBarangay !== "all") {
-      const filtered = liveActivities.filter(
-        (a) => a.barangay.toLowerCase() === filterBarangay.toLowerCase()
-      );
-      return filtered.slice(0, 30);
-    }
-
     return liveActivities.slice(0, 30);
   }, [
     rawInventory,
@@ -940,30 +975,38 @@ export default function DataOverviewPage() {
         return [];
     }
 
-    return raw.filter((item) => {
-      // Search query
-      const matchesSearch =
-        searchQuery === "" ||
-        Object.values(item).some((val) =>
-          typeof val === "string" || typeof val === "number"
-            ? String(val).toLowerCase().includes(searchQuery.toLowerCase())
-            : false
-        );
+    const query = searchQuery.trim().toLowerCase();
+    const isBarangayAll = filterBarangay === "all";
+    const isSpecieAll = filterSpecie === "all";
+    const specieFilterLower = filterSpecie.toLowerCase();
 
-      // Barangay filter
-      const matchesBarangay =
-        filterBarangay === "all" ||
-        item.barangay === filterBarangay ||
-        item.barangayName === filterBarangay;
+    return raw.filter((item) => {
+      // Barangay filter (fast check first)
+      if (!isBarangayAll && item.barangay !== filterBarangay && item.barangayName !== filterBarangay) {
+        return false;
+      }
 
       // Specie filter
-      const matchesSpecie = filterSpecie === "all" ||
-        (typeof item.specie === "string" && item.specie.toLowerCase().includes(filterSpecie.toLowerCase()));
+      if (!isSpecieAll && !(typeof item.specie === "string" && item.specie.toLowerCase().includes(specieFilterLower))) {
+        return false;
+      }
 
       // Status filter
-      const matchesStatus = matchesStatusFilter(item, filterStatus);
+      if (!matchesStatusFilter(item, filterStatus)) {
+        return false;
+      }
 
-      return matchesSearch && matchesBarangay && matchesSpecie && matchesStatus;
+      // Search query (only evaluated if filters pass)
+      if (query) {
+        const matchesSearch = Object.values(item).some((val) =>
+          typeof val === "string" || typeof val === "number"
+            ? String(val).toLowerCase().includes(query)
+            : false
+        );
+        if (!matchesSearch) return false;
+      }
+
+      return true;
     });
   }, [
     activeTab,
