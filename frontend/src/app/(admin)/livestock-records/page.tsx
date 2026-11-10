@@ -13,6 +13,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -47,6 +53,7 @@ import {
   ClipboardList,
   Clock,
   Eye,
+  History,
   ImageIcon,
   Layers,
   LayoutGrid,
@@ -64,6 +71,7 @@ import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { Suspense, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import {
   fetchAdminInventoryRecords,
   ValidationInventoryItem,
@@ -442,6 +450,21 @@ function LivestockRecordsContent() {
     setActiveTab(tab);
     const params = new URLSearchParams(window.location.search);
     params.set("tab", tab);
+    router.replace(`/livestock-records?${params.toString()}`, { scroll: false });
+  };
+
+  const handleHistoryToggle = (history: boolean) => {
+    if (history === showHistory) return;
+    setIndividualPage(1);
+    setStatusFilter("ALL");
+    setActiveTab("individual");
+    const params = new URLSearchParams(window.location.search);
+    params.set("tab", "individual");
+    if (history) {
+      params.set("history", "true");
+    } else {
+      params.delete("history");
+    }
     router.replace(`/livestock-records?${params.toString()}`, { scroll: false });
   };
 
@@ -828,11 +851,15 @@ function LivestockRecordsContent() {
     <>
       {/* ── Official Admin Header (matching Data Validation pattern) ── */}
       <PageHeader
-        title="Livestock Management"
-        subtitle="Official Municipal Agriculture Office (MAO) livestock registry, herd inspection, and animal tracking"
+        title={showHistory ? "Animal History" : "Livestock Management"}
+        subtitle={
+          showHistory
+            ? "Sold, deceased, slaughtered, and moved-out animals. Excluded from current population."
+            : "Official Municipal Agriculture Office (MAO) livestock registry, herd inspection, and animal tracking"
+        }
         variant="admin"
         maxWidthClass="w-full"
-        icon={<CowIcon className="size-5" />}
+        icon={showHistory ? <History className="size-5" /> : <CowIcon className="size-5" />}
         action={
           <div className="flex items-center gap-2">
             <Button
@@ -1024,7 +1051,7 @@ function LivestockRecordsContent() {
                   : "bg-white/80 text-slate-700 hover:text-slate-950 hover:bg-white border border-slate-200"
               }`}
             >
-              <Tag className="w-4 h-4" />
+              {showHistory ? <History className="w-4 h-4 text-amber-400" /> : <Tag className="w-4 h-4" />}
               <span>{showHistory ? "Animal History" : "Individual Animals"}</span>
               <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${activeTab === "individual" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"}`}>
                 {totalIndividualCount}
@@ -1033,22 +1060,100 @@ function LivestockRecordsContent() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            <Button
-              variant="outline"
-              className="rounded-xl"
-              onClick={() => {
-                setIndividualPage(1);
-                setStatusFilter("ALL");
-                setActiveTab("individual");
-                const params = new URLSearchParams(searchParams.toString());
-                params.set("tab", "individual");
-                if (showHistory) params.delete("history");
-                else params.set("history", "true");
-                router.replace(`/livestock-records?${params.toString()}`, { scroll: false });
-              }}
-            >
-              {showHistory ? "Current animals" : "Animal history"}
-            </Button>
+            {/* Current Animals / Animal History Dropdown Toggle */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={cn(
+                    "group relative h-9 gap-2 rounded-xl border px-3 text-xs font-bold shadow-2xs transition-all duration-200 hover:shadow-xs active:scale-[0.98] cursor-pointer",
+                    showHistory
+                      ? "border-amber-200/90 bg-amber-50/70 text-amber-950 hover:bg-amber-100/80 hover:border-amber-300"
+                      : "border-slate-200 bg-white text-slate-800 hover:border-slate-300 hover:bg-slate-50"
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    {showHistory ? (
+                      <History className="size-3.5 text-amber-600 transition-transform duration-300 group-hover:-rotate-45" />
+                    ) : (
+                      <span className="relative flex size-2">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                        <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+                      </span>
+                    )}
+                    <span className="font-extrabold tracking-tight">
+                      {showHistory ? "Animal History" : "Current Animals"}
+                    </span>
+                  </div>
+                  <ChevronDown className="size-3.5 text-slate-400 transition-transform duration-300 group-data-[state=open]:rotate-180 group-hover:text-slate-600" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="w-56 rounded-2xl border border-slate-200/90 bg-white p-1.5 shadow-xl transition-all data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 duration-200"
+              >
+                <div className="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Registry Population
+                </div>
+                <DropdownMenuItem
+                  onClick={() => handleHistoryToggle(false)}
+                  className={cn(
+                    "group flex cursor-pointer items-center justify-between rounded-xl px-2.5 py-2 text-xs font-bold transition-all duration-150",
+                    !showHistory
+                      ? "bg-emerald-50/80 text-emerald-950 font-black"
+                      : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                  )}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="relative flex size-2 shrink-0">
+                      {!showHistory && (
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                      )}
+                      <span
+                        className={cn(
+                          "relative inline-flex size-2 rounded-full",
+                          !showHistory ? "bg-emerald-500" : "bg-slate-300"
+                        )}
+                      />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="leading-snug">Current Animals</p>
+                      <p className="text-[10px] font-medium text-slate-500">Active livestock</p>
+                    </div>
+                  </div>
+                  {!showHistory && (
+                    <Check className="size-3.5 text-emerald-600 shrink-0 animate-in zoom-in-50 duration-200" />
+                  )}
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  onClick={() => handleHistoryToggle(true)}
+                  className={cn(
+                    "group flex cursor-pointer items-center justify-between rounded-xl px-2.5 py-2 text-xs font-bold transition-all duration-150",
+                    showHistory
+                      ? "bg-amber-50/80 text-amber-950 font-black"
+                      : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                  )}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <History
+                      className={cn(
+                        "size-3.5 shrink-0 transition-transform duration-200 group-hover:-rotate-45",
+                        showHistory ? "text-amber-600" : "text-slate-400"
+                      )}
+                    />
+                    <div className="min-w-0">
+                      <p className="leading-snug">Animal History</p>
+                      <p className="text-[10px] font-medium text-slate-500">Sold, deceased, moved</p>
+                    </div>
+                  </div>
+                  {showHistory && (
+                    <Check className="size-3.5 text-amber-600 shrink-0 animate-in zoom-in-50 duration-200" />
+                  )}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             {/* View mode toggle when on herd registry */}
             {activeTab === "herd" && (
@@ -1430,10 +1535,30 @@ function LivestockRecordsContent() {
 
         {/* ── TAB 2: INDIVIDUAL ANIMALS ── */}
         {activeTab === "individual" && (
-          <div className="bg-white/95 backdrop-blur-xs rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
-            <p className="px-4 py-3 text-sm text-slate-600 border-b border-slate-100">
-              {showHistory ? "Sold, deceased, slaughtered, and moved-out animals are preserved here and excluded from current population. A buyer registers acquired livestock for approval before it counts again." : "Current animals only. Inactive livestock is available in Animal history."}
-            </p>
+          <div
+            key={showHistory ? "history" : "current"}
+            className="bg-white/95 backdrop-blur-xs rounded-2xl border border-slate-200 shadow-2xs overflow-hidden animate-in fade-in-50 slide-in-from-bottom-2 duration-300 fill-mode-both"
+          >
+            {showHistory ? (
+              <div className="px-4 py-3 border-b border-amber-200/60 bg-amber-50/50 flex items-center gap-2.5">
+                <History className="size-4 text-amber-600 shrink-0" />
+                <p className="text-xs font-medium text-amber-950">
+                  <span className="font-bold">Historical Livestock Archive:</span> Sold, deceased, slaughtered, and moved-out animals are preserved here and excluded from current population counts.
+                </p>
+              </div>
+            ) : (
+              <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="relative flex size-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+                  </span>
+                  <p className="text-xs font-medium text-slate-600">
+                    Showing active livestock in Padre Garcia. Inactive, sold, or deceased records are preserved in <span className="font-bold text-slate-800">Animal History</span>.
+                  </p>
+                </div>
+              </div>
+            )}
             {isInventoryLoading ? (
               <div className="p-12 text-center">
                 <RefreshCw className="w-7 h-7 mx-auto text-emerald-600 animate-spin mb-3" />
@@ -1498,7 +1623,11 @@ function LivestockRecordsContent() {
                               <span className="text-[11px] text-slate-500 font-medium">
                                 {item.livestockType}
                               </span>
-                              {showHistory && <Badge variant="outline">{item.operationalStatus?.replaceAll("_", " ")}</Badge>}
+                              {showHistory && (
+                                <Badge variant="outline" className="mt-1 w-fit text-[10px] font-bold border-amber-300 bg-amber-50 text-amber-900">
+                                  {item.operationalStatus?.replaceAll("_", " ")}
+                                </Badge>
+                              )}
                             </div>
                           </TableCell>
                           <TableCell className="font-bold text-slate-800 text-xs px-4 py-3.5">
