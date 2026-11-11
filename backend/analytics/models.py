@@ -143,3 +143,22 @@ class NLPExampleReviewEvent(models.Model):
     class Meta:
         ordering = ["-reviewed_at", "-pk"]
         indexes = [models.Index(fields=["corpus_version", "example_id", "-reviewed_at"], name="nlpex_review_latest_idx")]
+
+from django.core.serializers.json import DjangoJSONEncoder
+
+class ForecastReadinessReport(models.Model):
+    horizon_months = models.PositiveSmallIntegerField(default=6)
+    category = models.CharField(max_length=50, blank=True, default="")
+    payload = models.JSONField(
+        encoder=DjangoJSONEncoder,
+        help_text="Pre-computed summary cards and diagnostic dictionary",
+    )
+    computed_at = models.DateTimeField(auto_now=True) 
+    
+    class Meta:
+        ordering = ["-computed_at"]
+        indexes = [
+            models.Index(fields=["horizon_months", "category", "-computed_at"])
+        ]
+
+

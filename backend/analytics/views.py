@@ -821,6 +821,20 @@ def predictive_readiness_diagnostics(request):
         if cached_res is not None:
             return Response(cached_res)
 
+        # Check persistent precomputed snapshot table
+        if not domain and not target:
+            from .models import ForecastReadinessReport
+            report = (
+                ForecastReadinessReport.objects
+                .filter(horizon_months=horizon, category=(category or ""))
+                .first()
+            )
+            if report and report.payload:
+                payload = dict(report.payload)
+                payload["precomputed_at"] = report.computed_at.isoformat()
+                cache.set(cache_key, payload, timeout=300)
+                return Response(payload)
+
     try:
         from .services.predictive.diagnostics import (
             get_forecast_readiness_diagnostics,
@@ -843,6 +857,16 @@ def predictive_readiness_diagnostics(request):
                 user=request.user,
                 horizon_months=horizon,
                 domains=categories.get(category),
+            )
+            # Persist newly computed snapshot into the database
+            import json
+            from django.core.serializers.json import DjangoJSONEncoder
+            from .models import ForecastReadinessReport
+            sanitized_payload = json.loads(json.dumps(res, cls=DjangoJSONEncoder))
+            ForecastReadinessReport.objects.update_or_create(
+                horizon_months=horizon,
+                category=(category or ""),
+                defaults={"payload": sanitized_payload},
             )
         cache.set(cache_key, res, timeout=300)
         return Response(res)
