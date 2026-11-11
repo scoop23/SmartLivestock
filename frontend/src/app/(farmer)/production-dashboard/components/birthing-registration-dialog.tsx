@@ -22,7 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { localCalendarDateToday } from "@/lib/livestock-age";
 import { nextSequentialLivestockTag, normalizeLivestockTagPrefix } from "@/lib/livestock-tag";
 import { cowHead } from "@lucide/lab";
-import { Calendar,Check,Dna,Icon,Scale,Sparkles,Tag } from "lucide-react";
+import { Calendar,Check,Dna,Icon,Scale,Sparkles,Tag,Wand2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { type DriveStep } from "driver.js";
 import "driver.js/dist/driver.css";
@@ -74,6 +74,8 @@ export default function BirthingRegistrationDialog({
   ) || "FARMER";
   const [damId, setDamId] = useState<string>("");
   const [calfTag, setCalfTag] = useState("");
+  const [isCustomTag, setIsCustomTag] = useState(false);
+  const [customTagName, setCustomTagName] = useState("");
   const [calfSex, setCalfSex] = useState<"MALE" | "FEMALE">("FEMALE");
   const [birthWeight, setBirthWeight] = useState<string>("");
   const [selectedSireOption, setSelectedSireOption] = useState<string>("NONE"); // "NONE" | "MANUAL" | bullId
@@ -160,6 +162,8 @@ export default function BirthingRegistrationDialog({
 
     setDamId("");
     setCalfTag("");
+    setIsCustomTag(false);
+    setCustomTagName("");
     setBirthWeight("");
     setSelectedSireOption("NONE");
     setSireTag("");
@@ -190,10 +194,14 @@ export default function BirthingRegistrationDialog({
     e.preventDefault();
     if (!damId) return;
 
+    const finalTag = isCustomTag
+      ? calfTag.trim()
+      : (calfTag.trim() || generatedCalfTag);
+
     onSubmit({
       dam: Number(damId),
       // Blank asks the API to assign the next owner-name sequence as the source of truth.
-      calf_tag: calfTag.trim(),
+      calf_tag: finalTag,
       calf_sex: calfSex,
       birth_weight: birthWeight ? Number(birthWeight) : null,
       sire_tag: sireTag.trim(),
@@ -206,6 +214,8 @@ export default function BirthingRegistrationDialog({
     // Reset local state
     setDamId("");
     setCalfTag("");
+    setIsCustomTag(false);
+    setCustomTagName("");
     setBirthWeight("");
     setSelectedSireOption("NONE");
     setSireTag("");
@@ -259,40 +269,125 @@ export default function BirthingRegistrationDialog({
             )}
           </div>
 
-          <div data-tour="birth-record-offspring" className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {/* Offspring Ear Tag */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
-                <Tag className="size-3.5 text-emerald-600" />
-                {terms.offspringName} Tag / Identifier
-              </Label>
-              <Input
-                placeholder="Generated from your name and next tag number"
-                value={calfTag || generatedCalfTag}
-                onChange={(e) => setCalfTag(e.target.value)}
-                className="text-xs"
-              />
-              <p className="text-[10px] text-slate-500">Auto-generated in your name-number format (for example, NAME-001). Edit if needed.</p>
+          <div data-tour="birth-record-offspring" className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Tag Format Selection */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="tagNamingSelect" className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                    <Tag className="size-3.5 text-emerald-600" />
+                    {terms.offspringName} Tag Format
+                  </Label>
+                  <span className="text-[10px] text-slate-400 font-medium">
+                    {isCustomTag ? "Custom Mode" : "Standard Name-Number"}
+                  </span>
+                </div>
+                <Select
+                  value={isCustomTag ? "CUSTOM" : "STANDARD"}
+                  onValueChange={(val) => {
+                    if (val === "CUSTOM") {
+                      setIsCustomTag(true);
+                      setCalfTag(customTagName || "");
+                    } else {
+                      setIsCustomTag(false);
+                      setCalfTag(generatedCalfTag);
+                    }
+                  }}
+                >
+                  <SelectTrigger id="tagNamingSelect" className="w-full text-xs font-semibold bg-white border-slate-200">
+                    <SelectValue placeholder="Select tag format..." />
+                  </SelectTrigger>
+                  <SelectContent className="z-[var(--z-popover-dialog)]">
+                    <SelectItem value="STANDARD" className="text-xs font-semibold">
+                      🏷️ Standard ({tagPrefix ? `${tagPrefix}-` : "NAME-"})
+                    </SelectItem>
+                    <SelectItem value="CUSTOM" className="text-xs font-semibold text-emerald-800">
+                      ➕ Custom (Specify custom name or tag)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Offspring Sex */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">
+                  Offspring Gender *
+                </Label>
+                <Select
+                  value={calfSex}
+                  onValueChange={(val: "MALE" | "FEMALE") => setCalfSex(val)}
+                >
+                  <SelectTrigger className="w-full text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="FEMALE">{terms.femaleOffspring}</SelectItem>
+                    <SelectItem value="MALE">{terms.maleOffspring}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            {/* Offspring Sex */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-700">
-                Offspring Gender *
-              </Label>
-              <Select
-                value={calfSex}
-                onValueChange={(val: "MALE" | "FEMALE") => setCalfSex(val)}
-              >
-                <SelectTrigger className="w-full text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="FEMALE">{terms.femaleOffspring}</SelectItem>
-                  <SelectItem value="MALE">{terms.maleOffspring}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Tag Number (Auto-generated or Custom) */}
+            {!isCustomTag ? (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <Label
+                      htmlFor="calfTagNumber"
+                      className="text-xs font-semibold text-slate-700"
+                    >
+                      {terms.offspringName} Tag Number (Auto-generated)
+                    </Label>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCalfTag(nextSequentialLivestockTag(tagPrefix, existingTags))
+                      }
+                      className="text-emerald-600 hover:text-emerald-700 p-0.5 rounded cursor-pointer transition-transform active:scale-95"
+                      title="Auto-generate Tag"
+                    >
+                      <Wand2 className="size-3.5" />
+                    </button>
+                  </div>
+                </div>
+                <Input
+                  id="calfTagNumber"
+                  placeholder="e.g. NAME-001"
+                  value={calfTag || generatedCalfTag}
+                  readOnly
+                  className="text-xs font-mono font-bold border-0 bg-slate-100 text-slate-900 cursor-not-allowed select-all tracking-wider"
+                />
+                <p className="text-[10px] text-slate-500">
+                  Auto-generated in your name-number format ({tagPrefix || "YOUR-NAME"}-001). Next number is generated for you. Select Custom above if you wish to edit.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-1.5 animate-in fade-in-50 duration-200">
+                <Label
+                  htmlFor="customCalfTagName"
+                  className="text-xs font-semibold text-emerald-800 flex items-center gap-1"
+                >
+                  Specify Custom {terms.offspringName} Name or Ear Tag *
+                </Label>
+                <Input
+                  id="customCalfTagName"
+                  placeholder="e.g. BESSIE-001, BELLA, or TAG-99"
+                  value={calfTag}
+                  onChange={(e) => {
+                    const upper = e.target.value.toUpperCase();
+                    setCalfTag(upper);
+                    setCustomTagName(upper);
+                  }}
+                  className="text-xs font-mono font-bold border-emerald-300 focus-visible:ring-emerald-500/20 bg-white"
+                  required
+                  autoFocus
+                />
+                <p className="text-[10px] text-slate-500">
+                  Enter an optional custom name or identifier for this animal (letters, numbers, hyphens).
+                </p>
+              </div>
+            )}
           </div>
 
           <div data-tour="birth-record-birth-details" className="grid grid-cols-1 sm:grid-cols-2 gap-3">
