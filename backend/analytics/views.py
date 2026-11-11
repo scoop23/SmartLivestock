@@ -1195,8 +1195,35 @@ def prescriptive_recommendations(request):
         cached_res = cache.get(cache_key)
         if cached_res is not None:
             return Response(cached_res)
+
+        # Check persistent precomputed snapshot table
+        from .models import ForecastReadinessReport
+        report = (
+            ForecastReadinessReport.objects
+            .filter(category__in=[f"prescriptive:{role}", "prescriptive"])
+            .order_by("-computed_at")
+            .first()
+        )
+        if report and report.payload:
+            payload = dict(report.payload)
+            payload["precomputed_at"] = report.computed_at.isoformat()
+            cache.set(cache_key, payload, timeout=300)
+            return Response(payload)
+
     from .services.predictive.rules import generate_prescriptive_recommendations
     res = generate_prescriptive_recommendations(user=request.user)
+
+    # Persist into database snapshot table
+    import json
+    from django.core.serializers.json import DjangoJSONEncoder
+    from .models import ForecastReadinessReport
+    sanitized = json.loads(json.dumps(res, cls=DjangoJSONEncoder))
+    ForecastReadinessReport.objects.update_or_create(
+        horizon_months=0,
+        category=f"prescriptive:{role}" if role else "prescriptive",
+        defaults={"payload": sanitized},
+    )
+
     cache.set(cache_key, res, timeout=300)
     return Response(res)
 

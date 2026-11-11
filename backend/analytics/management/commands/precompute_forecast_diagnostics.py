@@ -102,6 +102,30 @@ class Command(BaseCommand):
                 )
                 raise
 
+        self.stdout.write("Evaluating prescriptive recommendations...")
+        try:
+            from analytics.services.predictive.rules import generate_prescriptive_recommendations
+            presc_res = generate_prescriptive_recommendations(user=staff_user)
+            sanitized_presc = json.loads(json.dumps(presc_res, cls=DjangoJSONEncoder))
+            role_name = getattr(getattr(staff_user, "role", None), "role_name", "MAO")
+            ForecastReadinessReport.objects.update_or_create(
+                horizon_months=0,
+                category=f"prescriptive:{role_name}",
+                defaults={"payload": sanitized_presc},
+            )
+            ForecastReadinessReport.objects.update_or_create(
+                horizon_months=0,
+                category="prescriptive",
+                defaults={"payload": sanitized_presc},
+            )
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"  -> Successfully precomputed {presc_res.get('total_recommendations', 0)} prescriptive recommendations!"
+                )
+            )
+        except Exception as e:
+            self.stdout.write(self.style.WARNING(f"  -> Could not precompute prescriptive: {e}"))
+
         self.stdout.write(
             self.style.SUCCESS("All requested forecast diagnostics have been precomputed successfully!")
         )
