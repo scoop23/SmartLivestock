@@ -822,18 +822,67 @@ def predictive_readiness_diagnostics(request):
             return Response(cached_res)
 
         # Check persistent precomputed snapshot table
+        from .models import ForecastReadinessReport
         if not domain and not target:
-            from .models import ForecastReadinessReport
+            # 1. Check exact match for horizon and category
             report = (
                 ForecastReadinessReport.objects
                 .filter(horizon_months=horizon, category=(category or ""))
                 .first()
             )
+            # 2. If category snapshot not found, slice it instantly from the master snapshot (category="")
+            if not report and category:
+                master = (
+                    ForecastReadinessReport.objects
+                    .filter(horizon_months=horizon, category="")
+                    .first()
+                )
+                if master and master.payload:
+                    target_domains = categories.get(category)
+                    payload = dict(master.payload)
+                    if target_domains is not None:
+                        payload["summary_cards"] = [
+                            c for c in payload.get("summary_cards", [])
+                            if c.get("domain") in target_domains
+                        ]
+                        payload["diagnostics"] = {
+                            k: v for k, v in payload.get("diagnostics", {}).items()
+                            if v.get("config", {}).get("domain") in target_domains or v.get("domain") in target_domains
+                        }
+                    payload["precomputed_at"] = master.computed_at.isoformat()
+                    cache.set(cache_key, payload, timeout=300)
+                    return Response(payload)
+
             if report and report.payload:
                 payload = dict(report.payload)
                 payload["precomputed_at"] = report.computed_at.isoformat()
                 cache.set(cache_key, payload, timeout=300)
                 return Response(payload)
+        else:
+            # Check if this specific target diagnostic was already evaluated in the master snapshot
+            master = (
+                ForecastReadinessReport.objects
+                .filter(horizon_months=horizon, category="")
+                .first()
+            )
+            if master and master.payload and "diagnostics" in master.payload:
+                req_domain = (domain or "production").lower()
+                req_target = (target or "").upper()
+                req_source = (transfer_source or "").upper() or None
+                for diag_key, diag_val in master.payload["diagnostics"].items():
+                    cfg = diag_val.get("config", {})
+                    cfg_domain = (cfg.get("domain") or diag_val.get("domain") or "").lower()
+                    cfg_target = (cfg.get("target") or diag_val.get("target") or "").upper()
+                    cfg_source = (cfg.get("transfer_source") or diag_val.get("transfer_source") or "").upper() or None
+                    if (
+                        cfg_domain == req_domain
+                        and (not req_target or cfg_target == req_target or req_target == "ALL")
+                        and (not req_source or cfg_source == req_source)
+                    ):
+                        diag_copy = dict(diag_val)
+                        diag_copy["precomputed_at"] = master.computed_at.isoformat()
+                        cache.set(cache_key, diag_copy, timeout=300)
+                        return Response(diag_copy)
 
     try:
         from .services.predictive.diagnostics import (
