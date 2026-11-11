@@ -920,8 +920,17 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                               {/* Program Name with Icon */}
                               <td className="py-4 pl-4 sm:pl-5 pr-2.5 align-middle">
                                 <div className="flex items-center gap-3 min-w-0 max-w-[200px] xl:max-w-xs">
-                                  <div className={`size-10 shrink-0 rounded-xl flex items-center justify-center ${iconConfig.container}`}>
-                                    {iconConfig.icon}
+                                  <div className={`size-10 shrink-0 overflow-hidden rounded-xl flex items-center justify-center ${iconConfig.container}`}>
+                                    {schedule.cover_image ? (
+                                      <Image
+                                        src={coverPreviewUrl(schedule.cover_image)}
+                                        alt={`${schedule.program} cover`}
+                                        width={40}
+                                        height={40}
+                                        unoptimized
+                                        className="size-10 object-cover"
+                                      />
+                                    ) : iconConfig.icon}
                                   </div>
                                   <div className="min-w-0">
                                     <p className="font-bold text-slate-900 text-sm leading-snug line-clamp-1" title={schedule.program}>
