@@ -282,8 +282,27 @@ export function CattleProfilePrice({ source }: { source: "REGISTERED" | "EXTERNA
         source, species, sex, breed: breed.trim(), ...age, ...weight, horizon_weeks: horizonWeeks, data_mode: dataMode,
       });
       setResult(data);
-    } catch {
-      setError("Could not prepare the price comparison. Check your inputs and try again.");
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: unknown }; message?: string };
+      const respData = axiosErr?.response?.data;
+      let msg = "";
+      if (typeof respData === "string") {
+        msg = respData;
+      } else if (respData && typeof respData === "object") {
+        const d = respData as Record<string, unknown>;
+        if (typeof d.detail === "string") {
+          msg = d.detail;
+        } else if (typeof d.message === "string") {
+          msg = d.message;
+        } else {
+          msg = Object.entries(d)
+            .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : String(v)}`)
+            .join(" | ");
+        }
+      } else if (axiosErr?.message) {
+        msg = axiosErr.message;
+      }
+      setError(msg || "Could not prepare the price comparison. Check your inputs and try again.");
     } finally {
       setLoading(false);
     }

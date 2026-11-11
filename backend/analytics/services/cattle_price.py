@@ -82,8 +82,13 @@ def _demo_sales(qs):
     return qs.filter(Q(review_remarks__icontains="AI_SEED") | Q(animal_description__icontains="synthetic"))
 
 
-def _uses_demo(mode, has_real, has_demo):
-    return mode == "DEMO" or (mode == "AUTO" and not has_real and has_demo)
+def _uses_demo(mode, has_real, has_demo, real_enough=False):
+    if mode == "DEMO":
+        return bool(has_demo)
+    if mode == "REAL":
+        return False
+    # AUTO: Prefer real sales if they have sufficient training data; otherwise fall back to demo
+    return (not real_enough and bool(has_demo)) if has_real else bool(has_demo)
 
 
 def _extract_price_sales(records):
@@ -162,10 +167,18 @@ def price_species_readiness(user, source, data_mode="AUTO"):
         for row in groups[key]:
             synthetic = "ai_seed" in (row["review_remarks"] or "").lower() or "synthetic" in (row["animal_description"] or "").lower()
             (demo if synthetic else real).append(row)
-        is_demo = _uses_demo(data_mode, bool(real), bool(demo))
-        complete, sales, blocked = _extract_price_sales(demo if is_demo else real)
-        readiness = _training_readiness(sales, blocked)
-        enough = readiness["recent_complete_weeks"] >= MIN_WEEKS and readiness["recent_complete_sales"] >= MIN_SALES
+        complete_real, sales_real, blocked_real = _extract_price_sales(real)
+        readiness_real = _training_readiness(sales_real, blocked_real)
+        real_enough = readiness_real["recent_complete_weeks"] >= MIN_WEEKS and readiness_real["recent_complete_sales"] >= MIN_SALES and len(complete_real) >= MIN_SALES
+
+        complete_demo, sales_demo, blocked_demo = _extract_price_sales(demo)
+        readiness_demo = _training_readiness(sales_demo, blocked_demo)
+        demo_enough = readiness_demo["recent_complete_weeks"] >= MIN_WEEKS and readiness_demo["recent_complete_sales"] >= MIN_SALES and len(complete_demo) >= MIN_SALES
+
+        is_demo = _uses_demo(data_mode, bool(real), bool(demo), real_enough=real_enough)
+        complete = complete_demo if is_demo else complete_real
+        readiness = readiness_demo if is_demo else readiness_real
+        enough = demo_enough if is_demo else real_enough
         options.append({"name": name, "data_mode": "DEMO" if is_demo else "REAL", "is_demo": is_demo, "complete_sales": len(complete), **readiness,
                         "status": "PROFILE_REQUIRED" if enough else "INSUFFICIENT_DATA"})
     return {"source": source, "requested_data_mode": data_mode, "unit": "PHP_PER_HEAD", "species": options,
@@ -183,7 +196,14 @@ def estimate_price(user, profile):
     demo_sales = _demo_sales(qs)
     # Automatic fallback applies to every species. Explicit Demo mode also lets
     # users inspect sample history when a sparse real dataset exists.
-    is_demo = _uses_demo(requested_mode, real_sales.exists(), demo_sales.exists())
+    if requested_mode == "DEMO":
+        is_demo = True
+    elif requested_mode == "REAL":
+        is_demo = False
+    else:  # AUTO
+        real_rows, _, _ = _extract_price_sales(real_sales.values(*PRICE_FIELDS))
+        real_enough = len(real_rows) >= 80
+        is_demo = _uses_demo(requested_mode, real_sales.exists(), demo_sales.exists(), real_enough=real_enough)
     if is_demo:
         # Explicit demo requests read ONLY marked demo records. Never mix synthetic
         # rows into the real model or present their scores as market accuracy.
