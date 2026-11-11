@@ -1,5 +1,7 @@
 "use client";
 
+import { ownershipTransferCsv } from "@/lib/ownership-transfer-export";
+
 import { PageHeader } from "@/app/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -303,47 +305,8 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
       toast.error("No records available to export.");
       return;
     }
-    const headers = [
-      "Certificate Number",
-      "Seller (Previous Owner)",
-      "Buyer (New Owner)",
-      "Species",
-      "Ear Tag / ID",
-      "Sex",
-      "Age",
-      "Breed at Transfer",
-      "Weight at Transfer (kg)",
-      "Transfer Date",
-      "Sale Price (PHP)",
-      "Municipality Brand",
-      "Owner Brand",
-      "Origin Location",
-      "Destination Location",
-      "Status",
-      "MAO Remarks",
-    ];
-    const rows = filtered.map((t) => [
-      `"${t.transfer_certificate_number || ""}"`,
-      `"${t.previous_owner_name || ""}"`,
-      `"${t.new_owner_name || ""}"`,
-      `"${t.livestock_type_name || ""}"`,
-      `"${t.livestock_tag || ""}"`,
-      `"${t.sex_at_transfer || ""}"`,
-      `"${t.age_at_transfer || ""}"`,
-      `"${t.breed_at_transfer || ""}"`,
-      `"${t.weight_at_transfer_kg || ""}"`,
-      `"${t.transfer_date || ""}"`,
-      `"${t.purchase_price || ""}"`,
-      `"${t.municipality_brand || ""}"`,
-      `"${t.owner_brand || ""}"`,
-      `"${t.origin_municipality || ""}, ${t.origin_province || ""}"`,
-      `"${t.municipality || ""}, ${t.province || ""}"`,
-      `"${t.status === "APPROVED" ? "Completed at Auction" : t.status || ""}"`,
-      `"${(t.review_remarks || "").replace(/"/g, '""')}"`,
-    ]);
-    const csvContent =
-      "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
+    const csvContent = ownershipTransferCsv(filtered);
+    const encodedUri = `data:text/csv;charset=utf-8,${encodeURIComponent(csvContent)}`;
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
     link.setAttribute("download", `MAO_Auction_Ownership_Transfers_${Date.now()}.csv`);
@@ -360,18 +323,12 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
       return;
     }
     const csvCell = (value: unknown) => `"${String(value ?? "").replace(/"/g, '""')}"`;
-    const headers = ["Control Number", "Shipper", "Origin", "Destination", "Purpose", "Animal Heads", "Inspection Date", "Status", "MAO Remarks"];
-    const rows = records.map((record) => [
-      record.control_number || `INS-${record.id}`,
-      record.shipper_name,
-      record.origin,
-      record.destination,
-      record.purpose,
-      record.items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0),
-      record.inspection_date,
-      record.status,
-      record.review_remarks,
-    ].map(csvCell).join(","));
+    const headers = ["control_number", "shipper_name", "origin", "destination", "purpose", "livestock_type", "quantity", "inspection_date", "sex", "classification"];
+    const rows = records.flatMap(record => record.items.map(item => [
+      record.control_number || `INS-${record.id}`, record.shipper_name, record.origin,
+      record.destination, record.purpose, item.livestock_type_name, item.quantity,
+      record.inspection_date, item.sex, item.classification,
+    ].map(csvCell).join(",")));
     const csv = [headers.map(csvCell).join(","), ...rows].join("\n");
     const link = document.createElement("a");
     link.href = `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`;

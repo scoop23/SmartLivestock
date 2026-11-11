@@ -1,5 +1,7 @@
 "use client";
 
+import { ownershipTransferCsv } from "@/lib/ownership-transfer-export";
+
 import { PageHeader } from "@/app/components/page-header";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -98,6 +100,8 @@ export type Transfer = {
   age_at_transfer?: string;
   municipality_brand?: string;
   owner_brand?: string;
+  breed_at_transfer?: string;
+  weight_at_transfer_kg?: string | null;
   heads_count?: number;
 };
 
@@ -253,29 +257,8 @@ export default function AuctionOwnershipTransferRegistryPage() {
       toast.error("No records available to export.");
       return;
     }
-    const headers = [
-      "Certificate Number",
-      "Seller",
-      "Buyer",
-      "Livestock Type",
-      "Tag",
-      "Transfer Date",
-      "Agreed Price",
-      "Status",
-    ];
-    const rows = filtered.map((t) => [
-      t.transfer_certificate_number || "",
-      `"${t.previous_owner_name || ""}"`,
-      `"${t.new_owner_name || ""}"`,
-      t.livestock_type_name || "",
-      t.livestock_tag || "",
-      t.transfer_date || "",
-      t.purchase_price || "",
-      t.status || "",
-    ]);
-    const csvContent =
-      "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
+    const csvContent = ownershipTransferCsv(filtered);
+    const encodedUri = `data:text/csv;charset=utf-8,${encodeURIComponent(csvContent)}`;
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
     link.setAttribute("download", `ownership_transfers_${Date.now()}.csv`);
