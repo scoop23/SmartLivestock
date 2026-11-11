@@ -416,7 +416,7 @@ class Command(BaseCommand):
         # historical submission time afterward for backtest demonstration.
         for row in rows:
             row.created_at = row._demo_created_at
-        model.objects.bulk_update(rows, ["created_at"], batch_size=500)
+        model.objects.bulk_update(rows, ["created_at"], batch_size=1000)
 
     def _create_sale_dispositions(self, marker, transfers):
         """Create Farmer -> Auction sale intent declarations for registered animal transfers."""
@@ -678,13 +678,6 @@ class Command(BaseCommand):
         self._demo_market_lot_serial = 0
         cattle_market = next(s for s in MARKET_WEEKLY_HEAD_AVERAGES if s["code"] == species_code)
 
-        base_profiles = [
-            (breed_index, breed, sex, age, weight)
-            for breed_index, breed in enumerate(breeds)
-            for sex in ("MALE", "FEMALE")
-            for age, weight in combinations
-        ]
-
         all_animals = []
         all_transfers = []
 
@@ -701,16 +694,26 @@ class Command(BaseCommand):
             reg_factor = max(0.65, min(1.40, seasonal + noise_reg))
             ext_factor = max(0.65, min(1.40, seasonal + noise_ext))
 
-            target_reg = int(round(len(base_profiles) * reg_factor))
-            target_ext = int(round(len(base_profiles) * ext_factor))
+            # Core weekly profiles: 1 animal per (breed, sex) combination with rotating age/weight.
+            # This balances trait coverage across every rolling 26-week training window while
+            # keeping database row volume lean (~75% reduction vs unconstrained combinatorics).
+            week_profiles = []
+            for breed_index, breed in enumerate(breeds):
+                for sex_index, sex in enumerate(("MALE", "FEMALE")):
+                    comb_idx = (week_index + breed_index + sex_index * 2) % len(combinations)
+                    age, weight = combinations[comb_idx]
+                    week_profiles.append((breed_index, breed, sex, age, weight))
 
-            sampled_reg = vol_rng.sample(base_profiles, k=min(len(base_profiles), target_reg))
-            if target_reg > len(base_profiles):
-                sampled_reg += vol_rng.choices(base_profiles, k=target_reg - len(base_profiles))
+            # Modulate weekly volume according to seasonal demand
+            extra_reg = max(0, int(round(len(breeds) * (reg_factor - 1.0))))
+            sampled_reg = list(week_profiles)
+            if extra_reg > 0:
+                sampled_reg.extend(vol_rng.choices(week_profiles, k=extra_reg))
 
-            sampled_ext = vol_rng.sample(base_profiles, k=min(len(base_profiles), target_ext))
-            if target_ext > len(base_profiles):
-                sampled_ext += vol_rng.choices(base_profiles, k=target_ext - len(base_profiles))
+            extra_ext = max(0, int(round(len(breeds) * (ext_factor - 1.0))))
+            sampled_ext = list(week_profiles)
+            if extra_ext > 0:
+                sampled_ext.extend(vol_rng.choices(week_profiles, k=extra_ext))
 
             for reg_idx, (breed_index, breed, sex, age, weight) in enumerate(sampled_reg):
                 price = (10_000 + weight * 40 + age * 60 + breed_index * 700
