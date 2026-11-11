@@ -426,10 +426,14 @@ export function FuturisticPredictiveDashboard({ selectedDomainProp }: { selected
 
   // Fetch Authoritative Readiness Diagnostics from Backend
   const { data, isPending, isError, error, refetch, isFetching } = useQuery<DiagnosticsApiResponse>({
-    queryKey: ["futuristic-predictive-diagnostics", horizonMonths],
-    queryFn: async () => {
+    queryKey: ["forecast-diagnostics", user?.email, user?.role, user?.accessScope, user?.assignedBarangayId, selectedDomainProp || "all", horizonMonths],
+    enabled: Boolean(user) && !populationDomain,
+    retry: 1,
+    queryFn: async ({ signal }) => {
       const res = await api.get<DiagnosticsApiResponse>("analytics/predictive/diagnostics/", {
-        params: { horizon: horizonMonths },
+        params: { horizon: horizonMonths, category: selectedDomainProp },
+        signal,
+        timeout: 120_000,
       });
       return res.data;
     },
@@ -609,7 +613,7 @@ export function FuturisticPredictiveDashboard({ selectedDomainProp }: { selected
     );
   }
 
-  if (isPending && !data) {
+  if (isPending && !data && !populationDomain) {
     return <PredictiveLoadingScreen />;
   }
 

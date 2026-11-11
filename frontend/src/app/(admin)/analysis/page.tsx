@@ -309,11 +309,13 @@ function AnalysisOverviewContent() {
   });
 
   const predictiveOverviewQuery = useQuery<PredictiveOverviewResponse>({
-    queryKey: [...queryKey, 'predictive-overview'],
-    enabled: Boolean(user),
+    queryKey: ['forecast-diagnostics', user?.email, user?.role, user?.accessScope, user?.assignedBarangayId, 'disease', 6],
+    enabled: Boolean(user) && selectedDomain === 'disease',
+    retry: 1,
     queryFn: async ({ signal }) => {
       const { data } = await api.get<PredictiveOverviewResponse>('analytics/predictive/diagnostics/', {
-        params: { horizon: 6 },
+        params: { horizon: 6, category: 'disease' },
+        timeout: 120_000,
         signal,
       });
       return data;

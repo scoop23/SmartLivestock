@@ -49,7 +49,10 @@ export default function GlobalError({
       <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
         <Button
           type="button"
-          onClick={() => reset()}
+          onClick={() => {
+            if (/chunk|module factory/i.test(error.message)) window.location.reload();
+            else reset();
+          }}
           className="gap-2 bg-[#2D5A27] hover:bg-[#23471f] text-white"
         >
           <RefreshCw className="size-4" /> Try Again

@@ -1,6 +1,6 @@
 // SmartLivestock Service Worker — Padre Garcia Biosecurity & Field PWA (v7)
 // Clean Cache Partitioning: Isolates HTML Navigation from Next.js RSC Wire Streams
-const CACHE_VERSION = "v7";
+const CACHE_VERSION = "v8";
 const CACHE_HTML = `smartlivestock-html-${CACHE_VERSION}`;
 const CACHE_RSC = `smartlivestock-rsc-${CACHE_VERSION}`;
 const CACHE_STATIC = `smartlivestock-static-${CACHE_VERSION}`;
@@ -168,6 +168,9 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
 
   const url = new URL(request.url);
+
+  // Development chunks and HMR must always come directly from Next.js.
+  if ((url.hostname === "localhost" || url.hostname === "127.0.0.1") && url.pathname.startsWith("/_next/")) return;
 
   // Exclude external cross-origin requests
   if (url.origin !== self.location.origin) return;
@@ -346,7 +349,7 @@ self.addEventListener("fetch", (event) => {
   ) {
     event.respondWith(
       caches.open(CACHE_STATIC).then((staticCache) => {
-        return staticCache.match(request, MATCH_OPTIONS).then((cachedResponse) => {
+        return staticCache.match(request).then((cachedResponse) => {
           const fetchPromise = fetch(request)
             .then((networkResponse) => {
               if (networkResponse && networkResponse.status === 200) {
@@ -358,16 +361,10 @@ self.addEventListener("fetch", (event) => {
               if (cachedResponse) return cachedResponse;
               const isJs = url.pathname.endsWith(".js") || url.pathname.includes(".js?");
               const isCss = url.pathname.endsWith(".css") || url.pathname.includes(".css?");
-              if (isJs) {
-                return new Response("/* offline */", {
-                  status: 200,
-                  headers: { "Content-Type": "application/javascript" },
-                });
-              }
-              if (isCss) {
-                return new Response("/* offline */", {
-                  status: 200,
-                  headers: { "Content-Type": "text/css" },
+              if (isJs || isCss) {
+                return new Response("Asset unavailable. Reconnect and reload.", {
+                  status: 503,
+                  headers: { "Cache-Control": "no-store" },
                 });
               }
               return new Response("", { status: 404, statusText: "Offline Asset Unavailable" });

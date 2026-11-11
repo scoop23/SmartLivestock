@@ -772,6 +772,14 @@ def predictive_readiness_diagnostics(request):
     Returns authoritative forecast readiness, validation diagnostics, checklist,
     and cutoff timeline for MAO/Admin decision support.
     """
+    category = request.query_params.get("category")
+    categories = {
+        "disease": {"disease", "mortality"}, "mortality": {"mortality"},
+        "auction": {"auction"}, "slaughter": {"slaughter"},
+        "inventory": set(), "barangay": set(),
+    }
+    if category and category not in categories:
+        return Response({"detail": "Invalid forecast category."}, status=400)
     domain = request.query_params.get("domain")
     target = request.query_params.get("target") or request.query_params.get("production_type")
     unit = request.query_params.get("unit")
@@ -806,6 +814,7 @@ def predictive_readiness_diagnostics(request):
             res = get_all_forecast_readiness_diagnostics(
                 user=request.user,
                 horizon_months=horizon,
+                domains=categories.get(category),
             )
         return Response(res)
     except APIException:

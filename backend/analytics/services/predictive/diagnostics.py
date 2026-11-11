@@ -1050,6 +1050,7 @@ def get_forecast_readiness_diagnostics(
 def get_all_forecast_readiness_diagnostics(
     user=None,
     horizon_months: int = 6,
+    domains=None,
 ) -> Dict[str, Any]:
     """
     Evaluates accessible core forecasting targets and returns summary cards plus
@@ -1064,6 +1065,8 @@ def get_all_forecast_readiness_diagnostics(
     private_to_farmer = role_name(user) in {"MAO", "ADMIN", "SIBAT", "CBAT"}
 
     for target_config in CORE_DIAGNOSTIC_TARGETS:
+        if domains is not None and target_config["domain"] not in domains:
+            continue
         if private_to_farmer and target_config["domain"] == "production":
             continue
         diag = get_forecast_readiness_diagnostics(
