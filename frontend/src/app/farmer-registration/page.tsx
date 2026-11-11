@@ -115,7 +115,12 @@ const FIELD_TARGETS: Record<string, FieldTarget> = {
   government_id_front: { step: 3, elementId: 'governmentIdType' },
   government_id_back: { step: 3, elementId: 'governmentIdType' },
   government_id_pdf: { step: 3, elementId: 'governmentIdType' },
-  rsbsa_document: { step: 3, elementId: 'rsbsaNumber' },
+  governmentIdFront: { step: 3, elementId: 'governmentIdType' },
+  governmentIdBack: { step: 3, elementId: 'governmentIdType' },
+  governmentIdPdf: { step: 3, elementId: 'governmentIdType' },
+  rsbsa_document: { step: 3, elementId: 'rsbsaDocument' },
+  rsbsaDocument: { step: 3, elementId: 'rsbsaDocument' },
+  rsbsa: { step: 3, elementId: 'rsbsaDocument' },
 };
 
 export default function FarmerRegistrationPage() {
@@ -328,19 +333,49 @@ export default function FarmerRegistrationPage() {
       e.target.value = '';
       return;
     }
-    if (key === 'rsbsa' && !file.type.startsWith('image/') && file.type !== 'application/pdf') {
-      setError('Only image files (JPG, PNG, WEBP) or PDFs are allowed.');
-      e.target.value = '';
-      return;
+    if (key === 'rsbsa') {
+      const allowedRsbsaTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+      if (!allowedRsbsaTypes.includes(file.type)) {
+        const errorMsg = 'Use a PDF, JPG, PNG or WEBP document.';
+        setFieldErrors((prev) => ({
+          ...prev,
+          rsbsa_document: errorMsg,
+          rsbsaDocument: errorMsg,
+          rsbsa: errorMsg,
+        }));
+        setError(errorMsg);
+        focusAndScrollToField('rsbsaDocument');
+        e.target.value = '';
+        return;
+      }
     }
     if (file.size > 10 * 1024 * 1024) {
-      setError('File size must be 10MB or less.');
+      const errorMsg = key === 'rsbsa' ? 'RSBSA document must be nonempty and 10MB or less.' : 'File size must be 10MB or less.';
+      if (key === 'rsbsa') {
+        setFieldErrors((prev) => ({
+          ...prev,
+          rsbsa_document: errorMsg,
+          rsbsaDocument: errorMsg,
+          rsbsa: errorMsg,
+        }));
+        focusAndScrollToField('rsbsaDocument');
+      }
+      setError(errorMsg);
       e.target.value = '';
       return;
     }
 
     if (previews[key] && previews[key] !== 'pdf') URL.revokeObjectURL(previews[key]);
     setError('');
+    if (key === 'rsbsa') {
+      setFieldErrors((prev) => {
+        const next = { ...prev };
+        delete next.rsbsa_document;
+        delete next.rsbsaDocument;
+        delete next.rsbsa;
+        return next;
+      });
+    }
     setDocuments((prev) => ({ ...prev, [key]: file }));
     setPreviews((prev) => ({
       ...prev,
@@ -358,6 +393,15 @@ export default function FarmerRegistrationPage() {
       rsbsa: rsbsaRef,
     };
     if (inputRefs[key].current) inputRefs[key].current.value = '';
+    if (key === 'rsbsa') {
+      setFieldErrors((prev) => {
+        const next = { ...prev };
+        delete next.rsbsa_document;
+        delete next.rsbsaDocument;
+        delete next.rsbsa;
+        return next;
+      });
+    }
     setDocuments((prev) => ({ ...prev, [key]: null }));
     setPreviews((prev) => ({ ...prev, [key]: '' }));
   };
@@ -1594,7 +1638,7 @@ export default function FarmerRegistrationPage() {
 
                     }
                     {/* RSBSA Certificate / Barangay Clearance (Optional) */}
-                    <div className="space-y-1.5">
+                    <div id="rsbsaDocument" tabIndex={-1} className="space-y-1.5 focus:outline-hidden">
                       <Label className="text-[11px] font-extrabold text-slate-700 uppercase flex items-center justify-between">
                         <span>RSBSA Stub / Barangay Certificate</span>
                         <span className="text-[10px] text-slate-400">Optional</span>
@@ -1607,7 +1651,13 @@ export default function FarmerRegistrationPage() {
                         onChange={(e) => handleFileSelect(e, 'rsbsa')}
                       />
                       {previews.rsbsa ? (
-                        <div className="relative border-2 border-emerald-600 bg-emerald-50/30 rounded-2xl p-3 flex items-center justify-between shadow-xs">
+                        <div
+                          className={`relative border-2 rounded-2xl p-3 flex items-center justify-between shadow-xs ${
+                            fieldErrors.rsbsa_document || fieldErrors.rsbsaDocument || fieldErrors.rsbsa
+                              ? 'border-rose-400 bg-rose-50/40 ring-2 ring-rose-400/20'
+                              : 'border-emerald-600 bg-emerald-50/30'
+                          }`}
+                        >
                           <div className="flex items-center gap-3">
                             {previews.rsbsa === 'pdf' ? (
                               <div className="size-12 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center font-black text-xs">
@@ -1640,19 +1690,48 @@ export default function FarmerRegistrationPage() {
                       ) : (
                         <div
                           onClick={() => rsbsaRef.current?.click()}
-                          className="p-4 border-2 border-dashed border-slate-200 hover:border-[#2D5A27] rounded-2xl flex items-center justify-between transition-colors cursor-pointer bg-slate-50/60 hover:bg-emerald-50/20 group"
+                          className={`p-4 border-2 border-dashed rounded-2xl flex items-center justify-between transition-colors cursor-pointer group ${
+                            fieldErrors.rsbsa_document || fieldErrors.rsbsaDocument || fieldErrors.rsbsa
+                              ? 'border-rose-400 bg-rose-50/40 ring-2 ring-rose-400/20'
+                              : 'border-slate-200 hover:border-[#2D5A27] bg-slate-50/60 hover:bg-emerald-50/20'
+                          }`}
                         >
                           <div className="flex items-center gap-3">
-                            <div className="size-10 rounded-xl bg-slate-100 group-hover:bg-emerald-100 text-slate-500 group-hover:text-[#2D5A27] flex items-center justify-center transition-colors">
+                            <div
+                              className={`size-10 rounded-xl flex items-center justify-center transition-colors ${
+                                fieldErrors.rsbsa_document || fieldErrors.rsbsaDocument || fieldErrors.rsbsa
+                                  ? 'bg-rose-100 text-rose-600'
+                                  : 'bg-slate-100 group-hover:bg-emerald-100 text-slate-500 group-hover:text-[#2D5A27]'
+                              }`}
+                            >
                               <FileText className="size-5" />
                             </div>
                             <div>
-                              <p className="text-xs font-bold text-slate-800">Upload RSBSA Stub or Certificate</p>
+                              <p
+                                className={`text-xs font-bold ${
+                                  fieldErrors.rsbsa_document || fieldErrors.rsbsaDocument || fieldErrors.rsbsa
+                                    ? 'text-rose-900'
+                                    : 'text-slate-800'
+                                }`}
+                              >
+                                Upload RSBSA Stub or Certificate
+                              </p>
                               <p className="text-[10px] text-slate-400">Speeds up MAO field audit verification</p>
                             </div>
                           </div>
-                          <Upload className="size-4 text-slate-400 group-hover:text-[#2D5A27]" />
+                          <Upload
+                            className={`size-4 ${
+                              fieldErrors.rsbsa_document || fieldErrors.rsbsaDocument || fieldErrors.rsbsa
+                                ? 'text-rose-500'
+                                : 'text-slate-400 group-hover:text-[#2D5A27]'
+                            }`}
+                          />
                         </div>
+                      )}
+                      {(fieldErrors.rsbsa_document || fieldErrors.rsbsaDocument || fieldErrors.rsbsa) && (
+                        <p className="text-[11px] text-rose-600 font-bold">
+                          {fieldErrors.rsbsa_document || fieldErrors.rsbsaDocument || fieldErrors.rsbsa}
+                        </p>
                       )}
                     </div>
 

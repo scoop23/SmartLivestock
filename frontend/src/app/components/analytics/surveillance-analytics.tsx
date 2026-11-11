@@ -685,12 +685,14 @@ export default function SurveillanceAnalytics({ selectedDomainProp }: { selected
   const [associationSearch, setAssociationSearch] = useState("");
 
   const query = useQuery({
-    queryKey: ["disease-mortality-surveillance", user?.email, user?.accessScope, user?.assignedBarangayId],
+    queryKey: ["disease-mortality-surveillance", user?.email, user?.role, user?.accessScope, user?.assignedBarangayId],
     queryFn: async ({ signal }) => {
       const { data } = await api.get<SurveillanceResponse>("analytics/surveillance/", { signal });
       return data;
     },
-    staleTime: 60_000,
+    enabled: Boolean(user),
+    staleTime: 180_000,
+    gcTime: 600_000,
   });
 
   const data = query.data;

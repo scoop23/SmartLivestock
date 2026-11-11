@@ -4,10 +4,12 @@ These are operational review signals, not diagnoses or validated outbreak
 predictions. Silence in the records is not evidence that no cases occurred.
 """
 
+from bisect import bisect_left
 from collections import defaultdict
 from datetime import date, timedelta
 
-from django.db.models import Q, Sum
+from django.db.models import Prefetch, Q, Sum
+from livestock.models import LivestockInventory
 from django.utils import timezone
 
 from analytics.seed_markers import SEED_MARKER_DISEASE, SEED_MARKER_MORTALITY
@@ -199,7 +201,7 @@ def _load_events(user, today):
     mortality_objects = list(
         mortality_qs.filter(record_date__range=(start, today))
         .select_related("livestock__farmer__user", "livestock__farmer__barangay", "livestock__batch", "batch__farmer__user", "batch__farmer__barangay", "source_disease_case")
-        .prefetch_related("affected_livestock")
+        .prefetch_related(Prefetch("affected_livestock", queryset=LivestockInventory.objects.only("pk")))
         .order_by("record_date", "pk")
     )
     mortality_rows = []
@@ -231,12 +233,13 @@ def _load_events(user, today):
 
 def _associations(disease_rows, mortality_rows):
     rows = []
-    lower_bound = min((row["record_date"] for row in mortality_rows), default=date.max) - timedelta(days=ASSOCIATION_DAYS)
+    ordered_cases = sorted(disease_rows, key=lambda row: row["record_date"])
+    case_dates = [row["record_date"] for row in ordered_cases]
     for death in mortality_rows:
         candidates = []
-        for case in disease_rows:
-            if not (lower_bound <= case["record_date"] < death["record_date"]):
-                continue
+        start = bisect_left(case_dates, death["record_date"] - timedelta(days=ASSOCIATION_DAYS))
+        end = bisect_left(case_dates, death["record_date"])
+        for case in ordered_cases[start:end]:
             days = (death["record_date"] - case["record_date"]).days
             if days > ASSOCIATION_DAYS:
                 continue

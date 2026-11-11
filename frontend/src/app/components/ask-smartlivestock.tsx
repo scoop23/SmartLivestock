@@ -1014,7 +1014,7 @@ export function AskSmartLivestock({
         {/* Backdrop for click-outside */}
         {(isOpen || isClosingAssistant) && (
           <div
-            className={`fixed inset-0 z-40 bg-slate-950/20 backdrop-blur-[1px] transition-all ${
+            className={`fixed inset-0 z-[2147483645] bg-slate-950/20 backdrop-blur-[1px] transition-all ${
               isClosingAssistant
                 ? "animate-out fade-out-0 duration-200 fill-mode-forwards pointer-events-none"
                 : "animate-in fade-in duration-200"
@@ -1026,7 +1026,7 @@ export function AskSmartLivestock({
 
         {/* Floating Dual-Pane Container anchored to bottom-right */}
         {(isOpen || isClosingAssistant) && (
-          <div className="fixed bottom-20 sm:bottom-22 right-3 sm:right-6 z-50 flex flex-row-reverse items-end gap-3 pointer-events-none [&>*]:pointer-events-auto max-w-[calc(100vw-1.5rem)]">
+          <div className="fixed bottom-20 sm:bottom-22 right-3 sm:right-6 z-[2147483646] flex flex-row-reverse items-end gap-3 pointer-events-none [&>*]:pointer-events-auto max-w-[calc(100vw-1.5rem)]">
             {/* 1. Right Pane: AskSmartLivestock Query Console (Pinned directly above the FAB) */}
             <div
               id={panelContentId}
@@ -1176,7 +1176,7 @@ export function AskSmartLivestock({
           aria-expanded={isOpen && !isClosingAssistant}
           aria-controls={panelContentId}
           aria-label={isOpen && !isClosingAssistant ? "Close Ask SmartLivestock assistant" : "Open Ask SmartLivestock assistant"}
-          className={`fixed bottom-5 sm:bottom-6 right-4 sm:right-6 z-50 group flex items-center gap-2.5 rounded-full px-4 sm:px-4.5 py-3 text-white shadow-xl shadow-emerald-950/25 hover:shadow-2xl hover:shadow-emerald-700/35 hover:scale-[1.03] active:scale-95 transition-all duration-200 border-2 cursor-pointer ${
+          className={`fixed bottom-5 sm:bottom-6 right-4 sm:right-6 z-[2147483647] group flex items-center gap-2.5 rounded-full px-4 sm:px-4.5 py-3 text-white shadow-xl shadow-emerald-950/25 hover:shadow-2xl hover:shadow-emerald-700/35 hover:scale-[1.03] active:scale-95 transition-all duration-200 border-2 cursor-pointer ${
             isOpen && !isClosingAssistant
               ? "bg-slate-900 border-slate-700 hover:bg-slate-800"
               : "bg-gradient-to-r from-emerald-700 via-emerald-600 to-teal-700 border-emerald-300/40 ring-4 ring-emerald-500/15"

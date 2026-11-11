@@ -2,6 +2,7 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { useState, useMemo, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -35,7 +36,9 @@ import api from '@/lib/axios';
 import { DescriptiveAnalyticsContent } from './descriptive/page';
 import { FuturisticPredictiveDashboard, PredictiveLoadingScreen } from '@/app/components/analytics/futuristic-predictive-dashboard';
 import { PrescriptiveAnalyticsContent } from './prescriptive/page';
-import SurveillanceAnalytics from '@/app/components/analytics/surveillance-analytics';
+const SurveillanceAnalytics = dynamic(() => import('@/app/components/analytics/surveillance-analytics'), {
+  loading: () => <div className="h-96 animate-pulse rounded-2xl bg-slate-100" role="status" aria-label="Loading surveillance" />,
+});
 import {
   Area,
   AreaChart,
