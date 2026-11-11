@@ -1074,8 +1074,9 @@ export function GISMap({
         const deaths = getMortalityDeaths(b, selectedLivestockType);
         statText = deaths > 0 ? `${deaths}☠️` : '0☠️';
       } else if (activeLayer === 'movement') {
-        const outbound = movementLabelRecords.filter(record => record.direction === 'OUTBOUND' && movementEndpointMatches(record, b, 'origin'));
-        statText = `${outbound.reduce((total, record) => total + record.heads, 0)} out`;
+        const outbound = movementLabelRecords.filter(record => movementEndpointMatches(record, b, 'origin'));
+        const inbound = movementLabelRecords.filter(record => movementEndpointMatches(record, b, 'destination'));
+        statText = `${outbound.reduce((total, record) => total + record.heads, 0)} out ? ${inbound.reduce((total, record) => total + record.heads, 0)} in (heads)`;
       }
 
       const isGeographicallyRestricted = Boolean(scope && !scope.can_view_all_barangays);
@@ -1479,6 +1480,7 @@ export function GISMap({
           simulationColorMode={simulationColorMode}
           selectedLivestockType={selectedLivestockType}
           userScope={userScope}
+          movementLabelRecords={movementLabelRecords}
           heightScale={activeLayer === 'movement' ? heightScale * 0.55 : heightScale}
           suppressClickUntilRef={suppressClickUntilRef}
           movements={movements}

@@ -10,7 +10,7 @@ import type MultiPolygon from 'ol/geom/MultiPolygon.js';
 import type Polygon from 'ol/geom/Polygon.js';
 import { useEffect,useRef,useState } from 'react';
 import type { Object3D } from 'three';
-import { groupMovementRoutes } from './movement-routes';
+import { groupMovementRoutes, movementEndpointMatches } from './movement-routes';
 import type { MapControls } from 'three/examples/jsm/controls/MapControls.js';
 import type { BarangayGISData,DiseaseSubMode,GISUserScope,MapLayer,Movement3DDisplayMode,MovementRecord,SimulationColorMode,SimulatedBarangayState } from './types';
 
@@ -40,6 +40,7 @@ interface Giro3DBarangayViewProps {
   heightScale: number;
   suppressClickUntilRef: { current: number };
   movements?: MovementRecord[];
+  movementLabelRecords?: MovementRecord[];
   selectedMovement?: MovementRecord | null;
   onSelectMovement?: (movement: MovementRecord | null) => void;
   showMovementOverlay?: boolean;
@@ -303,6 +304,7 @@ export function Giro3DBarangayView({
   heightScale,
   suppressClickUntilRef,
   movements = [],
+  movementLabelRecords,
   selectedMovement,
   onSelectMovement,
   showMovementOverlay = false,
@@ -315,6 +317,11 @@ export function Giro3DBarangayView({
   // Snapshot responses allocate a new scope object on every date change.
   // Scene lifetime follows permission values, not the response object's identity.
   const sceneScopeKey = JSON.stringify(userScope ?? null);
+  const movementLabelRecordsRef = useRef(movementLabelRecords ?? movements);
+  useEffect(() => {
+    movementLabelRecordsRef.current = movementLabelRecords ?? movements;
+    syncLabelPositionsRef.current?.();
+  }, [movementLabelRecords, movements]);
   const hostRef = useRef<HTMLDivElement>(null);
   const instanceRef = useRef<Instance | null>(null);
   const collectionRef = useRef<FeatureCollection | null>(null);
@@ -853,7 +860,14 @@ export function Giro3DBarangayView({
                 }
               }
             } else {
-              label.textContent = name;
+              if (activeLayer === 'movement' && bData) {
+                const records = movementLabelRecordsRef.current;
+                const outgoing = records.filter(record => movementEndpointMatches(record, bData, 'origin')).reduce((sum, record) => sum + record.heads, 0);
+                const inbound = records.filter(record => movementEndpointMatches(record, bData, 'destination')).reduce((sum, record) => sum + record.heads, 0);
+                label.textContent = `${name} ? ${outgoing} outgoing / ${inbound} inbound heads`;
+              } else {
+                label.textContent = name;
+              }
               label.style.border = '1px solid rgba(255,255,255,0.8)';
               label.style.boxShadow = 'none';
               label.style.background = 'rgba(15,23,42,0.92)';
