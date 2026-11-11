@@ -130,7 +130,7 @@ export function SplashArtEasterEgg({ isOpen, onClose }: SplashArtEasterEggProps)
             <div className="absolute -inset-2 rounded-full bg-gradient-to-tr from-emerald-500 via-teal-300 to-amber-300 opacity-60 blur-md group-hover:opacity-100 transition-opacity duration-300 animate-pulse" />
 
             <div className="relative flex size-20 sm:size-24 items-center justify-center rounded-full bg-white text-[#1E4D2B] shadow-2xl ring-4 ring-emerald-400/40 transform transition-transform duration-300 group-hover:scale-105">
-              <Icon iconNode={cowHead} className="size-11 sm:size-13 text-[#1E4D2B]" />
+              <Icon iconNode={cowHead} className="size-10 sm:size-12 text-[#1E4D2B]" />
             </div>
           </div>
         </div>

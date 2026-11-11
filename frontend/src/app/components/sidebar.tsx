@@ -24,6 +24,7 @@ import { cn } from '@/components/ui/utils';
 import { UniversalQrScannerDialog } from '@/components/universal-qr-scanner-dialog';
 import { useAccessibilitySettings } from '@/contexts/accessibility-settings-context';
 import { useAuth } from '@/contexts/auth-context';
+import { SplashArtEasterEgg } from './splash-art-easter-egg';
 import { cowHead } from '@lucide/lab';
 import {
   Activity,
@@ -356,6 +357,7 @@ function SidebarNav({
   profilePopoverOpen: controlledProfilePopoverOpen,
   onProfilePopoverOpenChange,
   role,
+  onTriggerEasterEgg,
 }: {
   collapsed: boolean;
   isPinned?: boolean;
@@ -370,6 +372,7 @@ function SidebarNav({
   profilePopoverOpen?: boolean;
   onProfilePopoverOpenChange?: (open: boolean) => void;
   role: SidebarProps['role'];
+  onTriggerEasterEgg?: () => void;
 }) {
   const { user } = useAuth();
   const isCbatUser = user?.role?.toUpperCase() === 'CBAT';
@@ -377,6 +380,27 @@ function SidebarNav({
   const profileTheme = getRoleProfileTheme(user?.role || role);
   const [avatarImageError, setAvatarImageError] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [clickBounce, setClickBounce] = useState(false);
+  const clickCountRef = useRef(0);
+  const clickTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleLogoClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    clickCountRef.current += 1;
+    setClickBounce(true);
+    setTimeout(() => setClickBounce(false), 220);
+
+    if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+
+    if (clickCountRef.current >= 9) {
+      clickCountRef.current = 0;
+      onTriggerEasterEgg?.();
+    } else {
+      clickTimerRef.current = setTimeout(() => {
+        clickCountRef.current = 0;
+      }, 3500);
+    }
+  };
 
   useEffect(() => {
     setAvatarImageError(false);
@@ -454,13 +478,23 @@ function SidebarNav({
         )}
       >
         <div className={cn("flex items-center min-w-0", collapsed ? "justify-center" : "gap-3")}>
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-[#1E4D2B] shadow-md shadow-black/20 ring-2 ring-white/20 transition-transform duration-200 hover:scale-105">
-            <Icon iconNode={cowHead} className="size-5.5 text-[#1E4D2B]" />
-          </div>
+          <button
+            type="button"
+            onClick={handleLogoClick}
+            aria-label="SmartLivestock logo"
+            title="SmartLivestock"
+            className={cn(
+              "flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-[#1E4D2B] shadow-md shadow-black/20 ring-2 ring-white/20 transition-all duration-200 hover:scale-105 active:scale-90 cursor-pointer select-none focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-300",
+              clickBounce && "scale-115 ring-4 ring-emerald-300"
+            )}
+          >
+            <Icon iconNode={cowHead} className={cn("size-5.5 text-[#1E4D2B] transition-transform duration-200", clickBounce && "rotate-12")} />
+          </button>
 
           <div
+            onClick={handleLogoClick}
             className={cn(
-              "flex flex-col min-w-0 whitespace-nowrap transition-all duration-200",
+              "flex flex-col min-w-0 whitespace-nowrap transition-all duration-200 cursor-pointer select-none",
               collapsed ? "opacity-0 w-0 max-w-0 pointer-events-none" : "opacity-100 max-w-[170px]"
             )}
           >
@@ -959,6 +993,7 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
   const [helpDialogOpen, setHelpDialogOpen] = useState<boolean>(false);
   const [logoutConfirmationOpen, setLogoutConfirmationOpen] = useState<boolean>(false);
   const [scannerOpen, setScannerOpen] = useState<boolean>(false);
+  const [easterEggOpen, setEasterEggOpen] = useState<boolean>(false);
   const [mobileSheetContent, setMobileSheetContent] = useState<HTMLDivElement | null>(null);
   const pinnedBeforeFarmerTour = useRef<boolean | null>(null);
   const isPinnedRef = useRef(isPinned);
@@ -1076,6 +1111,7 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
             profilePopoverOpen={desktopProfilePopoverOpen}
             onProfilePopoverOpenChange={setDesktopProfilePopoverOpen}
             role={role}
+            onTriggerEasterEgg={() => setEasterEggOpen(true)}
           />
         </aside>
       </div>
@@ -1100,6 +1136,10 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
             }}
             popoverPortalContainer={mobileSheetContent}
             role={role}
+            onTriggerEasterEgg={() => {
+              setMobileOpen(false);
+              setEasterEggOpen(true);
+            }}
           />
         </SheetContent>
       </Sheet>
@@ -1280,6 +1320,12 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
           role={role === 'lgu' ? 'admin' : role}
         />
       )}
+
+      {/* Easter Egg Splash Art Animation */}
+      <SplashArtEasterEgg
+        isOpen={easterEggOpen}
+        onClose={() => setEasterEggOpen(false)}
+      />
     </>
   );
 }
