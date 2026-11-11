@@ -89,7 +89,13 @@ class RegisterView(CreateAPIView):
             from .identity_service import registration_token
             from .identity_views import enroll, no_store
             enroll(self.registered_user)
-            response.data["identity_verification"] = {"required": True, "access_token": registration_token(self.registered_user)}
+            manual_upload = any(request.FILES.get(field) for field in (
+                "government_id", "government_id_front", "government_id_pdf",
+            ))
+            response.data["identity_verification"] = {
+                "required": not manual_upload,
+                "access_token": registration_token(self.registered_user),
+            }
             return no_store(response)
         return response
 

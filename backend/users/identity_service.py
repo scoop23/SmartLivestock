@@ -87,6 +87,10 @@ def _provider_error_category(error):
         return "workflow_rejected"
     if any(word in text for word in ("credit", "quota", "balance")):
         return "account_limit_or_credits"
+    if "callback" in text:
+        return "callback_rejected"
+    if "expected_details" in text or "expected details" in text:
+        return "expected_details_rejected"
     if isinstance(data, list) and all(isinstance(item, dict) and "loc" in item and "type" in item for item in data):
         # FastAPI-style validation responses expose field paths and error types;
         # never log their input/context values or human-readable message.
@@ -127,6 +131,17 @@ def provider_request(method, path, payload=None):
                 "Didit cannot start automated verification because the workflow or account has a billing/credit limit. You can continue by requesting MAO manual review.",
                 code="DIDIT_BILLING_LIMIT",
             ) from None
+        messages = {
+            "workflow_rejected": "Didit rejected the configured workflow. Check that it is published and belongs to the application using this API key.",
+            "credentials_or_access_rejected": "Didit rejected the server credentials or application access. Check the configured API key and application permissions.",
+            "callback_rejected": "Didit rejected the return URL. Check the configured public HTTPS frontend URL and the workflow's callback settings.",
+            "expected_details_rejected": "Didit rejected the expected identity details. Check the workflow settings and the registration name fields.",
+        }
+        if error.code == 400 or category in messages:
+            message = messages.get(category, "Didit rejected the verification session request. Check the workflow and application configuration.")
+            if request_id:
+                message += f" Didit request ID: {request_id}."
+            raise ProviderUnavailable(message, code="DIDIT_REQUEST_REJECTED") from None
         raise ProviderUnavailable("Verification service unavailable. Retry later or contact MAO for manual review.") from None
     except (URLError, TimeoutError, OSError, ValueError) as error:
         logger.warning("Didit request failed: category=%s", type(error).__name__)

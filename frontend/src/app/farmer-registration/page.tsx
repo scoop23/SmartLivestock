@@ -88,6 +88,36 @@ const DEFAULT_BARANGAYS: BarangayOption[] = [
   { id: 17, barangay_name: 'Tangob' },
 ];
 
+interface FieldTarget {
+  step: number;
+  elementId: string;
+}
+
+const FIELD_TARGETS: Record<string, FieldTarget> = {
+  first_name: { step: 1, elementId: 'firstName' },
+  firstName: { step: 1, elementId: 'firstName' },
+  last_name: { step: 1, elementId: 'lastName' },
+  lastName: { step: 1, elementId: 'lastName' },
+  email: { step: 1, elementId: 'email' },
+  phone_number: { step: 1, elementId: 'phone' },
+  phoneNumber: { step: 1, elementId: 'phone' },
+  password: { step: 1, elementId: 'password' },
+  confirmPassword: { step: 1, elementId: 'confirmPassword' },
+  confirm_password: { step: 1, elementId: 'confirmPassword' },
+  barangay: { step: 2, elementId: 'barangay' },
+  farm_size: { step: 2, elementId: 'farmSize' },
+  farmSize: { step: 2, elementId: 'farmSize' },
+  address: { step: 2, elementId: 'address' },
+  rsbsa_number: { step: 2, elementId: 'rsbsaNumber' },
+  rsbsaNumber: { step: 2, elementId: 'rsbsaNumber' },
+  government_id_type: { step: 3, elementId: 'governmentIdType' },
+  governmentIdType: { step: 3, elementId: 'governmentIdType' },
+  government_id_front: { step: 3, elementId: 'governmentIdType' },
+  government_id_back: { step: 3, elementId: 'governmentIdType' },
+  government_id_pdf: { step: 3, elementId: 'governmentIdType' },
+  rsbsa_document: { step: 3, elementId: 'rsbsaNumber' },
+};
+
 export default function FarmerRegistrationPage() {
   const router = useRouter();
   const identityConfig = useQuery({
@@ -96,7 +126,8 @@ export default function FarmerRegistrationPage() {
     retry: false,
   });
   const identityEnabled = identityConfig.data?.enabled === true;
-  const providerCapture = identityEnabled && identityConfig.data?.available === true;
+  const [useAutomatedCapture, setUseAutomatedCapture] = useState(false);
+  const providerCapture = useAutomatedCapture && identityEnabled && identityConfig.data?.available === true;
 
   // Form states
   const [formData, setFormData] = useState({
@@ -182,6 +213,16 @@ export default function FarmerRegistrationPage() {
   const passwordMeetsRequirements = passwordRequirements.every((req) => req.met);
   const passwordStrengthScore = passwordRequirements.filter((req) => req.met).length;
 
+  const focusAndScrollToField = (elementId: string) => {
+    setTimeout(() => {
+      const el = document.getElementById(elementId);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.focus();
+      }
+    }, 150);
+  };
+
   const nextStep = () => {
     setError('');
     setFieldErrors({});
@@ -218,11 +259,15 @@ export default function FarmerRegistrationPage() {
       if (Object.keys(errors).length > 0) {
         setFieldErrors(errors);
         setError('Please fix the errors above before proceeding.');
+        const firstKey = Object.keys(errors)[0];
+        const target = FIELD_TARGETS[firstKey];
+        if (target) focusAndScrollToField(target.elementId);
         return;
       }
 
       if (!termsAgreed || !privacyAgreed) {
         setError('Please read and accept the Terms and Conditions and Privacy Policy before proceeding.');
+        focusAndScrollToField('registration-agreement');
         return;
       }
     } else if (step === 2) {
@@ -236,6 +281,9 @@ export default function FarmerRegistrationPage() {
       if (Object.keys(errors).length > 0) {
         setFieldErrors(errors);
         setError('Please complete the required farm location details.');
+        const firstKey = Object.keys(errors)[0];
+        const target = FIELD_TARGETS[firstKey];
+        if (target) focusAndScrollToField(target.elementId);
         return;
       }
     }
@@ -410,22 +458,33 @@ export default function FarmerRegistrationPage() {
         const data = err.response.data;
         const newFieldErrors: Record<string, string> = {};
         const generalMessages: string[] = [];
+        let earliestStep = 4;
+        let firstFailingElementId = '';
 
         Object.entries(data).forEach(([key, val]) => {
-          const messageStr = Array.isArray(val) ? val.join(' ') : String(val);
-          if (
-            [
-              'email',
-              'password',
-              'phone_number',
-              'first_name',
-              'last_name',
-              'barangay',
-              'farm_size',
-              'address',
-            ].includes(key)
-          ) {
+          const messageStr = Array.isArray(val)
+            ? val.join(' ')
+            : typeof val === 'object' && val !== null
+            ? JSON.stringify(val)
+            : String(val);
+
+          if (key === 'detail' || key === 'non_field_errors') {
+            generalMessages.push(messageStr);
+            return;
+          }
+
+          const target = FIELD_TARGETS[key];
+          if (target) {
             newFieldErrors[key] = messageStr;
+            const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+            newFieldErrors[camelKey] = messageStr;
+            const snakeKey = key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+            newFieldErrors[snakeKey] = messageStr;
+
+            if (target.step < earliestStep) {
+              earliestStep = target.step;
+              firstFailingElementId = target.elementId;
+            }
           } else {
             generalMessages.push(messageStr);
           }
@@ -436,6 +495,11 @@ export default function FarmerRegistrationPage() {
           generalMessages.join(' ') ||
             'Registration failed. Please correct the highlighted fields and try again.'
         );
+
+        if (firstFailingElementId && earliestStep <= 3) {
+          setStep(earliestStep);
+          focusAndScrollToField(firstFailingElementId);
+        }
       } else {
         setError(
           err instanceof Error
@@ -473,7 +537,7 @@ export default function FarmerRegistrationPage() {
       sub: 'Attach verification IDs and consent under RA 10173',
       icon: Shield,
     },
-    ...(identityEnabled ? [{
+    ...(providerCapture ? [{
       num: 4, phase: '04', title: 'Step 4: ID & Selfie Verification',
       short: 'ID & Selfie', sub: 'Complete Didit capture before finishing registration', icon: Scan,
     }] : []),
@@ -672,7 +736,7 @@ export default function FarmerRegistrationPage() {
               <div className="h-1.5 w-full bg-slate-100 relative overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-600 transition-all duration-500 shadow-sm shadow-emerald-500/50"
-                  style={{ width: `${(step / (identityEnabled ? 4 : 3)) * 100}%` }}
+                  style={{ width: `${(step / (providerCapture ? 4 : 3)) * 100}%` }}
                 />
               </div>
 
@@ -739,7 +803,7 @@ export default function FarmerRegistrationPage() {
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200">
-                      Step {step} of {identityEnabled ? 4 : 3}
+                      Step {step} of {providerCapture ? 4 : 3}
                     </span>
                     <span className="text-xs font-semibold text-slate-500">
                       {step === 1 ? 'Credentials' : step === 2 ? 'Farm Details' : 'Documents'}
@@ -783,14 +847,14 @@ export default function FarmerRegistrationPage() {
                             value={formData.firstName}
                             onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                             className={`w-full pl-10 pr-3.5 h-12 bg-slate-50 hover:bg-white border rounded-2xl text-sm font-medium text-black placeholder:text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 ${
-                              fieldErrors.firstName ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
+                              fieldErrors.firstName || fieldErrors.first_name ? 'border-rose-400 bg-rose-50/30 ring-2 ring-rose-400/20' : 'border-slate-200'
                             }`}
                             required
                           />
                           <User className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
                         </div>
-                        {fieldErrors.firstName && (
-                          <p className="text-[11px] text-rose-600 font-bold">{fieldErrors.firstName}</p>
+                        {(fieldErrors.firstName || fieldErrors.first_name) && (
+                          <p className="text-[11px] text-rose-600 font-bold">{fieldErrors.firstName || fieldErrors.first_name}</p>
                         )}
                       </div>
 
@@ -806,14 +870,14 @@ export default function FarmerRegistrationPage() {
                             value={formData.lastName}
                             onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                             className={`w-full pl-10 pr-3.5 h-12 bg-slate-50 hover:bg-white border rounded-2xl text-sm font-medium text-black placeholder:text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 ${
-                              fieldErrors.lastName ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
+                              fieldErrors.lastName || fieldErrors.last_name ? 'border-rose-400 bg-rose-50/30 ring-2 ring-rose-400/20' : 'border-slate-200'
                             }`}
                             required
                           />
                           <User className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
                         </div>
-                        {fieldErrors.lastName && (
-                          <p className="text-[11px] text-rose-600 font-bold">{fieldErrors.lastName}</p>
+                        {(fieldErrors.lastName || fieldErrors.last_name) && (
+                          <p className="text-[11px] text-rose-600 font-bold">{fieldErrors.lastName || fieldErrors.last_name}</p>
                         )}
                       </div>
                     </div>
@@ -832,7 +896,7 @@ export default function FarmerRegistrationPage() {
                           value={formData.email}
                           onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                           className={`w-full pl-10 pr-3.5 h-12 bg-slate-50 hover:bg-white border rounded-2xl text-sm font-medium text-black placeholder:text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 ${
-                            fieldErrors.email ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
+                            fieldErrors.email ? 'border-rose-400 bg-rose-50/30 ring-2 ring-rose-400/20' : 'border-slate-200'
                           }`}
                           required
                         />
@@ -848,7 +912,9 @@ export default function FarmerRegistrationPage() {
                       <Label htmlFor="phone" className="text-[11px] font-extrabold text-slate-700 uppercase">
                         Mobile Number <span className="text-rose-500">*</span>
                       </Label>
-                      <div className="flex rounded-2xl overflow-hidden border border-slate-200 focus-within:border-[#2D5A27] focus-within:ring-2 focus-within:ring-[#2D5A27]/20 transition-all">
+                      <div className={`flex rounded-2xl overflow-hidden border ${
+                        fieldErrors.phone_number || fieldErrors.phoneNumber ? 'border-rose-400 ring-2 ring-rose-400/20' : 'border-slate-200'
+                      } focus-within:border-[#2D5A27] focus-within:ring-2 focus-within:ring-[#2D5A27]/20 transition-all`}>
                         <span className="inline-flex items-center px-3.5 bg-slate-100 text-xs text-slate-700 font-black border-r border-slate-200 shrink-0">
                           🇵🇭 +63
                         </span>
@@ -889,7 +955,7 @@ export default function FarmerRegistrationPage() {
                             value={formData.password}
                             onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                             className={`w-full pl-10 pr-11 h-12 bg-slate-50 hover:bg-white border rounded-2xl text-sm font-medium text-black placeholder:text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 ${
-                              fieldErrors.password ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
+                              fieldErrors.password ? 'border-rose-400 bg-rose-50/30 ring-2 ring-rose-400/20' : 'border-slate-200'
                             }`}
                             required
                           />
@@ -916,7 +982,7 @@ export default function FarmerRegistrationPage() {
                             value={formData.confirmPassword}
                             onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                             className={`w-full pl-10 pr-11 h-12 bg-slate-50 hover:bg-white border rounded-2xl text-sm font-medium text-black placeholder:text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 ${
-                              fieldErrors.confirmPassword ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
+                              fieldErrors.confirmPassword || fieldErrors.confirm_password ? 'border-rose-400 bg-rose-50/30 ring-2 ring-rose-400/20' : 'border-slate-200'
                             }`}
                             required
                           />
@@ -1112,7 +1178,7 @@ export default function FarmerRegistrationPage() {
                           <SelectTrigger
                             id="barangay"
                             className={`w-full pl-10 pr-3.5 h-12 bg-slate-50 hover:bg-white border rounded-2xl text-sm font-medium text-black data-[placeholder]:!text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 ${
-                              fieldErrors.barangay ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
+                              fieldErrors.barangay ? 'border-rose-400 bg-rose-50/30 ring-2 ring-rose-400/20' : 'border-slate-200'
                             }`}
                           >
                             <SelectValue placeholder="Select your barangay" />
@@ -1149,7 +1215,7 @@ export default function FarmerRegistrationPage() {
                         value={formData.farmSize}
                         onChange={(e) => setFormData({ ...formData, farmSize: e.target.value })}
                         className={`w-full px-3.5 h-12 bg-slate-50 hover:bg-white border rounded-2xl text-sm font-medium text-black placeholder:text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 ${
-                          fieldErrors.farmSize || fieldErrors.farm_size ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
+                          fieldErrors.farmSize || fieldErrors.farm_size ? 'border-rose-400 bg-rose-50/30 ring-2 ring-rose-400/20' : 'border-slate-200'
                         }`}
                         required
                       />
@@ -1193,7 +1259,7 @@ export default function FarmerRegistrationPage() {
                           value={formData.address}
                           onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                           className={`w-full pl-10 pr-3.5 h-12 bg-slate-50 hover:bg-white border rounded-2xl text-sm font-medium text-black placeholder:text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 ${
-                            fieldErrors.address ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
+                            fieldErrors.address ? 'border-rose-400 bg-rose-50/30 ring-2 ring-rose-400/20' : 'border-slate-200'
                           }`}
                           required
                         />
@@ -1217,10 +1283,17 @@ export default function FarmerRegistrationPage() {
                           placeholder="e.g. 04-10-18-000-00000"
                           value={formData.rsbsaNumber}
                           onChange={(e) => setFormData({ ...formData, rsbsaNumber: e.target.value })}
-                          className="w-full pl-10 pr-3.5 h-12 bg-slate-50 hover:bg-white border border-slate-200 rounded-2xl text-sm font-medium text-black placeholder:text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20"
+                          className={`w-full pl-10 pr-3.5 h-12 bg-slate-50 hover:bg-white border rounded-2xl text-sm font-medium text-black placeholder:text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 ${
+                            fieldErrors.rsbsaNumber || fieldErrors.rsbsa_number ? 'border-rose-400 bg-rose-50/30 ring-2 ring-rose-400/20' : 'border-slate-200'
+                          }`}
                         />
                         <FileText className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
                       </div>
+                      {(fieldErrors.rsbsaNumber || fieldErrors.rsbsa_number) && (
+                        <p className="text-[11px] text-rose-600 font-bold">
+                          {fieldErrors.rsbsaNumber || fieldErrors.rsbsa_number}
+                        </p>
+                      )}
                       <p className="text-[10px] text-slate-400 leading-normal">
                         Registry System for Basic Sectors in Agriculture (DA-RSBSA identifier)
                       </p>
@@ -1262,13 +1335,19 @@ export default function FarmerRegistrationPage() {
                 {step === 3 && (
                   <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200">
                     {/* Guided ID capture */}
+                    {identityEnabled && identityConfig.data?.available && (
+                      <label className="flex items-center gap-2 text-sm text-slate-700">
+                        <input type="checkbox" checked={useAutomatedCapture} onChange={event => setUseAutomatedCapture(event.target.checked)} />
+                        Use automated ID and selfie verification instead of uploading an ID for MAO review
+                      </label>
+                    )}
                     {providerCapture ? <section className="space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-slate-900">
                       <h3 className="flex items-center gap-2 font-bold"><Scan className="size-5 text-emerald-700" />Government ID and selfie with Didit</h3>
                       <p className="text-sm">Didit will guide you through government ID capture, a selfie, and a separate liveness check. You do not need to upload ID photos here as well.</p>
                       <p className="text-sm">Keep your government ID ready. Continue below to read the biometric notice and open the capture page. MAO will still review your application.</p>
                       {identityConfig.data?.environment === 'sandbox' && <p className="text-xs font-semibold">Sandbox testing only — this does not verify a real identity.</p>}
                     </section> : <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
-                      {identityEnabled && <p role="status" className="text-sm text-amber-800">Didit is not configured for capture. Submit your ID here for manual review; no automated face or liveness result will be claimed.</p>}
+                      {identityEnabled && <p role="status" className="text-sm text-amber-800">Upload your government ID for MAO manual review. Use this option when automated verification is unavailable or has a billing or credit limit.</p>}
                       <div className="space-y-1.5">
                         <Label htmlFor="governmentIdType" className="text-[11px] font-extrabold uppercase text-slate-700">
                           Government ID type <span className="text-rose-500">*</span> <span className="font-medium normal-case text-slate-400">(required)</span>
@@ -1282,7 +1361,9 @@ export default function FarmerRegistrationPage() {
                         >
                           <SelectTrigger
                             id="governmentIdType"
-                            className="w-full h-12 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white px-3.5 text-sm font-medium text-black data-[placeholder]:!text-black/40 transition focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20"
+                            className={`w-full h-12 rounded-2xl border bg-slate-50 hover:bg-white px-3.5 text-sm font-medium text-black data-[placeholder]:!text-black/40 transition focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 ${
+                              fieldErrors.governmentIdType || fieldErrors.government_id_type ? 'border-rose-400 bg-rose-50/30 ring-2 ring-rose-400/20' : 'border-slate-200'
+                            }`}
                           >
                             <SelectValue placeholder="Select ID type" />
                           </SelectTrigger>
@@ -1297,6 +1378,11 @@ export default function FarmerRegistrationPage() {
                             <SelectItem value="OTHER_GOV_ID" className="text-sm font-medium py-2 rounded-lg">Other Government ID</SelectItem>
                           </SelectContent>
                         </Select>
+                        {(fieldErrors.governmentIdType || fieldErrors.government_id_type) && (
+                          <p className="text-[11px] text-rose-600 font-bold">
+                            {fieldErrors.governmentIdType || fieldErrors.government_id_type}
+                          </p>
+                        )}
                         <p className="text-[10px] leading-relaxed text-slate-500">
                           Take a clear photo of the front, then the back, or upload one PDF containing both sides.
                         </p>
@@ -1578,7 +1664,7 @@ export default function FarmerRegistrationPage() {
                     )}
 
                     {/* Step 3 Actions */}
-                    {identityEnabled && <p className="text-sm text-slate-600">Next: ID and selfie checks with Didit. We save one pending application before capture so you can resume without registering again. MAO still makes the approval decision.</p>}
+                    {providerCapture && <p className="text-sm text-slate-600">Next: ID and selfie checks with Didit. We save one pending application before capture so you can resume without registering again. MAO still makes the approval decision.</p>}
                     {identityConfig.isError && <p role="alert" className="text-sm text-rose-700">Cannot load registration requirements. Check your connection and retry before submitting. <button type="button" className="underline" onClick={() => void identityConfig.refetch()}>Retry</button></p>}
                     <div className="flex flex-col-reverse sm:flex-row sm:items-stretch gap-2.5 sm:gap-3 pt-2">
                       <Button
@@ -1604,7 +1690,7 @@ export default function FarmerRegistrationPage() {
                         ) : (
                           <>
                             <BadgeCheck className="size-4.5 shrink-0" />
-                            <span>{identityConfig.isPending ? 'Loading requirements...' : identityEnabled ? 'Continue to ID & Selfie' : 'Complete Registration'}</span>
+                            <span>{identityConfig.isPending ? 'Loading requirements...' : providerCapture ? 'Continue to ID & Selfie' : 'Complete Registration'}</span>
                           </>
                         )}
                       </Button>
