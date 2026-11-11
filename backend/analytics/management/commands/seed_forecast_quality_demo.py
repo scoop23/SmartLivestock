@@ -357,12 +357,15 @@ class Command(BaseCommand):
         with transaction.atomic():
             # Preview every owned group first. A zero-match clean must not reset
             # population tracking dates or change other bookkeeping records.
+            synthetic_animals = LivestockInventory.objects.filter(animal_filter)
+            removable_animals = synthetic_animals.filter(treatment_records__isnull=True)
+            retained_animals = synthetic_animals.filter(treatment_records__isnull=False).distinct().count()
             groups = {
                 "dispositions": AnimalDisposition.objects.filter(production_filter),
                 "production": ProductionRecord.objects.filter(production_filter),
                 "slaughter": SlaughterRecord.objects.filter(review_filter),
                 "transfers": LivestockOwnershipTransfer.objects.filter(review_filter),
-                "synthetic_animals": LivestockInventory.objects.filter(animal_filter),
+                "synthetic_animals": removable_animals,
             }
             totals = {name: rows.count() for name, rows in groups.items()}
             clean_movements = SEED_MARKER_FORECAST_QUALITY_IDEAL in markers
@@ -385,6 +388,11 @@ class Command(BaseCommand):
                     clean_owned_population(marker=pop_marker)
                 for rows in groups.values():
                     rows.delete()
+        if retained_animals:
+            self.stdout.write(self.style.WARNING(
+                f"{'Would retain' if dry_run else 'Retained'} {retained_animals} demo animal(s) "
+                "with linked treatment records. Their treatment history is preserved."
+            ))
         if not any(totals.values()):
             self.stdout.write(self.style.WARNING(
                 f"No matching forecast demo rows found for {', '.join(markers)}. "

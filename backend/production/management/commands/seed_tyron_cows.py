@@ -13,18 +13,20 @@ import random
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from livestock.models import Farmer, LivestockInventory, LivestockType
 from production.models import ProductionRecord, WeightRecord
+from smartlivestock.seed_tags import next_seed_livestock_tag
 from users.models import User
 
 
 class Command(BaseCommand):
     help = "Seed 2 dairy cows with complete milk and weight production records for farmer Tyron Lindog"
 
-    TAG_COW_1 = "PG-MAN-204-06"
-    TAG_COW_2 = "PG-MAN-204-07"
+    SEED_MARKER = "[seed_tyron_cows]"
+    LEGACY_COWS = {"CO-2023-04981": "PG-MAN-204-06", "CO-2023-05124": "PG-MAN-204-07"}
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -48,10 +50,10 @@ class Command(BaseCommand):
             self.stderr.write(self.style.ERROR("Farmer Tyron Lindog was not found in the database."))
             return
 
-        cows_qs = LivestockInventory.objects.filter(
-            farmer=farmer,
-            tag_number__in=[self.TAG_COW_1, self.TAG_COW_2],
-        )
+        owned_cows = Q(review_remarks__startswith=self.SEED_MARKER)
+        for certificate, tag in self.LEGACY_COWS.items():
+            owned_cows |= Q(ownership_certificate_number=certificate, tag_number=tag)
+        cows_qs = LivestockInventory.objects.filter(owned_cows, farmer=farmer)
 
         # Handle --clean flag
         if clean_mode:
@@ -67,16 +69,6 @@ class Command(BaseCommand):
                     f"  - Cows removed: {cows_deleted}\n"
                     f"  - Milk records removed: {milk_deleted}\n"
                     f"  - Weight records removed: {weight_deleted}"
-                )
-            )
-            return
-
-        # Check if cows already exist
-        if cows_qs.count() == 2:
-            self.stdout.write(
-                self.style.WARNING(
-                    f"Cows ({self.TAG_COW_1}, {self.TAG_COW_2}) already exist for Tyron Lindog.\n"
-                    f"Run with --clean first if you want to recreate them fresh."
                 )
             )
             return
@@ -97,7 +89,6 @@ class Command(BaseCommand):
         # Cow 2: Jersey-Sahiwal Cross (Rich cream dairy)
         cows_def = [
             {
-                "tag": self.TAG_COW_1,
                 "breed": "Holstein-Friesian Cross",
                 "birth_date": date(2023, 3, 14),
                 "certificate_no": "CO-2023-04981",
@@ -125,7 +116,6 @@ class Command(BaseCommand):
                 ],
             },
             {
-                "tag": self.TAG_COW_2,
                 "breed": "Jersey-Sahiwal Cross",
                 "birth_date": date(2023, 8, 22),
                 "certificate_no": "CO-2023-05124",
@@ -162,30 +152,37 @@ class Command(BaseCommand):
         rng = random.Random(20261111)
 
         with transaction.atomic():
+            Farmer.objects.select_for_update().get(pk=farmer.pk)
             for cow_info in cows_def:
-                cow, created = LivestockInventory.objects.get_or_create(
-                    farmer=farmer,
-                    tag_number=cow_info["tag"],
-                    defaults={
-                        "livestock_type": cattle_type,
-                        "entry_type": LivestockInventory.EntryType.INDIVIDUAL,
-                        "quantity": 1,
-                        "breed": cow_info["breed"],
-                        "sex": "Female",
-                        "birth_date": cow_info["birth_date"],
-                        "weight": cow_info["latest_weight"],
-                        "ownership_certificate_number": cow_info["certificate_no"],
-                        "ownership_certificate_recorded_by": mao_reviewer,
-                        "ownership_certificate_recorded_at": now - timedelta(days=200),
-                        "status": LivestockInventory.StatusType.APPROVED,
-                        "operational_status": LivestockInventory.OperationalStatus.ACTIVE,
-                        "operational_status_changed_at": now - timedelta(days=200),
-                        "reviewed_by": mao_reviewer,
-                        "reviewed_at": now - timedelta(days=200),
-                        "review_remarks": "Verified and approved in barangay herd masterlist.",
-                        "created_by": tyron_user,
-                    },
-                )
+                cow = cows_qs.select_for_update().filter(
+                    ownership_certificate_number=cow_info["certificate_no"],
+                ).first()
+                if cow is None:
+                    cow = LivestockInventory.objects.create(
+                        farmer=farmer,
+                        tag_number=next_seed_livestock_tag(self, tyron_user),
+                        livestock_type=cattle_type,
+                        entry_type=LivestockInventory.EntryType.INDIVIDUAL,
+                        quantity=1,
+                        breed=cow_info["breed"],
+                        sex="Female",
+                        birth_date=cow_info["birth_date"],
+                        weight=cow_info["latest_weight"],
+                        ownership_certificate_number=cow_info["certificate_no"],
+                        ownership_certificate_recorded_by=mao_reviewer,
+                        ownership_certificate_recorded_at=now - timedelta(days=200),
+                        status=LivestockInventory.StatusType.APPROVED,
+                        operational_status=LivestockInventory.OperationalStatus.ACTIVE,
+                        operational_status_changed_at=now - timedelta(days=200),
+                        reviewed_by=mao_reviewer,
+                        reviewed_at=now - timedelta(days=200),
+                        review_remarks=f"{self.SEED_MARKER} Synthetic dairy cow.",
+                        created_by=tyron_user,
+                    )
+                elif cow.tag_number == self.LEGACY_COWS[cow_info["certificate_no"]]:
+                    cow.tag_number = next_seed_livestock_tag(self, tyron_user)
+                    cow.review_remarks = f"{self.SEED_MARKER} {cow.review_remarks or ''}".strip()
+                    cow.save(update_fields=["tag_number", "review_remarks"])
                 created_cows.append(cow)
 
                 # 2. Complete Weight Production History
@@ -279,8 +276,8 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.SUCCESS(
                 f"\nSuccessfully seeded 2 dairy cows for {farmer.user.get_full_name()} ({farmer.user.username}) in Brgy. {farmer.barangay.barangay_name}:\n"
-                f"  1. Cow {self.TAG_COW_1}: Holstein-Friesian Cross (Current Weight: 448 kg)\n"
-                f"  2. Cow {self.TAG_COW_2}: Jersey-Sahiwal Cross (Current Weight: 416.5 kg)\n"
+                f"  1. Cow {created_cows[0].tag_number}: Holstein-Friesian Cross (Current Weight: 448 kg)\n"
+                f"  2. Cow {created_cows[1].tag_number}: Jersey-Sahiwal Cross (Current Weight: 416.5 kg)\n"
                 f"  - Milk collection logs: {total_milk_records} session records (Sept 28 – Nov 11, 2026)\n"
                 f"  - Weight monitoring logs: {total_weight_records} periodic measurements (Feb – Nov 2026)\n\n"
                 f"To remove these records at any time, run: python manage.py seed_tyron_cows --clean"
