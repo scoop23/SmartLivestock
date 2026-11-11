@@ -1409,43 +1409,9 @@ class Command(BaseCommand):
                         review,
                     )
 
-        markers = list(
-            SurveillanceDemoOwnership.objects.filter(identifier__startswith=PREFIX).order_by("identifier")
-        )
-        owned_ids = {}
-        owned_objects = []
-        for marker in markers:
-            model = OBJECT_MODELS.get(marker.object_type)
-            if model is None:
-                raise CommandError(f"Unknown owned object type {marker.object_type!r}; refusing cleanup.")
-            try:
-                obj = model.objects.get(pk=marker.object_id)
-            except model.DoesNotExist as exc:
-                raise CommandError(
-                    f"Ownership marker {marker.identifier} points to a missing {model.__name__} "
-                    f"#{marker.object_id}; refusing cleanup."
-                ) from exc
-            owned_ids.setdefault(model, set()).add(obj.pk)
-            owned_objects.append((marker, obj))
-
-        for marker, obj in owned_objects:
-            for relation in obj._meta.related_objects:
-                if relation.related_model is SurveillanceDemoOwnership:
-                    continue
-                manager = getattr(obj, relation.get_accessor_name(), None)
-                if manager is None:
-                    continue
-                related_ids = (
-                    manager.all().values_list("pk", flat=True).iterator()
-                    if hasattr(manager, "all")
-                    else (manager.pk,)
-                )
-                for related_id in related_ids:
-                    if related_id not in owned_ids.get(relation.related_model, set()):
-                        raise CommandError(
-                            f"Cannot clean {marker.identifier}: {relation.related_model.__name__} "
-                            f"#{related_id} is related but is not owned by this seed. No rows were deleted."
-                        )
+        marker_count = SurveillanceDemoOwnership.objects.filter(identifier__startswith=PREFIX).count()
+        if not marker_count:
+            return
 
         for object_type in (
             "notification",
@@ -1459,10 +1425,14 @@ class Command(BaseCommand):
             "farmer",
             "user",
         ):
-            model = OBJECT_MODELS[object_type]
-            ids = owned_ids.get(model, set())
+            ids = list(
+                SurveillanceDemoOwnership.objects.filter(
+                    identifier__startswith=PREFIX, object_type=object_type
+                ).values_list("object_id", flat=True)
+            )
             if ids:
+                model = OBJECT_MODELS[object_type]
                 model.objects.filter(pk__in=ids).delete()
+
         SurveillanceDemoOwnership.objects.filter(identifier__startswith=PREFIX).delete()
-        if markers:
-            self.stdout.write(f"Removed {len(markers)} explicitly owned disease/mortality analytics demo objects.")
+        self.stdout.write(f"Removed {marker_count} explicitly owned disease/mortality analytics demo objects.")

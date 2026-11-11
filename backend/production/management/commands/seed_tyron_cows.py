@@ -13,11 +13,11 @@ import random
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import DecimalField, ExpressionWrapper, F, Q
 from django.utils import timezone
 
 from livestock.models import Farmer, LivestockInventory, LivestockType
-from production.models import ProductionRecord, WeightRecord
+from production.models import BreedingRecord, FeedingRecord, ProductionRecord, WeightRecord
 from smartlivestock.seed_tags import next_seed_livestock_tag
 from users.models import User
 
@@ -26,6 +26,7 @@ class Command(BaseCommand):
     help = "Seed 2 dairy cows with complete milk and weight production records for farmer Tyron Lindog"
 
     SEED_MARKER = "[seed_tyron_cows]"
+    OFFICER_NOTE = "Registration details reviewed. Dairy cow listed under the farmer?s livestock inventory in Barangay Manggas."
     LEGACY_COWS = {"CO-2023-04981": "PG-MAN-204-06", "CO-2023-05124": "PG-MAN-204-07"}
 
     def add_arguments(self, parser):
@@ -50,7 +51,7 @@ class Command(BaseCommand):
             self.stderr.write(self.style.ERROR("Farmer Tyron Lindog was not found in the database."))
             return
 
-        owned_cows = Q(review_remarks__startswith=self.SEED_MARKER)
+        owned_cows = Q(certificate_verification__seed_command="seed_tyron_cows") | Q(review_remarks__startswith=self.SEED_MARKER)
         for certificate, tag in self.LEGACY_COWS.items():
             owned_cows |= Q(ownership_certificate_number=certificate, tag_number=tag)
         cows_qs = LivestockInventory.objects.filter(owned_cows, farmer=farmer)
@@ -61,6 +62,8 @@ class Command(BaseCommand):
                 cow_ids = list(cows_qs.values_list("id", flat=True))
                 milk_deleted, _ = ProductionRecord.objects.filter(livestock_id__in=cow_ids).delete()
                 weight_deleted, _ = WeightRecord.objects.filter(livestock_id__in=cow_ids).delete()
+                FeedingRecord.objects.filter(livestock_id__in=cow_ids, notes="Fresh chopped forage and dairy concentrate offered after milking.").delete()
+                BreedingRecord.objects.filter(dam_id__in=cow_ids, notes="Service recorded; observe for return to heat and arrange pregnancy check.").delete()
                 cows_deleted, _ = cows_qs.delete()
 
             self.stdout.write(
@@ -146,6 +149,8 @@ class Command(BaseCommand):
 
         total_milk_records = 0
         total_weight_records = 0
+        total_feeding_records = 0
+        total_breeding_records = 0
         created_cows = []
 
         # Deterministic pseudo-randomness for realistic yet reproducible fluctuations
@@ -154,7 +159,8 @@ class Command(BaseCommand):
         with transaction.atomic():
             Farmer.objects.select_for_update().get(pk=farmer.pk)
             for cow_info in cows_def:
-                cow = cows_qs.select_for_update().filter(
+                cow = LivestockInventory.objects.select_for_update().filter(
+                    farmer=farmer, breed=cow_info["breed"],
                     ownership_certificate_number=cow_info["certificate_no"],
                 ).first()
                 if cow is None:
@@ -176,13 +182,19 @@ class Command(BaseCommand):
                         operational_status_changed_at=now - timedelta(days=200),
                         reviewed_by=mao_reviewer,
                         reviewed_at=now - timedelta(days=200),
-                        review_remarks=f"{self.SEED_MARKER} Synthetic dairy cow.",
+                        review_remarks=self.OFFICER_NOTE,
+                        certificate_verification={"seed_command": "seed_tyron_cows", "synthetic": True},
                         created_by=tyron_user,
                     )
                 elif cow.tag_number == self.LEGACY_COWS[cow_info["certificate_no"]]:
                     cow.tag_number = next_seed_livestock_tag(self, tyron_user)
-                    cow.review_remarks = f"{self.SEED_MARKER} {cow.review_remarks or ''}".strip()
-                    cow.save(update_fields=["tag_number", "review_remarks"])
+                    cow.save(update_fields=["tag_number"])
+                if cow.review_remarks.startswith(self.SEED_MARKER):
+                    metadata = dict(cow.certificate_verification or {})
+                    metadata.update(seed_command="seed_tyron_cows", synthetic=True)
+                    cow.certificate_verification = metadata
+                    cow.review_remarks = self.OFFICER_NOTE
+                    cow.save(update_fields=["certificate_verification", "review_remarks"])
                 created_cows.append(cow)
 
                 # 2. Complete Weight Production History
@@ -202,8 +214,8 @@ class Command(BaseCommand):
                     WeightRecord.objects.bulk_create(weight_rows)
                     total_weight_records += len(weight_rows)
 
-                # 3. Complete Milk Production History (Daily Morning & Afternoon sessions for 45 days)
-                start_date = date(2026, 9, 28)
+                # 3. Complete Milk Production History (Daily Morning & Afternoon sessions for 60 days)
+                start_date = date(2026, 11, 11) - timedelta(days=59)
                 end_date = date(2026, 11, 11)
                 curr_date = start_date
                 milk_rows = []
@@ -273,6 +285,56 @@ class Command(BaseCommand):
                     ProductionRecord.objects.bulk_create(milk_rows)
                     total_milk_records += len(milk_rows)
 
+                breeding_day = end_date - timedelta(days=20)
+                _, breeding_created = BreedingRecord.objects.get_or_create(
+                    dam=cow, breeding_date=breeding_day,
+                    defaults={
+                        "breeding_type": BreedingRecord.BreedingType.ARTIFICIAL_INSEMINATION,
+                        "sire_breed": "Holstein-Friesian" if cow_info["breed"].startswith("Holstein") else "Jersey",
+                        "status": BreedingRecord.BreedingStatus.PENDING_CHECK,
+                        "notes": "Service recorded; observe for return to heat and arrange pregnancy check.",
+                        "created_by": tyron_user,
+                    },
+                )
+                total_breeding_records += breeding_created
+                existing_feed = set(FeedingRecord.objects.filter(
+                    livestock=cow, feeding_date__range=(start_date, end_date),
+                ).values_list("feeding_date", "feeding_time", "feed_type"))
+                # Illustrative demo prices in PHP per kg, not live supplier quotes.
+                feed_prices = {
+                    FeedingRecord.FeedType.FORAGE: Decimal("0.00"),
+                    FeedingRecord.FeedType.CONCENTRATE: Decimal("32.00"),
+                }
+                for feed_type, price in feed_prices.items():
+                    FeedingRecord.objects.filter(
+                        livestock=cow, feeding_date__range=(start_date, end_date),
+                        feed_type=feed_type, cost__isnull=True,
+                        notes="Fresh chopped forage and dairy concentrate offered after milking.",
+                        created_by=tyron_user,
+                    ).update(cost=ExpressionWrapper(
+                        F("quantity_kg") * price,
+                        output_field=DecimalField(max_digits=10, decimal_places=2),
+                    ))
+                feeding_rows = []
+                for offset in range(60):
+                    feeding_day = start_date + timedelta(days=offset)
+                    for feeding_time in (FeedingRecord.FeedingTime.MORNING, FeedingRecord.FeedingTime.AFTERNOON):
+                        for feed_type, feed_name, kg in (
+                            (FeedingRecord.FeedType.FORAGE, "Fresh chopped Napier grass", Decimal("15.00")),
+                            (FeedingRecord.FeedType.CONCENTRATE, "Dairy concentrate", Decimal("2.50")),
+                        ):
+                            if (feeding_day, feeding_time, feed_type) in existing_feed:
+                                continue
+                            feeding_rows.append(FeedingRecord(
+                                livestock=cow, feeding_date=feeding_day, feeding_time=feeding_time,
+                                feed_type=feed_type, feed_name=feed_name, quantity_kg=kg,
+                                cost=(kg * feed_prices[feed_type]).quantize(Decimal("0.01")),
+                                notes="Fresh chopped forage and dairy concentrate offered after milking.",
+                                created_by=tyron_user,
+                            ))
+                FeedingRecord.objects.bulk_create(feeding_rows)
+                total_feeding_records += len(feeding_rows)
+
         self.stdout.write(
             self.style.SUCCESS(
                 f"\nSuccessfully seeded 2 dairy cows for {farmer.user.get_full_name()} ({farmer.user.username}) in Brgy. {farmer.barangay.barangay_name}:\n"
@@ -280,6 +342,8 @@ class Command(BaseCommand):
                 f"  2. Cow {created_cows[1].tag_number}: Jersey-Sahiwal Cross (Current Weight: 416.5 kg)\n"
                 f"  - Milk collection logs: {total_milk_records} session records (Sept 28 – Nov 11, 2026)\n"
                 f"  - Weight monitoring logs: {total_weight_records} periodic measurements (Feb – Nov 2026)\n\n"
+                f"  - Feeding logs added: {total_feeding_records}\n"
+                f"  - Breeding records added: {total_breeding_records}\n"
                 f"To remove these records at any time, run: python manage.py seed_tyron_cows --clean"
             )
         )

@@ -685,11 +685,12 @@ class Command(BaseCommand):
             for age, weight in combinations
         ]
 
-        count = 0
+        all_animals = []
+        all_transfers = []
+
         for week_index in range(weeks):
             day = first_week + timedelta(weeks=week_index, days=4)
             adjustment = 12_000 * ((-0.97) ** week_index)
-            animals, transfers = [], []
 
             # Seasonal volume curve (annual sine cycle: higher volume in Q4 & early spring, lower mid-year)
             # combined with bounded stochastic weekly noise to avoid unrealistic constant counts.
@@ -728,8 +729,8 @@ class Command(BaseCommand):
                     status=LivestockOwnershipTransfer.Status.APPROVED,
                     review_time=aware_at(day, 17), note=f"constructed {cattle_type.name}-profile teaching data",
                 )
-                animals.extend(registered_animals)
-                transfers.extend(registered)
+                all_animals.extend(registered_animals)
+                all_transfers.extend(registered)
 
             for ext_idx, (breed_index, breed, sex, age, weight) in enumerate(sampled_ext):
                 price = (10_000 + weight * 40 + age * 60 + breed_index * 700
@@ -741,7 +742,7 @@ class Command(BaseCommand):
                     "purchase_price": Decimal(str(price)).quantize(Decimal("0.01")),
                 }
                 external_profile = {**profile, "purchase_price": profile["purchase_price"] + Decimal("1000")}
-                transfers.extend(self._external_market_lot_rows(
+                all_transfers.extend(self._external_market_lot_rows(
                     marker=marker, auction_user=auction_user, reviewer=user,
                     species=cattle_market, seller_origin=SYNTHETIC_MARKET_ORIGINS[0],
                     buyer_origin=SYNTHETIC_MARKET_ORIGINS[1], day=day, heads=1,
@@ -749,11 +750,13 @@ class Command(BaseCommand):
                     rng=rng, profiles=[external_profile],
                 ))
 
-            self._create_rows(LivestockInventory, animals)
-            self._create_rows(LivestockOwnershipTransfer, transfers)
-            self._create_sale_dispositions(marker, transfers)
-            count += len(transfers)
-        return {"milk": 0, "farmer_meat": 0, "slaughter": 0, "sales": count}
+        self._create_rows(LivestockInventory, all_animals)
+        for transfer in all_transfers:
+            if transfer.livestock and transfer.livestock.pk:
+                transfer.livestock_id = transfer.livestock.pk
+        self._create_rows(LivestockOwnershipTransfer, all_transfers)
+        self._create_sale_dispositions(marker, all_transfers)
+        return {"milk": 0, "farmer_meat": 0, "slaughter": 0, "sales": len(all_transfers)}
 
     def _seed_ideal(self, marker, user, sellers, cattle_type, auction_user=None):
         auction_user = auction_user or user
@@ -889,6 +892,9 @@ class Command(BaseCommand):
                 include_price=index % 3 != 0,
             ))
         self._create_rows(LivestockInventory, sale_animals)
+        for transfer in sale_rows:
+            if transfer.livestock and transfer.livestock.pk:
+                transfer.livestock_id = transfer.livestock.pk
         self._create_rows(LivestockOwnershipTransfer, sale_rows)
         self._create_sale_dispositions(marker, sale_rows)
         carabao_type, _ = LivestockType.objects.get_or_create(name="Carabao")

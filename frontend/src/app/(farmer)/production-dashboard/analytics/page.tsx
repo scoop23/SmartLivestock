@@ -2728,6 +2728,13 @@ export default function ProductionAnalyticsPage() {
               {/* ── DOMAIN 3: BREEDING & GESTATION PREDICTIONS ──────────────────── */}
               {selectedDomain === "breeding" && (
                 <div className="space-y-6">
+                  <div className="flex justify-end">
+                    <Button asChild className="rounded-xl bg-violet-700 text-white hover:bg-violet-800">
+                      <Link href="/production-dashboard/Cattle?activity=breeding&mode=history&eligibleSpecies=Cattle">
+                        Manage Breeding &amp; Confirm Pregnancy
+                      </Link>
+                    </Button>
+                  </div>
               <Card className="rounded-3xl border-slate-200/90 bg-white shadow-holo-card">
                 <CardHeader className="border-b border-slate-100 pb-3">
                   <div className="flex items-center justify-between">
