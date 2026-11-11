@@ -46,7 +46,24 @@ def filter_livestock_list(queryset, params, *, batch=False):
         if value and value.upper() != "ALL":
             queryset = queryset.filter(**{field: value})
     if not batch:
-        for parameter in ("status", "entry_type", "batch"):
+        status_value = params.get("status")
+        if status_value and status_value.upper() != "ALL":
+            s_val = status_value.strip().upper()
+            if s_val == "FOR_REVIEW":
+                queryset = queryset.filter(status__in=("PENDING", "VERIFIED"))
+            elif s_val == "SUBJECT_TO_REVISION":
+                queryset = queryset.filter(status__in=("SUBJECT_TO_REVISION", "SUBJECT_FOR_REVISION", "REJECTED"))
+            else:
+                queryset = queryset.filter(status=s_val)
+
+        reviewer_role = params.get("reviewer_role")
+        if reviewer_role:
+            role = reviewer_role.strip().upper()
+            queryset = queryset.filter(
+                reviewed_by__role__role_name__in=("CBAT", "SIBAT") if role == "CBAT" else (role,)
+            )
+
+        for parameter in ("entry_type", "batch"):
             value = params.get(parameter)
             if value and value.upper() != "ALL":
                 queryset = queryset.filter(**{parameter: value})
@@ -82,7 +99,7 @@ def filter_livestock_list(queryset, params, *, batch=False):
             matches = LivestockInventory.objects.filter(batch_id=OuterRef("pk"), entry_type="INDIVIDUAL", tag_number__icontains=search)
             queryset = queryset.alias(tag_match=Exists(matches)).filter(common | Q(batch_code__icontains=search) | Q(batch_name__icontains=search) | Q(tag_match=True))
         else:
-            queryset = queryset.filter(common | Q(tag_number__icontains=search) | Q(breed__icontains=search))
+            queryset = queryset.filter(common | Q(tag_number__icontains=search) | Q(breed__icontains=search) | Q(livestock_type__name__icontains=search))
     return queryset
 
 

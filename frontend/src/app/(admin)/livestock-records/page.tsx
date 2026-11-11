@@ -73,7 +73,6 @@ import React, { Suspense, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
-  fetchAdminInventoryRecords,
   ValidationInventoryItem,
 } from "../data-validation/validation-analytics";
 import {
@@ -485,6 +484,11 @@ function LivestockRecordsContent() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  useEffect(() => {
+    setIndividualPage(1);
+    setHerdPage(1);
+  }, [debouncedSearch, barangayFilter, speciesFilter, statusFilter]);
+
   // Pagination States
   const [herdPage, setHerdPage] = useState(1);
   const [individualPage, setIndividualPage] = useState(1);
@@ -573,22 +577,70 @@ function LivestockRecordsContent() {
 
   const activeBatch = detailQuery.data || selectedBatch;
 
-  // 4. Individual Animals Query
+  // 4. Individual Animals Query (Optimized Server-Side Pagination)
+  const individualParams = useMemo(() => ({
+    entry_type: "INDIVIDUAL",
+    operational_status: showHistory ? undefined : "ACTIVE",
+    history_only: showHistory ? "true" : undefined,
+    page: individualPage,
+    page_size: pageSize,
+    search: debouncedSearch || undefined,
+    species: speciesFilter !== "ALL" ? speciesFilter : undefined,
+    status: statusFilter === "CBAT_VERIFIED"
+      ? "VERIFIED"
+      : statusFilter !== "ALL" ? statusFilter : undefined,
+    reviewer_role: statusFilter === "CBAT_VERIFIED" ? "CBAT" : undefined,
+    barangay: barangayFilter !== "ALL" ? barangayFilter : undefined,
+  }), [individualPage, pageSize, debouncedSearch, speciesFilter, statusFilter, barangayFilter, showHistory]);
+
   const {
-    data: rawInventory = [],
+    data: individualPageData,
     isLoading: isInventoryLoading,
-    refetch: refetchInventory,
+    refetch: refetchInventoryData,
     isFetching: isInventoryFetching,
-  } = useQuery<ValidationInventoryItem[]>({
-    queryKey: ["admin-inventory-records"],
-    queryFn: fetchAdminInventoryRecords,
+  } = useQuery<{
+    count: number;
+    results: any[];
+    summary?: {
+      totalAnimals?: number;
+      forReview?: number;
+      approved?: number;
+      pending?: number;
+    };
+  }>({
+    queryKey: ["admin-individual-animals", individualParams],
+    queryFn: async ({ signal }) =>
+      (await api.get("livestock/inventory/", { params: individualParams, signal })).data,
     staleTime: 60 * 1000,
   });
+
+  // Fast KPI Overview Query: aggregate of active individual animals
+  const inventoryOverviewQuery = useQuery<{
+    summary?: {
+      totalAnimals?: number;
+      forReview?: number;
+      approved?: number;
+      pending?: number;
+    };
+  }>({
+    queryKey: ["admin-inventory-overview"],
+    queryFn: async ({ signal }) =>
+      (await api.get("livestock/inventory/", {
+        params: { entry_type: "INDIVIDUAL", operational_status: "ACTIVE", summary: "true", page: 1, page_size: 1 },
+        signal,
+      })).data,
+    staleTime: 60 * 1000,
+  });
+
+  const refetchInventory = () => {
+    refetchInventoryData();
+    inventoryOverviewQuery.refetch();
+  };
 
   // Seamless Loading Screen State for initial mount
   const isInitialDataLoading =
     (isBatchLoading && !batchPageData) ||
-    (isInventoryLoading && rawInventory.length === 0) ||
+    (isInventoryLoading && !individualPageData) ||
     (references.isLoading && !references.data);
 
   const { keepLoadingScreenMounted, showContent } = useSeamlessLoadingState(
@@ -596,83 +648,52 @@ function LivestockRecordsContent() {
     { exitDurationMs: 400, contentDelayMs: 150 }
   );
 
-  // Filter individual animal records
-  const individualAnimals = useMemo(() => {
-    return rawInventory.filter((item) => !item.isBatch && item.entryType === "INDIVIDUAL"
-      && (item.operationalStatus || "ACTIVE") === "ACTIVE");
-  }, [rawInventory]);
+  // Map paginated backend individual animal records
+  const paginatedIndividualAnimals = useMemo((): ValidationInventoryItem[] => {
+    return (individualPageData?.results || []).map((item: any): ValidationInventoryItem => ({
+      id: item.id,
+      rawId: item.id,
+      isBatch: false,
+      farmerName: item.farmer_name || "Registered Farmer",
+      barangayName: item.barangay_name || "Padre Garcia",
+      livestockType: item.livestock_type_name || "Livestock",
+      tagNumber: item.tag_number || `TAG-${item.id}`,
+      breed: item.breed || "Standard Breed",
+      sex: item.sex || "Unspecified",
+      birthDate: item.birth_date ?? null,
+      age: item.age ?? null,
+      ageClassification: item.age_classification ?? "UNKNOWN",
+      weight: item.weight ? Number(item.weight) : null,
+      entryType: "INDIVIDUAL",
+      quantity: Number(item.quantity ?? 1),
+      lastVaccinationDate: item.last_vaccination_date || null,
+      operationalStatus: item.operational_status || "ACTIVE",
+      status: (item.status || "PENDING").toUpperCase() as "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED",
+      reviewRemarks: item.review_remarks || null,
+      reviewedBy: item.reviewed_by_name || null,
+      reviewedByRole: item.reviewed_by_role || null,
+      reviewedAt: item.reviewed_at || null,
+      createdAt: item.created_at,
+      photoUrl: item.photo_url || item.photo || null,
+      batchCode: item.batch_code || null,
+      batchName: item.batch_name || null,
+    }));
+  }, [individualPageData]);
 
-  const filteredIndividualAnimals = useMemo(() => {
-    const records = showHistory
-      ? rawInventory.filter((item) => !item.isBatch && item.entryType === "INDIVIDUAL"
-          && (item.operationalStatus || "ACTIVE") !== "ACTIVE")
-      : individualAnimals;
-    return records.filter((item) => {
-      const q = debouncedSearch.toLowerCase();
-      const matchSearch =
-        !q ||
-        item.tagNumber.toLowerCase().includes(q) ||
-        item.farmerName.toLowerCase().includes(q) ||
-        item.barangayName.toLowerCase().includes(q) ||
-        item.breed.toLowerCase().includes(q) ||
-        item.livestockType.toLowerCase().includes(q);
-
-      const matchBarangay =
-        barangayFilter === "ALL" ||
-        item.barangayName.toLowerCase() === barangayFilter.toLowerCase();
-
-      const matchSpecies =
-        speciesFilter === "ALL" ||
-        item.livestockType.toLowerCase() === speciesFilter.toLowerCase();
-
-      const matchStatus =
-        statusFilter === "ALL" ||
-        (statusFilter === "APPROVED" && item.status === "APPROVED") ||
-        (statusFilter === "CBAT_VERIFIED" && item.status === "VERIFIED" && ["CBAT", "SIBAT"].includes(item.reviewedByRole?.trim().toUpperCase() || "")) ||
-        (statusFilter === "FOR_REVIEW" && (item.status === "PENDING" || item.status === "VERIFIED")) ||
-        (statusFilter === "SUBJECT_TO_REVISION" &&
-          (item.status === "SUBJECT_TO_REVISION" || item.status === "REJECTED")) ||
-        item.status === statusFilter;
-
-      return matchSearch && matchBarangay && matchSpecies && matchStatus;
-    });
-  }, [individualAnimals, rawInventory, showHistory, debouncedSearch, barangayFilter, speciesFilter, statusFilter]);
-
-  // Paginated Individual Animals
-  const paginatedIndividualAnimals = useMemo(() => {
-    const start = (individualPage - 1) * pageSize;
-    return filteredIndividualAnimals.slice(start, start + pageSize);
-  }, [filteredIndividualAnimals, individualPage, pageSize]);
-
-  const totalIndividualCount = filteredIndividualAnimals.length;
+  const totalIndividualCount = individualPageData?.count || 0;
   const individualTotalPages = Math.max(1, Math.ceil(totalIndividualCount / pageSize));
   const herdTotalPages = Math.max(1, Math.ceil(totalHerdsCount / pageSize));
 
   // ── Overall KPI Calculations ──
   const kpis = useMemo(() => {
-    const headCountFor = (items: ValidationInventoryItem[]) =>
-      items.reduce((total, item) => total + Math.max(0, Number(item.quantity) || 0), 0);
-    // The shared validation fetcher includes both animal records and herd
-    // summary rows. Count inventory records only so each head is counted once.
-    const totalAnimals = headCountFor(individualAnimals);
-    const forReviewCount = headCountFor(
-      individualAnimals.filter(
-        (animal) => animal.entryType === "INDIVIDUAL" && animal.status === "VERIFIED",
-      ),
-    );
-    const approvedCount = headCountFor(
-      individualAnimals.filter(
-        (animal) => animal.entryType === "INDIVIDUAL" && animal.status === "APPROVED",
-      ),
-    );
-
+    const summary = inventoryOverviewQuery.data?.summary;
     return {
       totalHerds: herdOverviewQuery.data?.summary?.totalHerds ?? 0,
-      totalAnimals,
-      forReview: forReviewCount,
-      approved: approvedCount,
+      totalAnimals: summary?.totalAnimals ?? 0,
+      forReview: summary?.forReview ?? 0,
+      approved: summary?.approved ?? 0,
     };
-  }, [herdOverviewQuery.data, individualAnimals]);
+  }, [herdOverviewQuery.data, inventoryOverviewQuery.data]);
 
   const openAnimalReview = (item: ValidationInventoryItem, reviewMode = false) => {
     const rawId = Number(item.rawId ?? item.id);
@@ -716,13 +737,13 @@ function LivestockRecordsContent() {
   // Deep-linking for individual animal: ?tab=individual&recordId=123
   useEffect(() => {
     const recordId = searchParams.get("recordId");
-    if (!recordId || isInventoryLoading || individualAnimals.length === 0) return;
+    if (!recordId) return;
     if (deepLinkedAnimalRef.current === recordId) return;
 
-    const target = recordId.trim().toLowerCase();
-    const found = individualAnimals.find((item) => {
+    const target = recordId.trim();
+    const found = paginatedIndividualAnimals.find((item: ValidationInventoryItem) => {
       const rawId = String(item.rawId ?? item.id);
-      return rawId === target || item.tagNumber?.toLowerCase() === target;
+      return rawId === target || item.tagNumber?.toLowerCase() === target.toLowerCase();
     });
     if (found) {
       deepLinkedAnimalRef.current = recordId;
@@ -730,8 +751,43 @@ function LivestockRecordsContent() {
         setActiveTab("individual");
       }
       openAnimalReview(found, true);
+      return;
     }
-  }, [searchParams, individualAnimals, isInventoryLoading, activeTab]);
+
+    if (/^\d+$/.test(target)) {
+      api.get(`livestock/inventory/${target}/`).then((res) => {
+        deepLinkedAnimalRef.current = recordId;
+        if (activeTab !== "individual") {
+          setActiveTab("individual");
+        }
+        const item = res.data;
+        setSelectedAnimalId(item.id);
+        setSelectedAnimalFallback({
+          id: item.id,
+          tag_number: item.tag_number,
+          livestock_type_name: item.livestock_type_name,
+          breed: item.breed,
+          sex: item.sex,
+          weight: item.weight,
+          status: item.status,
+          farmer_name: item.farmer_name,
+          barangay_name: item.barangay_name,
+          last_vaccination_date: item.last_vaccination_date,
+          operational_status: item.operational_status,
+          review_remarks: item.review_remarks,
+          reviewed_by_name: item.reviewed_by_name,
+          reviewed_by_role: item.reviewed_by_role,
+          reviewed_at: item.reviewed_at,
+          created_at: item.created_at,
+          batch_code: item.batch_code,
+          batch_name: item.batch_name,
+          photo_url: item.photo_url || item.photo,
+        });
+        setAnimalReviewMode(true);
+        setIsAnimalReviewOpen(true);
+      }).catch(() => {});
+    }
+  }, [searchParams, paginatedIndividualAnimals, activeTab]);
 
   // Deep-linking for herd batch: ?tab=herd&batchId=45
   useEffect(() => {
@@ -917,7 +973,7 @@ function LivestockRecordsContent() {
                   label: "Individual Ear Tag Records",
                   sublabel: "Individual identification, breed & status",
                   icon: <Tag className="size-4 shrink-0 text-sky-700" />,
-                  loaded: !isInventoryLoading && rawInventory.length > 0,
+                  loaded: !isInventoryLoading && individualPageData !== undefined,
                 },
                 {
                   id: "references",
@@ -1382,9 +1438,15 @@ function LivestockRecordsContent() {
                     >
                       <ChevronLeft className="w-3.5 h-3.5" />
                     </Button>
-                    {Array.from({ length: Math.min(5, herdTotalPages) }, (_, i) => {
-                      const pageNum = i + 1;
-                      return (
+                    {(() => {
+                      const delta = 2;
+                      const start = Math.max(1, herdPage - delta);
+                      const end = Math.min(herdTotalPages, herdPage + delta);
+                      const pages: number[] = [];
+                      for (let i = start; i <= end; i++) {
+                        pages.push(i);
+                      }
+                      return pages.map((pageNum) => (
                         <button
                           key={pageNum}
                           type="button"
@@ -1397,8 +1459,8 @@ function LivestockRecordsContent() {
                         >
                           {pageNum}
                         </button>
-                      );
-                    })}
+                      ));
+                    })()}
                     <Button
                       variant="outline"
                       size="sm"
@@ -1520,9 +1582,15 @@ function LivestockRecordsContent() {
                     >
                       <ChevronLeft className="w-3.5 h-3.5" />
                     </Button>
-                    {Array.from({ length: Math.min(5, herdTotalPages) }, (_, i) => {
-                      const pageNum = i + 1;
-                      return (
+                    {(() => {
+                      const delta = 2;
+                      const start = Math.max(1, herdPage - delta);
+                      const end = Math.min(herdTotalPages, herdPage + delta);
+                      const pages: number[] = [];
+                      for (let i = start; i <= end; i++) {
+                        pages.push(i);
+                      }
+                      return pages.map((pageNum) => (
                         <button
                           key={pageNum}
                           type="button"
@@ -1535,8 +1603,8 @@ function LivestockRecordsContent() {
                         >
                           {pageNum}
                         </button>
-                      );
-                    })}
+                      ));
+                    })()}
                     <Button
                       variant="outline"
                       size="sm"
@@ -1584,7 +1652,7 @@ function LivestockRecordsContent() {
                 <RefreshCw className="w-7 h-7 mx-auto text-emerald-600 animate-spin mb-3" />
                 <p className="text-sm font-bold text-slate-800">Loading Individual Animal Records...</p>
               </div>
-            ) : filteredIndividualAnimals.length === 0 ? (
+            ) : paginatedIndividualAnimals.length === 0 ? (
               <div className="p-12 text-center">
                 <Tag className="w-10 h-10 mx-auto text-slate-300 mb-2" />
                 <p className="text-base font-bold text-slate-800">
@@ -1726,9 +1794,15 @@ function LivestockRecordsContent() {
                     >
                       <ChevronLeft className="w-3.5 h-3.5" />
                     </Button>
-                    {Array.from({ length: Math.min(5, individualTotalPages) }, (_, i) => {
-                      const pageNum = i + 1;
-                      return (
+                    {(() => {
+                      const delta = 2;
+                      const start = Math.max(1, individualPage - delta);
+                      const end = Math.min(individualTotalPages, individualPage + delta);
+                      const pages: number[] = [];
+                      for (let i = start; i <= end; i++) {
+                        pages.push(i);
+                      }
+                      return pages.map((pageNum) => (
                         <button
                           key={pageNum}
                           type="button"
@@ -1741,8 +1815,8 @@ function LivestockRecordsContent() {
                         >
                           {pageNum}
                         </button>
-                      );
-                    })}
+                      ));
+                    })()}
                     <Button
                       variant="outline"
                       size="sm"

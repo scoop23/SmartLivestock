@@ -109,6 +109,7 @@ def inventory_list_create(request):
 
     requested_operational_status = request.query_params.get("operational_status")
     include_inactive = request.query_params.get("include_inactive", "").lower() == "true"
+    history_only = request.query_params.get("history_only", "").lower() == "true"
     if requested_operational_status:
         if requested_operational_status not in LivestockInventory.OperationalStatus.values:
             return Response(
@@ -121,6 +122,10 @@ def inventory_list_create(request):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         inventories = inventories.filter(operational_status=requested_operational_status)
+    elif history_only:
+        inventories = inventories.exclude(
+            operational_status=LivestockInventory.OperationalStatus.ACTIVE
+        )
     elif not include_inactive:
         inventories = inventories.filter(
             operational_status=LivestockInventory.OperationalStatus.ACTIVE
@@ -167,7 +172,15 @@ def inventory_list_create(request):
     if "page" in request.query_params:
         pager = LivestockListPagination()
         records = pager.paginate_queryset(inventories.order_by("-created_at", "-pk"), request)
-        return pager.get_paginated_response(LivestockInventorySerializer(records, many=True, context={"request": request}).data)
+        response = pager.get_paginated_response(LivestockInventorySerializer(records, many=True, context={"request": request}).data)
+        if request.query_params.get("summary") == "true":
+            response.data["summary"] = inventories.aggregate(
+                totalAnimals=Count("id"),
+                forReview=Count("id", filter=Q(status="VERIFIED")),
+                approved=Count("id", filter=Q(status="APPROVED")),
+                pending=Count("id", filter=Q(status="PENDING")),
+            )
+        return response
     serializer = LivestockInventorySerializer(
         inventories, many=True, context={"request": request}
     )

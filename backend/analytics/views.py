@@ -105,7 +105,19 @@ def reports_export(request):
 def dashboard_summary(request):
     # The service owns DB -> ORM calculations. Production uses eligible
     # farmer logs; official operational domains retain their own review filters.
-    return Response(descriptive_summary(user=request.user))
+    from django.core.cache import cache
+    user = request.user
+    scope = (user.pk, getattr(user.role, "role_name", ""), user.access_scope,
+             user.assigned_barangay_id, user.is_staff, user.is_superuser,
+             timezone.localdate().isoformat())
+    key = "dashboard-summary-v1:" + hashlib.sha256(repr(scope).encode()).hexdigest()
+    result = None if request.query_params.get("refresh") == "1" else cache.get(key)
+    if result is None:
+        result = descriptive_summary(user=user)
+        cache.set(key, result, timeout=180)
+    response = Response(result)
+    response["Cache-Control"] = "private, no-store"
+    return response
 
 
 @api_view(["GET"])
@@ -680,6 +692,14 @@ def predictive_model_comparison(request):
     parameters.is_valid(raise_exception=True)
     horizon = parameters.validated_data["horizon"]
 
+    from django.core.cache import cache
+    user = request.user
+    cache_key = f"pred-diag-view-v1:{user.pk}:{request.META.get('QUERY_STRING', '')}:{timezone.localdate().isoformat()}"
+    if request.query_params.get("refresh") != "1":
+        cached_res = cache.get(cache_key)
+        if cached_res is not None:
+            return Response(cached_res)
+
     try:
         from .services.predictive.evaluation import evaluate_all_models
 
@@ -793,6 +813,14 @@ def predictive_readiness_diagnostics(request):
     parameters.is_valid(raise_exception=True)
     horizon = parameters.validated_data["horizon"]
 
+    from django.core.cache import cache
+    user = request.user
+    cache_key = f"pred-diag-view-v1:{user.pk}:{request.META.get('QUERY_STRING', '')}:{timezone.localdate().isoformat()}"
+    if request.query_params.get("refresh") != "1":
+        cached_res = cache.get(cache_key)
+        if cached_res is not None:
+            return Response(cached_res)
+
     try:
         from .services.predictive.diagnostics import (
             get_forecast_readiness_diagnostics,
@@ -816,6 +844,7 @@ def predictive_readiness_diagnostics(request):
                 horizon_months=horizon,
                 domains=categories.get(category),
             )
+        cache.set(cache_key, res, timeout=300)
         return Response(res)
     except APIException:
         raise
@@ -1085,8 +1114,18 @@ def prescriptive_recommendations(request):
     """
     Evaluates scoped record-review and forecast-based administrative planning rules.
     """
+    from django.core.cache import cache
+    user = request.user
+    role = getattr(getattr(user, "role", None), "role_name", "")
+    cache_key = f"presc-rec-v2:{user.pk}:{role}:{timezone.localdate().isoformat()}"
+    if request.query_params.get("refresh") != "1":
+        cached_res = cache.get(cache_key)
+        if cached_res is not None:
+            return Response(cached_res)
     from .services.predictive.rules import generate_prescriptive_recommendations
-    return Response(generate_prescriptive_recommendations(user=request.user))
+    res = generate_prescriptive_recommendations(user=request.user)
+    cache.set(cache_key, res, timeout=300)
+    return Response(res)
 
 
 @api_view(["GET"])

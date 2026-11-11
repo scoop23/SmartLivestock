@@ -310,7 +310,7 @@ function AnalysisOverviewContent() {
 
   const predictiveOverviewQuery = useQuery<PredictiveOverviewResponse>({
     queryKey: ['forecast-diagnostics', user?.email, user?.role, user?.accessScope, user?.assignedBarangayId, 'disease', 6],
-    enabled: Boolean(user) && selectedDomain === 'disease',
+    enabled: Boolean(user) && selectedDomain === 'disease' && activeTab === 'descriptive',
     retry: 1,
     queryFn: async ({ signal }) => {
       const { data } = await api.get<PredictiveOverviewResponse>('analytics/predictive/diagnostics/', {
@@ -320,20 +320,20 @@ function AnalysisOverviewContent() {
       });
       return data;
     },
-    staleTime: 60_000,
+    staleTime: 5 * 60_000,
   });
 
   const prescriptiveOverviewQuery = useQuery<PrescriptiveOverviewResponse>({
     queryKey: [...queryKey, 'prescriptive-overview'],
-    enabled: Boolean(user),
+    enabled: Boolean(user) && selectedDomain === 'disease' && activeTab === 'descriptive',
     queryFn: async ({ signal }) => {
       const { data } = await api.get<PrescriptiveOverviewResponse>('analytics/prescriptive/', { signal });
       return data;
     },
-    staleTime: 60_000,
+    staleTime: 5 * 60_000,
   });
 
-  const isFetching = dashboardQuery.isFetching || predictiveOverviewQuery.isFetching || prescriptiveOverviewQuery.isFetching;
+  const isFetching = dashboardQuery.isFetching;
 
   /* ------------------------------------------------------------------------ */
   /* Data Derivations for Livestock Inventory (Matching Mockup Defaults)       */

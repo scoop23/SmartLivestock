@@ -650,6 +650,13 @@ def get_forecast_readiness_diagnostics(
     target_clean = (target or "MILK").upper()
     unit_clean = (unit or "LITERS").upper()
 
+    from django.core.cache import cache
+    user_id = user.pk if user else "anon"
+    cache_key = f"diag-target-v2:{domain}:{target_clean}:{unit_clean}:{transfer_source}:{horizon_months}:{user_id}:{timezone.localdate().isoformat()}"
+    cached_diagnostic = cache.get(cache_key)
+    if cached_diagnostic is not None:
+        return cached_diagnostic
+
     required_validation_windows = (
         3 if domain == "slaughter" or (domain == "production" and target_clean == "MEAT")
         else MIN_VALID_BACKTEST_WINDOWS
@@ -666,6 +673,7 @@ def get_forecast_readiness_diagnostics(
         diagnostic["progress"]["approval_status_breakdown"] = _approval_status_breakdown(
             domain, target_clean, unit_clean, user, transfer_source
         )
+        cache.set(cache_key, diagnostic, timeout=300)
         return diagnostic
 
     target_def = get_forecast_target_definition(domain, target_clean, unit_clean)
@@ -971,7 +979,7 @@ def get_forecast_readiness_diagnostics(
         )
     )
 
-    return {
+    result = {
         "metric_id": f"{domain}_{target_clean.lower()}_{unit_clean.lower()}",
         "domain": domain,
         "target": target_clean,
@@ -1045,6 +1053,8 @@ def get_forecast_readiness_diagnostics(
         # Last evaluation timestamp
         "last_evaluated_at": timezone.now().isoformat(),
     }
+    cache.set(cache_key, result, timeout=300)
+    return result
 
 
 def get_all_forecast_readiness_diagnostics(

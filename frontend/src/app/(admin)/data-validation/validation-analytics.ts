@@ -224,13 +224,13 @@ interface ApiLiveSale {
 
 // The livestock list APIs return every row when `page` is omitted. Read them
 // in bounded pages so the validation portal does not wait on one huge response.
-async function fetchAllLivestockPages<T>(endpoint: string): Promise<T[]> {
+async function fetchAllLivestockPages<T>(endpoint: string, maxPages = 10): Promise<T[]> {
   const pageSize = 100; // LivestockListPagination caps requests at 100 rows.
   const records: T[] = [];
   let page = 1;
   let expectedCount: number | null = null;
 
-  while (expectedCount === null || records.length < expectedCount) {
+  while ((expectedCount === null || records.length < expectedCount) && page <= maxPages) {
     const separator = endpoint.includes("?") ? "&" : "?";
     const response = await municipalRead<PaginatedList<T>>(
       `${endpoint}${separator}page=${page}&page_size=${pageSize}`,

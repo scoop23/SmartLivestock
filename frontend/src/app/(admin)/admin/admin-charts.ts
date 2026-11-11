@@ -1,3 +1,4 @@
+import { useMemo, useRef } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import { municipalRead } from "@/lib/municipal-read";
 import { type PopulationSummary,speciesCategories } from "@/lib/population-metrics";
@@ -447,8 +448,8 @@ export async function fetchAdminProduction(): Promise<ProductionRecordItem[]> {
   return (await municipalRead<ProductionRecordApiItem[]>("production/records/")).data.map(mapProductionRecord);
 }
 
-export async function fetchDashboardAnalytics(signal?: AbortSignal): Promise<DashboardAnalytics> {
-  return (await municipalRead<DashboardAnalytics>("analytics/dashboard/", { signal })).data;
+export async function fetchDashboardAnalytics(signal?: AbortSignal, refresh = false): Promise<DashboardAnalytics> {
+  return (await municipalRead<DashboardAnalytics>("analytics/dashboard/", { signal, params: refresh ? { refresh: 1 } : undefined })).data;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -578,13 +579,20 @@ export function useAdminProduction() {
 
 export function useAdminDashboardSummary() {
   const { user } = useAuth();
-  return useQuery<DashboardAnalytics>({
+  const forceRefresh = useRef(false);
+  const query = useQuery<DashboardAnalytics>({
     queryKey: [...ADMIN_CHARTS_QUERY_KEYS.dashboard, user?.email, user?.accessScope, user?.assignedBarangayId],
-    queryFn: ({ signal }) => fetchDashboardAnalytics(signal),
-    staleTime: 0,
-    refetchOnWindowFocus: true,
+    queryFn: ({ signal }) => fetchDashboardAnalytics(signal, forceRefresh.current),
+    enabled: Boolean(user),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
     retry: 1,
   });
+  return { ...query, refetch: async () => {
+    forceRefresh.current = true;
+    try { return await query.refetch(); }
+    finally { forceRefresh.current = false; }
+  } };
 }
 
 /**
@@ -592,8 +600,9 @@ export function useAdminDashboardSummary() {
  */
 export function useAdminDashboardAnalytics() {
   const dashboardSummaryQuery = useAdminDashboardSummary();
+  const data = useMemo(() => computeAdminAnalytics(dashboardSummaryQuery.data), [dashboardSummaryQuery.data]);
   return {
-    data: computeAdminAnalytics(dashboardSummaryQuery.data),
+    data,
     isLoading: dashboardSummaryQuery.isLoading, isFetching: dashboardSummaryQuery.isFetching,
     isError: dashboardSummaryQuery.isError, refetchAll: () => dashboardSummaryQuery.refetch(),
     dashboardSummaryQuery,
