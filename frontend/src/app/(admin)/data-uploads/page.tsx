@@ -44,6 +44,7 @@ import React,{ useEffect,useRef,useState } from "react";
 import { toast } from "sonner";
 import {
 downloadBatchErrors,
+exportDataset,
 downloadTemplate,
 executeBatchImport,
 fetchBatches,
@@ -62,6 +63,7 @@ const DATASET_ICONS: Record<string, string> = {
   disease: "🩺",
   mortality: "⚠️",
   slaughter: "🥩",
+  movement: "??",
   auction: "🏷️",
 };
 
@@ -189,9 +191,11 @@ export default function DataUploadsPage() {
         );
       }
     } catch (err: unknown) {
-      const errorMsg =
-        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
-        "Validation failed. Please check the file format, headers, and row values.";
+      const failure = err as { response?: { status?: number; data?: { error?: string; detail?: string } } };
+      const errorMsg = failure.response?.data?.error || failure.response?.data?.detail ||
+        (failure.response?.status === 500
+          ? "The server could not generate the validation preview. Check the backend logs and retry."
+          : "Validation failed. Please check the file format, headers, and row values.");
       toast.error(errorMsg);
     } finally {
       setIsValidating(false);
@@ -270,7 +274,7 @@ export default function DataUploadsPage() {
         selectedDataset,
         file,
         skipDuplicates,
-        targetStatus,
+        ["movement", "auction"].includes(selectedDataset) ? "PENDING" : targetStatus,
         serializeEdits(validatedEdits),
         appliedColumnMapping
       );
@@ -380,6 +384,14 @@ export default function DataUploadsPage() {
               </p>
             </div>
 
+            {selectedDataset !== "movement" && <div className="flex gap-2">
+              {(["csv", "xlsx"] as const).map(format => (
+                <Button key={format} variant="outline" size="sm" onClick={async () => {
+                  try { await exportDataset(selectedDataset, format); toast.success("Records exported."); }
+                  catch { toast.error("Could not export records. Please retry."); }
+                }}><Download className="mr-2 size-4" />Export {format.toUpperCase()} records</Button>
+              ))}
+            </div>}
             {/* Template Download Actions */}
             <div className="flex items-center gap-2">
               <Button
@@ -603,7 +615,8 @@ export default function DataUploadsPage() {
                 <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
                   <span>Target Status:</span>
                   <select
-                    value={targetStatus}
+                    value={["movement", "auction"].includes(selectedDataset) ? "PENDING" : targetStatus}
+                    disabled={["movement", "auction"].includes(selectedDataset)}
                     onChange={(e) => setTargetStatus(e.target.value as "APPROVED" | "PENDING")}
                     className="h-8 rounded-lg border border-slate-300 bg-slate-50 px-2 text-xs font-semibold text-slate-800 focus:outline-emerald-600"
                   >

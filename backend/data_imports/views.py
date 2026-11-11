@@ -474,3 +474,51 @@ def download_template(request, dataset_type):
     response = HttpResponse(content, content_type=content_type)
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
     return response
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, IsDataImportUser])
+def export_dataset(request, dataset_type):
+    """Export stored domain rows with status and record IDs for municipal review."""
+    if not _can_use_imports(request.user, dataset_type):
+        return Response({"detail": "You do not have permission to export this dataset."}, status=403)
+    if dataset_type not in DATASET_REGISTRY or dataset_type == "movement":
+        return Response({"detail": "Use the auction inspection export for live movement."}, status=400)
+    config = get_dataset_config(dataset_type)
+    # Use the same canonical columns and order as the upload template.
+    headers = config.required_fields + [field for field in config.field_aliases if field not in config.required_fields]
+    from .services.exports import dataset_rows
+    rows = dataset_rows(dataset_type, config, headers)
+    file_format = request.query_params.get("file_format", "csv")
+    if file_format not in ("csv", "xlsx"):
+        return Response({"detail": "Choose csv or xlsx."}, status=400)
+    def safe(value):
+        if value is None:
+            return ""
+        if hasattr(value, "isoformat"):
+            return value.isoformat()
+        if isinstance(value, (dict, list)):
+            value = json.dumps(value)
+        if isinstance(value, str) and value.lstrip().startswith(("=", "+", "-", "@")):
+            return "'" + value
+        return value
+    if file_format == "xlsx":
+        from openpyxl import Workbook
+        book = Workbook(write_only=True)
+        sheet = book.create_sheet("Records")
+        sheet.append(headers)
+        for row in rows:
+            sheet.append([safe(value) for value in row])
+        output = io.BytesIO()
+        book.save(output)
+        response = HttpResponse(output.getvalue(), content_type=XlsxRenderer.media_type)
+    else:
+        response = HttpResponse(content_type="text/csv; charset=utf-8")
+        response.write("\ufeff")
+        writer = csv.writer(response)
+        writer.writerow(headers)
+        for row in rows:
+            writer.writerow([safe(value) for value in row])
+    response["Content-Disposition"] = f'attachment; filename="{dataset_type}_records.{file_format}"'
+    response["Cache-Control"] = "no-store"
+    return response

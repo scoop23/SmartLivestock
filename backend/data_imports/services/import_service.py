@@ -68,6 +68,8 @@ def execute_batch_import(
     # no partial data will be written. This is critical for data integrity:
     # you never want 50 out of 100 records inserted and 50 missing.
     # =============================================================
+    if dataset_type in ("movement", "auction"):
+        target_status = "PENDING"
     try:
         with transaction.atomic():
             # Create the audit batch record FIRST, before inserting any domain records.
@@ -89,6 +91,7 @@ def execute_batch_import(
             # We do NOT call .save() here — that would be one SQL INSERT per row (N+1 problem).
             # Instead, we collect all instances in a list and bulk_create them at the end.
             # =============================================================
+            movement_groups = {}
             for rec in normalized_records:
                 status = rec.get("_status")
                 row_num = rec.get("_row_number", 0)
@@ -101,6 +104,32 @@ def execute_batch_import(
                 # WARNING rows are usually duplicate ear tags or location mismatches.
                 if status == "WARNING" and skip_duplicates:
                     skipped_count += 1
+                    continue
+
+                if dataset_type == "movement":
+                    from movements.models import LivestockInspection, LivestockInspectionItem, LivestockInspectionClearance
+                    reference = rec["control_number"]
+                    inspection = movement_groups.get(reference)
+                    if inspection is None:
+                        if LivestockInspectionClearance.objects.filter(control_number=reference).exists():
+                            skipped_count += 1
+                            continue
+                        inspection = LivestockInspection.objects.create(
+                            shipper_name=rec["shipper_name"], destination=rec["destination"],
+                            purpose=rec["purpose"], inspection_date=rec["inspection_date"], created_by=user,
+                        )
+                        LivestockInspectionClearance.objects.create(
+                            inspection=inspection, control_number=reference, origin=rec["origin"],
+                            shipper_address=rec["origin"], status="PENDING", review_remarks=f"Bulk upload batch {batch.pk}",
+                        )
+                        movement_groups[reference] = inspection
+                    elif (inspection.shipper_name, inspection.destination, inspection.purpose, inspection.inspection_date) != (rec["shipper_name"], rec["destination"], rec["purpose"], rec["inspection_date"]):
+                        raise ValueError(f"Conflicting inspection details for {reference}.")
+                    LivestockInspectionItem.objects.create(
+                        inspection=inspection, livestock_type=rec["livestock_type"], quantity=rec["quantity"],
+                        sex=rec["sex"], classification=rec["classification"], remarks=f"Bulk upload batch {batch.pk}",
+                    )
+                    imported_count += 1
                     continue
 
                 if dataset_type == "slaughter":
@@ -249,18 +278,24 @@ def execute_batch_import(
                     instances_to_create.append(inst)
 
                 elif dataset_type == "auction":
-                    farmer = rec["farmer"]
-                    inst = LiveAnimalSale(
-                        quantity=rec["quantity"],
-                        sale_method=rec.get("sale_method", LiveAnimalSale.SaleMethod.MATA_MATA),
-                        total_live_weight=rec.get("total_live_weight"),
-                        price_per_head=rec.get("price_per_head"),
-                        total_price=rec["total_price"],
-                        sale_date=rec.get("sale_date", today),
-                        destination=rec.get("destination", ""),
-                        purpose=rec.get("purpose", LiveAnimalSale.SalePurpose.UNKNOWN),
-                        **common_kwargs,
+                    from livestock.models import LivestockOwnershipTransfer
+                    animal = rec.get("livestock")
+                    if LivestockOwnershipTransfer.objects.filter(
+                        transfer_certificate_number=rec["transfer_certificate_number"], livestock=animal,
+                        external_livestock_tag_number="" if animal else rec["external_livestock_tag_number"],
+                    ).exists():
+                        skipped_count += 1
+                        continue
+                    values = {field: rec.get(field) for field in config.field_aliases if field != "tag_number"}
+                    values["external_seller_name"] = "" if animal else rec["external_seller_name"]
+                    values["external_livestock_type"] = "" if animal else rec["external_livestock_type"]
+                    values["external_livestock_tag_number"] = "" if animal else rec["external_livestock_tag_number"]
+                    inst = LivestockOwnershipTransfer(
+                        **values, livestock=animal, previous_owner=animal.farmer if animal else None,
+                        owner_type="EXTERNAL_INDIVIDUAL", created_by=user, status="PENDING",
+                        review_remarks=f"Bulk upload batch {batch.pk}",
                     )
+                    inst.full_clean()
                     instances_to_create.append(inst)
 
             # =============================================================

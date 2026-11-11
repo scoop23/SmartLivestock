@@ -264,3 +264,18 @@ export async function downloadBatchErrors(batchId: number): Promise<void> {
   window.URL.revokeObjectURL(url);
   document.body.removeChild(a);
 }
+
+
+export async function exportDataset(datasetType: string, format: "csv" | "xlsx"): Promise<void> {
+  const response = await api.get(`/api/data-imports/exports/${datasetType}/`, {
+    params: { file_format: format }, responseType: "blob",
+  });
+  const url = URL.createObjectURL(response.data);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `${datasetType}_records.${format}`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}

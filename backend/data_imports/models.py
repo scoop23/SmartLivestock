@@ -31,6 +31,7 @@ class DataImportBatch(models.Model):
         MORTALITY = "mortality", "Mortality Records"
         SLAUGHTER = "slaughter", "Slaughter Records"
         AUCTION = "auction", "Auction / Live Animal Sales"
+        MOVEMENT = "movement", "Live Movement / Livestock Inspection"
 
     # ImportStatus: Tracks which stage of the pipeline the batch is in.
     # The batch is created as PENDING during execution, then finalized as COMPLETED,

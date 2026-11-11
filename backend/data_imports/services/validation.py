@@ -221,7 +221,7 @@ class ValidationEngine:
                     clean_data["livestock_type"] = str(raw_livestock_type)
 
         # 5. Dates
-        for date_field in ["record_date", "last_vaccination_date", "sale_date"]:
+        for date_field in ["record_date", "last_vaccination_date", "sale_date", "inspection_date"]:
             if date_field in self.config.field_aliases:
                 raw_d = get_val(date_field)
                 if raw_d is not None:
@@ -416,52 +416,57 @@ class ValidationEngine:
                 else:
                     clean_data["carcass_weight"] = wt
 
+        elif self.config.code == "movement":
+            from movements.models import LivestockInspectionClearance
+            for field in ("shipper_name", "origin", "destination", "control_number"):
+                value = normalize_string(get_val(field)) or ""
+                clean_data[field] = value
+                limit = 100 if field == "control_number" else 255
+                if len(value) > limit:
+                    issues.append({"field": field, "type": "INVALID_LENGTH", "message": f"Maximum {limit} characters.", "severity": "ERROR"})
+            quantity, error = normalize_integer(get_val("quantity"), min_val=1)
+            clean_data["quantity"] = quantity
+            if error:
+                issues.append({"field": "quantity", "type": "INVALID_NUMBER", "message": error, "severity": "ERROR"})
+            for field, default, choices in (
+                ("purpose", "UNKNOWN", ["BREEDING", "FATTENING", "SLAUGHTER", "UNKNOWN", "OTHER"]),
+                ("sex", "MIXED", ["MALE", "FEMALE", "MIXED"]),
+                ("classification", "BREEDER", ["BREEDER", "SLAUGHTER", "FATTENING"]),
+            ):
+                value = (normalize_string(get_val(field)) or default).upper()
+                clean_data[field] = value
+                if value not in choices:
+                    issues.append({"field": field, "type": "INVALID_CHOICE", "message": f"Choose from {', '.join(choices)}.", "severity": "ERROR"})
+            reference = clean_data["control_number"]
+            if LivestockInspectionClearance.objects.filter(control_number=reference).exists():
+                issues.append({"field": "control_number", "type": "DUPLICATE_WARNING", "message": "Inspection reference already exists.", "severity": "WARNING"})
+            seen_tags_in_batch.add(reference)
+
         elif self.config.code == "auction":
-            sale_method = (normalize_string(get_val("sale_method")) or "MATA-MATA").upper()
-            if sale_method not in ["MATA-MATA", "WEIGHING", "OTHER"]:
-                issues.append({
-                    "field": "sale_method",
-                    "type": "INVALID_CHOICE",
-                    "message": "Invalid sale method. Choices: MATA-MATA, WEIGHING, OTHER.",
-                    "severity": "ERROR",
-                })
-                sale_method = "MATA-MATA"
-            clean_data["sale_method"] = sale_method
-
-            raw_price = get_val("total_price")
-            price, price_err = normalize_decimal(raw_price, min_val=Decimal("0.00"))
-            if price_err:
-                issues.append({"field": "total_price", "type": "INVALID_NUMBER", "message": price_err, "severity": "ERROR"})
-            else:
-                clean_data["total_price"] = price
-
-            raw_head = get_val("price_per_head")
-            if raw_head is not None:
-                ph, ph_err = normalize_decimal(raw_head, min_val=Decimal("0.00"))
-                if ph_err:
-                    issues.append({"field": "price_per_head", "type": "INVALID_NUMBER", "message": ph_err, "severity": "ERROR"})
-                else:
-                    clean_data["price_per_head"] = ph
-
-            raw_wt = get_val("total_live_weight")
-            if raw_wt is not None:
-                wt, wt_err = normalize_decimal(raw_wt, min_val=Decimal("0.00"))
-                if wt_err:
-                    issues.append({"field": "total_live_weight", "type": "INVALID_NUMBER", "message": wt_err, "severity": "ERROR"})
-                else:
-                    clean_data["total_live_weight"] = wt
-
-            clean_data["destination"] = normalize_string(get_val("destination")) or ""
-            raw_purp = (normalize_string(get_val("purpose")) or "UNKNOWN").upper()
-            if raw_purp not in ["BREEDING", "FATTENING", "SLAUGHTER", "UNKNOWN"]:
-                issues.append({
-                    "field": "purpose",
-                    "type": "INVALID_CHOICE",
-                    "message": "Invalid sale purpose. Choices: BREEDING, FATTENING, SLAUGHTER, UNKNOWN.",
-                    "severity": "ERROR",
-                })
-                raw_purp = "UNKNOWN"
-            clean_data["purpose"] = raw_purp
+            from livestock.models import LivestockOwnershipTransfer
+            for field in self.config.field_aliases:
+                clean_data[field] = normalize_string(get_val(field)) or ""
+            day, error = normalize_date(get_val("transfer_date"))
+            clean_data["transfer_date"] = day
+            if error or not day or day > self.today:
+                issues.append({"field": "transfer_date", "type": "INVALID_DATE", "message": "Provide a valid past or current transfer date.", "severity": "ERROR"})
+            for field in ("purchase_price", "weight_at_transfer_kg"):
+                amount, error = normalize_decimal(get_val(field), min_val=Decimal("0"))
+                clean_data[field] = amount
+                if error:
+                    issues.append({"field": field, "type": "INVALID_NUMBER", "message": error, "severity": "ERROR"})
+            tag = clean_data["tag_number"]
+            animal = LivestockInventory.objects.filter(tag_number=tag).first() if tag else None
+            existing_transfer = LivestockOwnershipTransfer.objects.filter(
+                transfer_certificate_number=clean_data["transfer_certificate_number"],
+                livestock=animal,
+            ).exists()
+            if tag and not existing_transfer and (animal is None or animal.status != "APPROVED" or animal.operational_status != "ACTIVE"):
+                issues.append({"field": "tag_number", "type": "INVALID_ANIMAL", "message": "Select an approved active registered animal, or leave blank for external-market records.", "severity": "ERROR"})
+            clean_data["livestock"] = animal
+            reference = clean_data["transfer_certificate_number"]
+            if LivestockOwnershipTransfer.objects.filter(transfer_certificate_number=reference, external_livestock_tag_number=clean_data["external_livestock_tag_number"], livestock=animal).exists():
+                issues.append({"field": "transfer_certificate_number", "type": "DUPLICATE_WARNING", "message": "This transfer record already exists.", "severity": "WARNING"})
 
         # Determine overall row status
         has_error = any(i["severity"] == "ERROR" for i in issues)
@@ -537,7 +542,7 @@ class ValidationEngine:
                 # Format dates and decimals for JSON serialization
                 serializable_data = {}
                 for k, v in clean_data.items():
-                    if k.startswith("_") or isinstance(v, (Barangay, Farmer)):
+                    if k.startswith("_") or isinstance(v, (Barangay, Farmer, LivestockInventory)):
                         continue
                     if isinstance(v, LivestockType):
                         if k == "livestock_type":

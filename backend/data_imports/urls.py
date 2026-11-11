@@ -2,6 +2,7 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    path("exports/<str:dataset_type>/", views.export_dataset, name="export_dataset"),
     path("datasets/", views.list_datasets, name="list_datasets"),
     path("validate/", views.validate_import, name="validate_import"),
     path("import/", views.execute_import, name="execute_import"),

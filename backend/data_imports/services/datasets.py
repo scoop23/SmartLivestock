@@ -243,64 +243,33 @@ class SlaughterRecordDataset(BaseDatasetConfig):
 
 
 class LiveAnimalSaleDataset(BaseDatasetConfig):
+    from livestock.models import LivestockOwnershipTransfer
     code = "auction"
-    label = "Auction / Live Animal Sales"
-    description = "Padre Garcia Livestock Auction Market transactions and off-farm live sales."
-    model_class = LiveAnimalSale
-    required_fields = ["farmer", "barangay", "quantity", "total_price", "sale_date"]
-    field_aliases = {
-        "farmer": ["farmer", "farmer_name", "farmer name", "seller", "seller_name", "owner"],
-        "barangay": ["barangay", "barangay_name", "barangay name", "location", "brgy"],
-        "quantity": ["quantity", "heads", "animal count", "head_count", "qty"],
-        "sale_method": ["sale_method", "sale method", "method"],
-        "total_live_weight": ["total_live_weight", "live_weight", "weight_kg", "total weight"],
-        "price_per_head": ["price_per_head", "price per head", "unit_price"],
-        "total_price": ["total_price", "total price", "price", "amount", "total_amount"],
-        "sale_date": ["sale_date", "sale date", "date", "date_sold", "transaction_date"],
-        "destination": ["destination", "buyer", "buyer_destination", "target_market"],
-        "purpose": ["purpose", "sale_purpose", "purpose_of_sale"],
-    }
-    column_descriptions = {
-        "farmer": "Farmer / seller name or registered ID.",
-        "barangay": "Official Padre Garcia barangay name.",
-        "quantity": "Number of live animals sold (>= 1).",
-        "sale_method": "'MATA-MATA', 'WEIGHING', or 'OTHER'.",
-        "total_live_weight": "Optional total live weight in kilograms.",
-        "price_per_head": "Optional price per head in PHP.",
-        "total_price": "Total transaction price in PHP (>= 0).",
-        "sale_date": "Sale transaction date (YYYY-MM-DD).",
-        "destination": "Optional buyer name or destination municipality.",
-        "purpose": "'BREEDING', 'FATTENING', 'SLAUGHTER', or 'UNKNOWN'.",
-    }
-    sample_rows = [
-        {
-            "farmer": "Juan Dela Cruz",
-            "barangay": "Manggas",
-            "quantity": 3,
-            "sale_method": "WEIGHING",
-            "total_live_weight": 1150.00,
-            "price_per_head": 45000.00,
-            "total_price": 135000.00,
-            "sale_date": "2026-04-18",
-            "destination": "San Jose, Batangas",
-            "purpose": "FATTENING",
-        },
-        {
-            "farmer": "Maria Santos",
-            "barangay": "Banaba",
-            "quantity": 5,
-            "sale_method": "MATA-MATA",
-            "total_live_weight": 420.00,
-            "price_per_head": 8500.00,
-            "total_price": 42500.00,
-            "sale_date": "2026-04-19",
-            "destination": "Lipa City",
-            "purpose": "SLAUGHTER",
-        },
-    ]
+    label = "Auction / Ownership Transfer Records"
+    description = "Certificate-backed ownership transfer records. Uploaded requests enter Pending MAO review."
+    model_class = LivestockOwnershipTransfer
+    required_fields = ["transfer_certificate_number", "external_seller_name", "external_owner_name", "external_livestock_type", "transfer_date", "municipality", "province"]
+    field_aliases = {field: [field, field.replace("_", " ")] for field in required_fields + ["tag_number", "external_livestock_tag_number", "origin_municipality", "origin_province", "purchase_price", "sex_at_transfer", "age_at_transfer", "breed_at_transfer", "weight_at_transfer_kg"]}
+    column_descriptions = {field: field.replace("_", " ").capitalize() for field in field_aliases}
+    column_descriptions["tag_number"] = "Registered seller's animal tag, or blank for an external-market animal."
+    sample_rows = []
+
+
+class MovementDataset(BaseDatasetConfig):
+    code = "movement"
+    label = "Live Movement / Livestock Inspection"
+    description = "Upload inspection requests, one species line per inspection. Clearance requests enter Pending review."
+    from movements.models import LivestockInspection
+    model_class = LivestockInspection
+    required_fields = ["shipper_name", "origin", "destination", "livestock_type", "quantity", "inspection_date", "control_number"]
+    field_aliases = {field: [field, field.replace("_", " ")] for field in required_fields + ["purpose", "sex", "classification"]}
+    column_descriptions = {field: field.replace("_", " ").capitalize() for field in field_aliases}
+    column_descriptions.update(inspection_date="Inspection date YYYY-MM-DD.", control_number="Unique reference for this inspection request.", quantity="Positive head count.", origin="Actual origin address or barangay.")
+    sample_rows = []
 
 
 DATASET_REGISTRY: Dict[str, BaseDatasetConfig] = {
+    MovementDataset.code: MovementDataset(),
     LivestockInventoryDataset.code: LivestockInventoryDataset(),
     DiseaseCaseDataset.code: DiseaseCaseDataset(),
     MortalityRecordDataset.code: MortalityRecordDataset(),
