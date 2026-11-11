@@ -582,7 +582,7 @@ export function Giro3DBarangayView({
         await map.addLayer(new colorLayerModule.default({
           name: 'OpenStreetMap',
           extent: mapExtent,
-          source: new tiledImageSourceModule.default({ source: new osmModule.OSM() }),
+          source: new tiledImageSourceModule.default({ source: new osmModule.OSM({ url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png" }) }),
         }));
         if (cancelled) return;
 

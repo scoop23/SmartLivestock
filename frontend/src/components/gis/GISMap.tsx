@@ -1504,7 +1504,8 @@ export function GISMap({
 
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+            referrerPolicy="strict-origin-when-cross-origin"
           />
 
           {/* Choropleth Polygon Boundaries: Key includes dataCount, outbreak toggles, and simStateKey so layer remounts immediately on simulation playback */}
