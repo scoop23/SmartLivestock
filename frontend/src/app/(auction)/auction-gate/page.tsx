@@ -39,10 +39,13 @@ import {
   FileCheck,
   FileText,
   Keyboard,
+  MapPin,
   QrCode,
   RefreshCw,
   Scan,
   Search,
+  Truck,
+  UserCheck,
   X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -79,6 +82,8 @@ export interface GateRecordItem {
   breed: string;
   dateTime: string;
   status: "Pending Review" | "Cleared" | "Rejected";
+  isOutside?: boolean;
+  origin?: string;
 }
 
 function getGateSession(): string {
@@ -125,6 +130,9 @@ export default function AuctionGatePage() {
   const [certificateInput, setCertificateInput] = useState("");
 
   // Farmer Search States
+  const [isOutsideFarmer, setIsOutsideFarmer] = useState(false);
+  const [outsideFarmerName, setOutsideFarmerName] = useState("");
+  const [outsideOrigin, setOutsideOrigin] = useState("");
   const [farmerSearch, setFarmerSearch] = useState("");
   const [farmers, setFarmers] = useState<FarmerOption[]>([]);
   const [selectedFarmer, setSelectedFarmer] = useState<FarmerOption | null>(null);
@@ -162,6 +170,8 @@ export default function AuctionGatePage() {
         sex?: string;
         breed?: string;
         verified_at?: string;
+        is_outside?: boolean;
+        origin?: string;
       }>>(
         "livestock/gate-verifications/",
         { params: { session } }
@@ -176,6 +186,8 @@ export default function AuctionGatePage() {
             tagNo: item.tag || "N/A",
             sex: item.sex || "Unspecified",
             breed: item.breed || "Standard",
+            isOutside: Boolean(item.is_outside),
+            origin: item.origin || "",
             dateTime: item.verified_at
               ? new Date(item.verified_at).toLocaleDateString("en-PH", {
                   month: "short",
@@ -300,9 +312,20 @@ export default function AuctionGatePage() {
   async function handleRecordCertificate(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
-    if (!selectedFarmer) {
+    if (!isOutsideFarmer && !selectedFarmer) {
       toast.error("Please select a verified registered Farmer / Owner.");
       return;
+    }
+
+    if (isOutsideFarmer) {
+      if (!outsideFarmerName.trim()) {
+        toast.error("Please enter the Outside Farmer / Owner name.");
+        return;
+      }
+      if (!outsideOrigin.trim()) {
+        toast.error("Please enter the farmer's origin (municipality & province).");
+        return;
+      }
     }
 
     if (!certificateInput.trim()) {
@@ -314,20 +337,31 @@ export default function AuctionGatePage() {
     const selectedTypeName = types.find((t) => String(t.id) === selectedTypeId)?.name || "Cattle";
 
     try {
-      const res = await api.post<{
-        id: number;
-        tag_number: string;
-        livestock_type: string;
-        farmer: string;
-        ownership_certificate_number: string;
-      }>("livestock/gate-registrations/", {
-        farmer: selectedFarmer.id,
+      const payload: Record<string, unknown> = {
         livestock_type: Number(selectedTypeId),
         tag_number: tagInput.trim(),
         breed: breedInput.trim(),
         sex: selectedSex.toUpperCase(),
         ownership_certificate_number: certificateInput.trim(),
-      });
+      };
+
+      if (isOutsideFarmer) {
+        payload.is_outside_farmer = true;
+        payload.external_farmer_name = outsideFarmerName.trim();
+        payload.external_farmer_address = outsideOrigin.trim();
+      } else if (selectedFarmer) {
+        payload.farmer = selectedFarmer.id;
+      }
+
+      const res = await api.post<{
+        id: number;
+        tag_number: string;
+        livestock_type: string;
+        farmer: string;
+        is_outside?: boolean;
+        origin?: string;
+        ownership_certificate_number: string;
+      }>("livestock/gate-registrations/", payload);
 
       const session = getGateSession();
       if (session) {
@@ -347,14 +381,20 @@ export default function AuctionGatePage() {
         hour12: true,
       }).replace(",", " •");
 
+      const displayName = isOutsideFarmer
+        ? (res.data.farmer || `${outsideFarmerName.trim()} (${outsideOrigin.trim()}) [Outside]`)
+        : (selectedFarmer?.name || "Registered Farmer");
+
       const newRecord: GateRecordItem = {
         id: res.data.id,
         certificateNo: res.data.ownership_certificate_number || certificateInput.trim(),
-        farmerName: selectedFarmer.name,
+        farmerName: displayName,
         livestockType: selectedTypeName,
         tagNo: res.data.tag_number || tagInput.trim() || String(res.data.id),
         sex: selectedSex,
         breed: breedInput.trim() || "Brahman",
+        isOutside: isOutsideFarmer,
+        origin: isOutsideFarmer ? outsideOrigin.trim() : "",
         dateTime: nowFormatted,
         status: "Cleared",
       };
@@ -368,11 +408,17 @@ export default function AuctionGatePage() {
       setSelectedFarmer(null);
       setFarmerSearch("");
       setFarmers([]);
+      setOutsideFarmerName("");
+      setOutsideOrigin("");
 
       await queryClient.invalidateQueries({ queryKey: ["inventory"] });
       await queryClient.invalidateQueries({ queryKey: ["inspections"] });
 
-      toast.success("Walk-in livestock verified and checked in at the gate!");
+      toast.success(
+        isOutsideFarmer
+          ? "Outside Padre Garcia livestock admitted and checked in at the gate!"
+          : "Walk-in livestock verified and checked in at the gate!"
+      );
     } catch (err: unknown) {
       const errorMsg =
         (err as { response?: { data?: { error?: string; detail?: string; ownership_certificate_number?: string } } })
@@ -483,74 +529,140 @@ export default function AuctionGatePage() {
 
               {/* Form */}
               <form onSubmit={handleRecordCertificate} className="space-y-3.5 pt-1">
-                {/* Farmer / Owner Field with Search */}
-                <div className="space-y-1 relative">
-                  <Label className="text-xs font-bold text-slate-700 flex items-center gap-1">
-                    <span>Farmer / Registered Owner</span>
-                    <span className="text-rose-500 font-bold">*</span>
-                  </Label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
-                    <Input
-                      value={farmerSearch}
-                      onChange={(e) => handleFarmerSearch(e.target.value)}
-                      placeholder="Search registered farmer name or RSBSA..."
-                      className="pl-9 h-10 text-xs rounded-xl border-slate-200 bg-slate-50/50 focus-visible:ring-emerald-500"
-                    />
-                    {isSearchingFarmer && (
-                      <RefreshCw className="absolute right-3 top-1/2 -translate-y-1/2 size-3.5 text-emerald-600 animate-spin" />
-                    )}
+                {/* Farmer Origin / Classification Toggle */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold text-slate-700">Farmer Origin / Classification</Label>
+                  <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100/90 rounded-xl border border-slate-200/80">
+                    <button
+                      type="button"
+                      onClick={() => setIsOutsideFarmer(false)}
+                      className={`flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        !isOutsideFarmer
+                          ? "bg-white text-emerald-800 shadow-2xs border border-slate-200/60"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      <UserCheck className="size-3.5 text-emerald-700" />
+                      <span>Padre Garcia Farmer</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsOutsideFarmer(true)}
+                      className={`flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        isOutsideFarmer
+                          ? "bg-amber-500 text-white shadow-2xs font-bold"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      <Truck className="size-3.5" />
+                      <span>Outside Padre Garcia</span>
+                    </button>
                   </div>
+                </div>
 
-                  {/* Search Results Dropdown */}
-                  {farmers.length > 0 && (
-                    <div className="absolute z-20 left-0 right-0 mt-1 max-h-48 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl divide-y divide-slate-100">
-                      {farmers.map((farmer) => (
+                {/* Farmer / Owner Field: Registered Local Farmer vs Outside Farmer */}
+                {!isOutsideFarmer ? (
+                  <div className="space-y-1 relative">
+                    <Label className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                      <span>Farmer / Registered Owner</span>
+                      <span className="text-rose-500 font-bold">*</span>
+                    </Label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+                      <Input
+                        value={farmerSearch}
+                        onChange={(e) => handleFarmerSearch(e.target.value)}
+                        placeholder="Search registered farmer name or RSBSA..."
+                        className="pl-9 h-10 text-xs rounded-xl border-slate-200 bg-slate-50/50 focus-visible:ring-emerald-500"
+                      />
+                      {isSearchingFarmer && (
+                        <RefreshCw className="absolute right-3 top-1/2 -translate-y-1/2 size-3.5 text-emerald-600 animate-spin" />
+                      )}
+                    </div>
+
+                    {/* Search Results Dropdown */}
+                    {farmers.length > 0 && (
+                      <div className="absolute z-20 left-0 right-0 mt-1 max-h-48 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl divide-y divide-slate-100">
+                        {farmers.map((farmer) => (
+                          <button
+                            key={farmer.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedFarmer(farmer);
+                              setFarmerSearch(farmer.name);
+                              setFarmers([]);
+                            }}
+                            className="w-full p-2.5 text-left hover:bg-emerald-50/60 transition-colors flex items-center justify-between gap-2"
+                          >
+                            <div>
+                              <span className="text-xs font-bold text-slate-900 block">
+                                {farmer.name}
+                              </span>
+                              <span className="text-[11px] text-slate-500 font-medium">
+                                {farmer.address || farmer.barangay}
+                              </span>
+                            </div>
+                            <Badge className="bg-emerald-100 text-emerald-800 border-0 text-[10px] font-bold">
+                              {farmer.barangay}
+                            </Badge>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {selectedFarmer && (
+                      <div className="flex items-center justify-between p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-900">
+                        <span className="flex items-center gap-1.5 font-bold">
+                          <CheckCircle2 className="size-3.5 text-emerald-700" />
+                          <span>Selected: {selectedFarmer.name} ({selectedFarmer.barangay})</span>
+                        </span>
                         <button
-                          key={farmer.id}
                           type="button"
                           onClick={() => {
-                            setSelectedFarmer(farmer);
-                            setFarmerSearch(farmer.name);
-                            setFarmers([]);
+                            setSelectedFarmer(null);
+                            setFarmerSearch("");
                           }}
-                          className="w-full p-2.5 text-left hover:bg-emerald-50/60 transition-colors flex items-center justify-between gap-2"
+                          className="text-slate-400 hover:text-slate-600 text-xs font-bold"
                         >
-                          <div>
-                            <span className="text-xs font-bold text-slate-900 block">
-                              {farmer.name}
-                            </span>
-                            <span className="text-[11px] text-slate-500 font-medium">
-                              {farmer.address || farmer.barangay}
-                            </span>
-                          </div>
-                          <Badge className="bg-emerald-100 text-emerald-800 border-0 text-[10px] font-bold">
-                            {farmer.barangay}
-                          </Badge>
+                          <X className="size-3.5" />
                         </button>
-                      ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-xl bg-amber-50/60 border border-amber-200/80">
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                        <span>Outside Farmer / Owner Name</span>
+                        <span className="text-rose-500 font-bold">*</span>
+                      </Label>
+                      <Input
+                        value={outsideFarmerName}
+                        onChange={(e) => setOutsideFarmerName(e.target.value)}
+                        placeholder="e.g., Juan Dela Cruz"
+                        required={isOutsideFarmer}
+                        className="h-10 text-xs rounded-xl border-amber-200 bg-white focus-visible:ring-amber-500 font-semibold"
+                      />
                     </div>
-                  )}
-
-                  {selectedFarmer && (
-                    <div className="flex items-center justify-between p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-900">
-                      <span className="flex items-center gap-1.5 font-bold">
-                        <CheckCircle2 className="size-3.5 text-emerald-700" />
-                        <span>Selected: {selectedFarmer.name} ({selectedFarmer.barangay})</span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedFarmer(null);
-                          setFarmerSearch("");
-                        }}
-                        className="text-slate-400 hover:text-slate-600 text-xs font-bold"
-                      >
-                        <X className="size-3.5" />
-                      </button>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                        <MapPin className="size-3 text-amber-700" />
+                        <span>Origin (Municipality &amp; Province)</span>
+                        <span className="text-rose-500 font-bold">*</span>
+                      </Label>
+                      <Input
+                        value={outsideOrigin}
+                        onChange={(e) => setOutsideOrigin(e.target.value)}
+                        placeholder="e.g., Rosario, Batangas"
+                        required={isOutsideFarmer}
+                        className="h-10 text-xs rounded-xl border-amber-200 bg-white focus-visible:ring-amber-500 font-semibold"
+                      />
                     </div>
-                  )}
-                </div>
+                    <p className="text-[11px] text-amber-800/90 font-medium sm:col-span-2">
+                      External sellers admitted through auction gate without creating resident accounts or altering local municipal herd inventory.
+                    </p>
+                  </div>
+                )}
 
                 {/* 2-Column Grid Fields */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -638,7 +750,11 @@ export default function AuctionGatePage() {
                 <div className="flex justify-end pt-1">
                   <Button
                     type="submit"
-                    disabled={saving || !selectedFarmer}
+                    disabled={
+                      saving ||
+                      (!isOutsideFarmer && !selectedFarmer) ||
+                      (isOutsideFarmer && (!outsideFarmerName.trim() || !outsideOrigin.trim()))
+                    }
                     className="w-full sm:w-auto h-10 px-6 rounded-xl text-xs font-bold bg-[#1E4D2B] hover:bg-[#163b21] text-white shadow-xs gap-2 cursor-pointer active:scale-95 hover:-translate-y-0.5 transition-all duration-150"
                   >
                     {saving ? (
@@ -646,7 +762,7 @@ export default function AuctionGatePage() {
                     ) : (
                       <CheckCircle2 className="size-4" />
                     )}
-                    <span>Admit &amp; Check-In Animal</span>
+                    <span>{isOutsideFarmer ? "Admit Outside Animal" : "Admit & Check-In Animal"}</span>
                   </Button>
                 </div>
               </form>
@@ -749,7 +865,15 @@ export default function AuctionGatePage() {
 
                       {/* Farmer / Owner */}
                       <TableCell className="font-bold text-slate-800 text-xs px-4 py-3.5">
-                        {row.farmerName}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span>{row.farmerName.replace(" [Outside]", "")}</span>
+                          {(row.isOutside || row.farmerName.includes("[Outside]")) && (
+                            <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px] font-bold py-0 px-1.5 gap-1">
+                              <Truck className="size-2.5" />
+                              Outside
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
 
                       {/* Livestock Type */}
@@ -917,8 +1041,25 @@ export default function AuctionGatePage() {
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-slate-500">Owner / Raiser:</span>
-                  <span className="font-bold text-slate-900">{viewRecord.farmerName}</span>
+                  <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                    <span className="font-bold text-slate-900">{viewRecord.farmerName.replace(" [Outside]", "")}</span>
+                    {(viewRecord.isOutside || viewRecord.farmerName.includes("[Outside]")) && (
+                      <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px] font-bold py-0 px-1.5 gap-1">
+                        <Truck className="size-2.5" />
+                        Outside Seller
+                      </Badge>
+                    )}
+                  </div>
                 </div>
+                {viewRecord.origin && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Origin / Location:</span>
+                    <span className="font-bold text-slate-900 flex items-center gap-1">
+                      <MapPin className="size-3 text-amber-700" />
+                      {viewRecord.origin}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between items-center">
                   <span className="text-slate-500">Livestock Type:</span>
                   <span className="font-bold text-slate-900">{viewRecord.livestockType}</span>

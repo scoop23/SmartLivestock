@@ -7,15 +7,43 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from livestock.models import Farmer, LivestockGateVerification, LivestockInventory, LivestockType
+from livestock.models import Barangay, Farmer, LivestockGateVerification, LivestockInventory, LivestockType
 from smartlivestock.workflows import AUCTION, role_name
-from users.models import User
-from users.models import Notification
+from users.models import Notification, Role, User
 from users.notification_views import notify_role
 
 
+def get_or_create_outside_farmer():
+    """Retrieve or create a system Farmer profile for non-resident auction sellers."""
+    role = Role.objects.filter(role_name="FARMER").first()
+    user, _ = User.objects.get_or_create(
+        email="outside-farmer@smartlivestock.local",
+        defaults={
+            "username": "outside_farmer",
+            "first_name": "Outside",
+            "last_name": "Farmer",
+            "account_status": User.AccountStatus.APPROVED,
+            "role": role,
+        },
+    )
+    poblacion = Barangay.objects.filter(barangay_name__iexact="Poblacion").first() or Barangay.objects.first()
+    farmer, _ = Farmer.objects.get_or_create(
+        user=user,
+        defaults={
+            "barangay": poblacion,
+            "address": "Outside Padre Garcia / External Auction Sellers",
+            "farm_size": 0,
+            "rsbsa_number": "EXTERNAL-NON-RESIDENT",
+        },
+    )
+    return farmer
+
+
 class GateRegistrationSerializer(serializers.Serializer):
-    farmer = serializers.PrimaryKeyRelatedField(queryset=Farmer.objects.all())
+    is_outside_farmer = serializers.BooleanField(required=False, default=False)
+    farmer = serializers.PrimaryKeyRelatedField(queryset=Farmer.objects.all(), required=False, allow_null=True)
+    external_farmer_name = serializers.CharField(max_length=255, required=False, allow_blank=True, default="")
+    external_farmer_address = serializers.CharField(max_length=255, required=False, allow_blank=True, default="")
     livestock_type = serializers.PrimaryKeyRelatedField(queryset=LivestockType.objects.all())
     tag_number = serializers.CharField(max_length=50, required=False, allow_blank=True)
     breed = serializers.CharField(max_length=50, required=False, allow_blank=True)
@@ -23,9 +51,22 @@ class GateRegistrationSerializer(serializers.Serializer):
     ownership_certificate_number = serializers.CharField(max_length=100)
 
     def validate_farmer(self, farmer):
-        if farmer.user.role.role_name != "FARMER" or farmer.user.account_status != User.AccountStatus.APPROVED:
+        if farmer and (farmer.user.role.role_name != "FARMER" or farmer.user.account_status != User.AccountStatus.APPROVED):
             raise serializers.ValidationError("Choose an approved Farmer account.")
         return farmer
+
+    def validate(self, attrs):
+        if attrs.get("is_outside_farmer"):
+            name = attrs.get("external_farmer_name", "").strip()
+            if not name:
+                raise serializers.ValidationError({"external_farmer_name": "Enter the outside farmer's name."})
+            origin = attrs.get("external_farmer_address", "").strip()
+            if not origin:
+                raise serializers.ValidationError({"external_farmer_address": "Enter the outside farmer's origin municipality and province."})
+        else:
+            if not attrs.get("farmer"):
+                raise serializers.ValidationError({"farmer": "Choose an approved registered Farmer."})
+        return attrs
 
     def validate_livestock_type(self, livestock_type):
         if any(name in livestock_type.name.lower() for name in ("swine", "pig", "hog", "baboy")):
@@ -43,12 +84,31 @@ class GateRegistrationSerializer(serializers.Serializer):
     def create(self, validated_data):
         request = self.context["request"]
         now = timezone.now()
+        is_outside = validated_data.pop("is_outside_farmer", False)
+        ext_name = validated_data.pop("external_farmer_name", "").strip()
+        ext_addr = validated_data.pop("external_farmer_address", "").strip()
+
+        if is_outside:
+            farmer = get_or_create_outside_farmer()
+            validated_data["farmer"] = farmer
+            cert_verification = {
+                "is_outside_farmer": True,
+                "external_farmer_name": ext_name,
+                "origin": ext_addr,
+            }
+            review_remarks = f"Outside Padre Garcia farmer: {ext_name} ({ext_addr}). Admitted at auction gate."
+        else:
+            cert_verification = {}
+            review_remarks = "Admitted at auction gate."
+
         return LivestockInventory.objects.create(
             **validated_data,
             entry_type=LivestockInventory.EntryType.INDIVIDUAL,
             quantity=1,
             status=LivestockInventory.StatusType.APPROVED,
             operational_status=LivestockInventory.OperationalStatus.ACTIVE,
+            certificate_verification=cert_verification,
+            review_remarks=review_remarks,
             created_by=request.user,
             ownership_certificate_recorded_by=request.user,
             ownership_certificate_recorded_at=now,
@@ -148,11 +208,22 @@ def gate_registration_list_create(request):
         related_entity_type="livestock_inventory",
         related_entity_id=livestock.pk,
     )
+    cv = getattr(livestock, "certificate_verification", {}) or {}
+    is_outside = bool(cv.get("is_outside_farmer"))
+    farmer_display = (
+        f"{cv.get('external_farmer_name')} ({cv.get('origin')}) [Outside]"
+        if is_outside and cv.get("origin")
+        else f"{cv.get('external_farmer_name')} [Outside]"
+        if is_outside
+        else (livestock.farmer.user.get_full_name().strip() or livestock.farmer.user.username)
+    )
     return Response({
         "id": livestock.id,
         "tag_number": livestock.tag_number or str(livestock.id),
         "livestock_type": livestock.livestock_type.name,
-        "farmer": livestock.farmer.user.get_full_name().strip() or livestock.farmer.user.username,
+        "farmer": farmer_display,
+        "is_outside": is_outside,
+        "origin": cv.get("origin", "") if is_outside else "",
         "ownership_certificate_number": livestock.ownership_certificate_number,
         "status": livestock.status,
         "operational_status": livestock.operational_status,
@@ -178,11 +249,22 @@ def gate_verification_list_create(request):
                 records = qs.none()
         else:
             records = qs[:50]
+
+        def _get_owner_name(row):
+            cv = getattr(row.livestock, "certificate_verification", {}) or {}
+            if cv.get("is_outside_farmer"):
+                ext_name = cv.get("external_farmer_name", "Outside Farmer")
+                origin = cv.get("origin", "")
+                return f"{ext_name} ({origin}) [Outside]" if origin else f"{ext_name} [Outside]"
+            return row.livestock.farmer.user.get_full_name().strip() or row.livestock.farmer.user.username
+
         return Response([{
             "id": row.livestock_id,
             "tag": row.livestock.tag_number or str(row.livestock_id),
             "species": row.livestock.livestock_type.name,
-            "owner": row.livestock.farmer.user.get_full_name().strip() or row.livestock.farmer.user.username,
+            "owner": _get_owner_name(row),
+            "is_outside": bool((getattr(row.livestock, "certificate_verification", {}) or {}).get("is_outside_farmer")),
+            "origin": (getattr(row.livestock, "certificate_verification", {}) or {}).get("origin", ""),
             "certificate": row.certificate_number_checked or "Not recorded",
             "sex": row.livestock.sex or "Unspecified",
             "breed": row.livestock.breed or "Standard",
