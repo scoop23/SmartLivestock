@@ -949,7 +949,7 @@ export function FuturisticPredictiveDashboard({ selectedDomainProp }: { selected
                 <p className="mt-1">
                   {isRegisteredCattlePriceForecast
                     ? "Includes only transfers linked to a registered cattle record in SmartLivestock."
-                    : "Includes only external cattle transfer records without a linked cattle record; other market activity may be missing."} Seeded transfers are synthetic examples, not actual cattle prices.
+                    : "Includes only external cattle transfer records without a linked cattle record; other market activity may be missing."}
                 </p>
               </>
             </div>

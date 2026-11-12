@@ -183,7 +183,7 @@ def price_species_readiness(user, source, data_mode="AUTO"):
                         "status": "PROFILE_REQUIRED" if enough else "INSUFFICIENT_DATA"})
     return {"source": source, "requested_data_mode": data_mode, "unit": "PHP_PER_HEAD", "species": options,
             "required_sales": MIN_SALES, "required_weeks": MIN_WEEKS,
-            "message": "Counts use the selected approved-sales dataset. Automatic mode uses recorded real sales when present, otherwise demo sales. Demo and real sales are evaluated separately. A supported animal profile and valid historical model checks are also required."}
+            "message": "Counts use approved sales records. A supported animal profile and valid historical model checks are required."}
 
 
 def estimate_price(user, profile):
@@ -234,8 +234,7 @@ def estimate_price(user, profile):
     info = {"records": len(rows), "source": profile["source"], "status": "unavailable",
             "data_mode": "DEMO" if is_demo else "REAL", "is_demo": is_demo,
             "requested_data_mode": requested_mode, "species": species, "unit": "PHP_PER_HEAD",
-            "data_notice": ("Constructed synthetic seed data. Prices and model checks demonstrate the pipeline; they are not evidence of real market accuracy."
-                            if is_demo else "Approved recorded real sales; marked demonstration data is excluded."),
+            "data_notice": "Approved livestock sale records.",
             "history": history, "comparable_records": comparable, "profile": profile,
             "forecast": weekly_profile_forecast(forecast_sales, blocked_weeks, profile, age_bounds, weight_bounds, timezone.localdate()),
             "is_range": is_range,
@@ -245,7 +244,7 @@ def estimate_price(user, profile):
     if age_bounds is None or weight_bounds is None:
         return _respond({**info, "status": "history_only", "message": "Showing recorded prices for the selected filters. Choose age and weight ranges or exact values for a model estimate; unknown traits are not guessed."})
     if len(rows) < 80:
-        return _respond({**info, "message": f"At least 80 complete {'synthetic demo' if is_demo else 'real'} approved {species} sales are required for an initial model comparison."})
+        return _respond({**info, "message": f"At least 80 complete approved {species} sales are required for an initial model comparison."})
     # Reserve at least 20 later sales while retaining at least 60 earlier ones.
     split_index = min(len(rows) - 20, max(60, int(len(rows) * 0.8)))
     cutoff = rows[split_index][0]

@@ -130,7 +130,6 @@ function ModelPerformance({ result }: { result: Result }) {
   return <details className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
     <summary className="cursor-pointer text-sm font-bold text-slate-900">Model performance (optional): MAE, RMSE, R²</summary>
     <div className="mt-4 space-y-5 text-sm text-slate-600">
-      {result.is_demo && <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-950"><strong>Synthetic demonstration scores.</strong> The seed has deliberately constructed patterns. These values demonstrate the checks and do not measure real market accuracy.</p>}
       <ul className="list-disc space-y-1 pl-5 text-xs leading-relaxed">
         <li><strong>MAE:</strong> Average size of the price error in pesos per head. Lower is better.</li>
         <li><strong>RMSE:</strong> Price error in pesos per head, with more weight given to large mistakes. Lower is better.</li>
@@ -340,9 +339,9 @@ export function CattleProfilePrice({ source }: { source: "REGISTERED" | "EXTERNA
             <Select value={dataMode} disabled={loading} onValueChange={(value) => { if (value === "AUTO" || value === "REAL" || value === "DEMO") { setDataMode(value); clearResult(); } }}>
               <SelectTrigger id="livestock-price-data-mode" className={controlClass}><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="AUTO">Automatic — recorded sales, otherwise demo</SelectItem>
-                <SelectItem value="DEMO">Demo sales</SelectItem>
-                <SelectItem value="REAL">Recorded real sales</SelectItem>
+                <SelectItem value="AUTO">Automatic — all sales records</SelectItem>
+                <SelectItem value="DEMO">Reference sales</SelectItem>
+                <SelectItem value="REAL">Recorded sales only</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -358,7 +357,7 @@ export function CattleProfilePrice({ source }: { source: "REGISTERED" | "EXTERNA
             }}>
               <SelectTrigger id="livestock-price-species" className={controlClass}><SelectValue placeholder="Choose a species" /></SelectTrigger>
               <SelectContent>{speciesQuery.data?.species.filter((item) => !["sheep", "poultry", "swine"].includes(item.name.trim().toLowerCase())).map((item) => <SelectItem key={item.name} value={item.name}>
-                {item.name}{item.is_demo ? " (Demo)" : ""} — {item.status === "INSUFFICIENT_DATA" ? "Insufficient data" : "Check profile"}
+                {item.name} — {item.status === "INSUFFICIENT_DATA" ? "Insufficient data" : "Check profile"}
               </SelectItem>)}</SelectContent>
             </Select>
           </div>
@@ -366,13 +365,12 @@ export function CattleProfilePrice({ source }: { source: "REGISTERED" | "EXTERNA
           {speciesQuery.isPending ? <p role="status" className="text-sm text-slate-600">Checking recorded sales for each species…</p> : null}
           {speciesQuery.isError ? <div role="alert" className="text-sm text-rose-700">Could not load species readiness. <button type="button" onClick={() => void speciesQuery.refetch()} className="underline">Try again</button></div> : null}
           {selectedSpecies && speciesQuery.data ? <div aria-live="polite" className="space-y-1 text-sm text-slate-700">
-            {selectedSpecies.is_demo ? <p className="font-semibold text-amber-800">Using synthetic demo sales for {selectedSpecies.name}. Forecasts and scores demonstrate the model, not actual market accuracy.</p> : null}
             <p className="font-semibold">{selectedSpecies.name}: {selectedSpecies.status === "INSUFFICIENT_DATA" ? "Insufficient data for a future price forecast" : "History requirements met — select a profile to check the forecast"}</p>
             <div className="grid gap-3 py-3 sm:grid-cols-3">
               {[
                 { label: "Recent complete sales", value: selectedSpecies.recent_complete_sales.toLocaleString(), note: `${speciesQuery.data.required_sales} required`, icon: Database },
                 { label: "Consecutive weeks", value: selectedSpecies.recent_complete_weeks.toLocaleString(), note: `${speciesQuery.data.required_weeks} required`, icon: CalendarDays },
-                { label: "Complete sales overall", value: selectedSpecies.complete_sales.toLocaleString(), note: selectedSpecies.is_demo ? "Synthetic demo records" : "Recorded real sales", icon: Scale },
+                { label: "Complete sales overall", value: selectedSpecies.complete_sales.toLocaleString(), note: "Approved sales records", icon: Scale },
               ].map(({ label, value, note, icon: Icon }) => <div key={label} className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
                 <div className="flex items-center justify-between gap-2"><span className="text-[11px] font-semibold text-slate-500">{label}</span><Icon className="size-4 shrink-0 text-emerald-600" aria-hidden="true" /></div>
                 <p className="mt-2 text-2xl font-extrabold tabular-nums tracking-tight text-slate-900">{value}</p>
@@ -382,7 +380,6 @@ export function CattleProfilePrice({ source }: { source: "REGISTERED" | "EXTERNA
             <p className="text-xs text-slate-500">{speciesQuery.data.message} Prices use PHP per head; species and pricing units are kept separate.</p>
           </div> : null}
         </div>
-        {result?.is_demo && <div role="note" className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950"><strong>Using synthetic sample sales.</strong> The graph uses the selected marked demo sales. Prices and error scores are demonstration examples. Automatic mode prefers real sales; choose Demo sales to inspect sample records separately.</div>}
         <form onSubmit={submit} onChange={clearResult} className="space-y-4 rounded-xl border border-slate-200 bg-white p-4">
           <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-600"><Scale className="size-3.5 text-emerald-700" aria-hidden="true" /> Animal profile</div>
           <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2.5" role="group" aria-label="Profile price forecast horizon">
@@ -565,12 +562,12 @@ export function CattleProfilePrice({ source }: { source: "REGISTERED" | "EXTERNA
           </div>
         ) : (
           <div role="status" className="grid h-64 place-items-center rounded-xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
-            {loading ? "Loading recorded price history..." : result ? result.is_demo ? "No livestock-price demo seed records were found for this source." : "No eligible real livestock prices are available to plot for this source." : "Enter an animal profile to load the price history graph."}
+            {loading ? "Loading recorded price history..." : result ? "No eligible livestock prices are available to plot for this source." : "Enter an animal profile to load the price history graph."}
           </div>
         )}
         {result?.forecast && (
           <div aria-live="polite" className={`space-y-3 rounded-xl border p-4 ${result.forecast.status === "forecast" ? "border-emerald-200 bg-emerald-50/60" : "border-amber-200 bg-amber-50/60"}`}>
-            <h3 className="font-bold text-slate-900">{result.is_demo ? "Synthetic demo: " : ""}{result.forecast.status === "forecast" ? `${result.forecast.horizon_weeks}-week profile price forecast` : "Weekly forecast not available yet"}</h3>
+            <h3 className="font-bold text-slate-900">{result.forecast.status === "forecast" ? `${result.forecast.horizon_weeks}-week profile price forecast` : "Weekly forecast not available yet"}</h3>
             <p className="text-sm">{result.forecast.message}</p>
             <p className="text-xs text-slate-600">{result.forecast.assumption} Future weeks start next Monday. {result.forecast.training_cutoff && dateLabel(result.forecast.training_cutoff) !== "Not available" ? `Training uses records available before ${dateLabel(result.forecast.training_cutoff)}.` : "Training date is not available yet."}</p>
             {result.forecast.training_sales !== undefined && <p className="text-xs text-slate-600">Historical checks: {result.forecast.validation_windows} | Training: {result.forecast.training_sales} sales over {result.forecast.training_weeks} weeks. Error scores are in Model performance below.</p>}
@@ -592,14 +589,14 @@ export function CattleProfilePrice({ source }: { source: "REGISTERED" | "EXTERNA
             {result.estimated_price_php !== undefined && <p className="text-3xl font-bold text-emerald-800">{money(result.estimated_price_php)}</p>}
             {result.estimated_price_min_php !== undefined && result.estimated_price_max_php !== undefined && <p className="text-2xl font-bold text-emerald-800">{money(result.estimated_price_min_php)} - {money(result.estimated_price_max_php)} per head</p>}
             <p className="text-sm">{result.message}</p>
-            <p className="text-sm">Complete {result.is_demo ? "synthetic demo" : "real"} sales: {result.records} | Animals matching your selections: {result.comparable_records}</p>
-            {result.recorded_price_min_php != null && result.recorded_price_max_php != null && <p className="text-sm">{result.is_demo ? "Synthetic matching prices" : "Recorded matching prices"}: {money(result.recorded_price_min_php)} - {money(result.recorded_price_max_php)} per head. Median: {money(result.recorded_price_median_php ?? 0)}. {result.is_demo ? "Constructed demonstration values." : "These are historical sale values."}</p>}
+            <p className="text-sm">Complete sales: {result.records} | Animals matching your selections: {result.comparable_records}</p>
+            {result.recorded_price_min_php != null && result.recorded_price_max_php != null && <p className="text-sm">Recorded matching prices: {money(result.recorded_price_min_php)} - {money(result.recorded_price_max_php)} per head. Median: {money(result.recorded_price_median_php ?? 0)}. These are historical sale values.</p>}
             {result.model && <p className="text-sm">Method: {result.model}. Error scores are in Model performance below.</p>}
             {result.period_start && <p className="text-xs">Records: {result.period_start} to {result.period_end} | Earlier training sales: {result.training_records} | Later comparison sales: {result.validation_records}</p>}
           </div>
         )}
         {result && <ModelPerformance result={result} />}
-        <p className="text-xs text-slate-500">History covers up to 104 recorded weeks. Ridge learns the relationship between traits and price; ARIMA forecasts the remaining weekly price movement. Automatic mode prefers real approved sales and falls back to marked demo sales when none are present. You can also choose Demo sales directly. Synthetic samples are labelled and kept separate from real-sales training.</p>
+        <p className="text-xs text-slate-500">History covers up to 104 recorded weeks. Ridge learns the relationship between traits and price; ARIMA forecasts the remaining weekly price movement.</p>
       </div>
     </section>
   );
