@@ -189,6 +189,20 @@ def price_species_readiness(user, source, data_mode="AUTO"):
 def estimate_price(user, profile):
     # The same scoped source feeds the historical chart, point estimate, and
     # hybrid forecast. Transfer snapshots preserve traits as recorded at sale.
+    import hashlib, json
+    from django.core.cache import cache
+
+    profile_str = json.dumps(profile, sort_keys=True, default=str)
+    user_key = f"{getattr(user, 'id', 'anon')}_{getattr(user, 'assigned_barangay_id', 'all')}"
+    cache_key = f"cattle_prof_price:{user_key}:{timezone.localdate().isoformat()}:{hashlib.md5(profile_str.encode()).hexdigest()}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    def _respond(data):
+        cache.set(cache_key, data, timeout=1800)
+        return data
+
     requested_mode = profile.get("data_mode", "AUTO")
     species = profile.get("species", "Cattle")
     qs = _species_sales(user, profile["source"], species)
@@ -229,24 +243,24 @@ def estimate_price(user, profile):
             "recorded_price_max_php": max(matching_prices) if matching_prices else None,
             "recorded_price_median_php": round(float(np.median(matching_prices)), 2) if matching_prices else None}
     if age_bounds is None or weight_bounds is None:
-        return {**info, "status": "history_only", "message": "Showing recorded prices for the selected filters. Choose age and weight ranges or exact values for a model estimate; unknown traits are not guessed."}
+        return _respond({**info, "status": "history_only", "message": "Showing recorded prices for the selected filters. Choose age and weight ranges or exact values for a model estimate; unknown traits are not guessed."})
     if len(rows) < 80:
-        return {**info, "message": f"At least 80 complete {'synthetic demo' if is_demo else 'real'} approved {species} sales are required for an initial model comparison."}
+        return _respond({**info, "message": f"At least 80 complete {'synthetic demo' if is_demo else 'real'} approved {species} sales are required for an initial model comparison."})
     # Reserve at least 20 later sales while retaining at least 60 earlier ones.
     split_index = min(len(rows) - 20, max(60, int(len(rows) * 0.8)))
     cutoff = rows[split_index][0]
     train = [r for r in rows if r[0] < cutoff]
     test = [r for r in rows if r[0] >= cutoff]
     if len(train) < 60 or len(test) < 20:
-        return {**info, "message": "More sales across different dates are needed for a chronological model check."}
+        return _respond({**info, "message": "More sales across different dates are needed for a chronological model check."})
     x = [r[1] for r in train]; y = [r[2] for r in train]
     category = [profile["sex"], profile["breed"].strip().casefold()]
     support = [traits for traits in x if traits[2:] == category]
     if len(support) < 5:
-        return {**info, "message": "At least five earlier sales of this breed and sex are needed to support a profile estimate. Recorded prices are still shown."}
+        return _respond({**info, "message": "At least five earlier sales of this breed and sex are needed to support a profile estimate. Recorded prices are still shown."})
     if any(bounds[0] < min(a[i] for a in support) or bounds[1] > max(a[i] for a in support)
            for i, bounds in enumerate((age_bounds, weight_bounds))):
-        return {**info, "message": "The selected age or weight range, sex, or breed extends beyond the training records. Recorded price history is still shown; narrow the ranges to request an estimate."}
+        return _respond({**info, "message": "The selected age or weight range, sex, or breed extends beyond the training records. Recorded price history is still shown; narrow the ranges to request an estimate."})
     ages = np.linspace(*age_bounds, num=5) if age_bounds[0] != age_bounds[1] else [age_bounds[0]]
     weights = np.linspace(*weight_bounds, num=5) if weight_bounds[0] != weight_bounds[1] else [weight_bounds[0]]
     targets = [[age, weight, *category] for age in ages for weight in weights]
@@ -267,11 +281,11 @@ def estimate_price(user, profile):
                "trait_baseline": {"name": "Earlier median price", **rounded_scores(baseline_scores)},
                "validation_records":len(test), "training_records":len(train)}
     if mae >= baseline:
-        return {**info, **metrics, "message":"The models did not improve on the historical median price. More representative records are needed."}
+        return _respond({**info, **metrics, "message":"The models did not improve on the historical median price. More representative records are needed."})
     predictions = np.maximum(0, model.predict(targets))
     prices = ({"estimated_price_min_php": round(float(predictions.min()), 2),
                "estimated_price_max_php": round(float(predictions.max()), 2)} if is_range
               else {"estimated_price_php": round(float(predictions[0]), 2)})
     message = (f"Estimated span across {len(targets)} sampled age and weight combinations in the selected ranges. This describes profile variation, not a guaranteed price interval."
                if is_range else "Estimate from historical sales. Typical error is measured on later sales; it is not a guaranteed price range.")
-    return {**info, **metrics, **prices, "status":"estimated", "model":name, **rounded_scores(selected_scores), "period_start":str(rows[0][0]), "period_end":str(rows[-1][0]), "message":message}
+    return _respond({**info, **metrics, **prices, "status":"estimated", "model":name, **rounded_scores(selected_scores), "period_start":str(rows[0][0]), "period_end":str(rows[-1][0]), "message":message})

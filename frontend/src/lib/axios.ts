@@ -51,7 +51,7 @@ const canFallbackTo = (targetUrl: string): boolean => {
 // Axios instance pre-configured to talk to the Django backend.
 const api = axios.create({
   baseURL: PRIMARY_API_URL,
-  timeout: 30000, // 30-second timeout
+  timeout: 60000, // 60-second default timeout for cloud hosting cold-starts
   headers: {
     'Content-Type': 'application/json',
   },

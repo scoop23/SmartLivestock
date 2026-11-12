@@ -278,15 +278,21 @@ export function CattleProfilePrice({ source }: { source: "REGISTERED" | "EXTERNA
     setTablePage(0);
     setError("");
     try {
-      const { data } = await api.post<Result>("analytics/predictive/livestock-profile-price/", {
-        source, species, sex, breed: breed.trim(), ...age, ...weight, horizon_weeks: horizonWeeks, data_mode: dataMode,
-      });
+      const { data } = await api.post<Result>(
+        "analytics/predictive/livestock-profile-price/",
+        {
+          source, species, sex, breed: breed.trim(), ...age, ...weight, horizon_weeks: horizonWeeks, data_mode: dataMode,
+        },
+        { timeout: 90000 }
+      );
       setResult(data);
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: unknown }; message?: string };
+      const axiosErr = err as { response?: { data?: unknown }; message?: string; code?: string };
       const respData = axiosErr?.response?.data;
       let msg = "";
-      if (typeof respData === "string") {
+      if (axiosErr?.code === "ECONNABORTED" || axiosErr?.message?.toLowerCase().includes("timeout")) {
+        msg = "The analysis server took longer than expected to respond. The cloud service may have been waking up from idle — please click 'Show price history & weekly forecast' again to retry.";
+      } else if (typeof respData === "string") {
         msg = respData;
       } else if (respData && typeof respData === "object") {
         const d = respData as Record<string, unknown>;
