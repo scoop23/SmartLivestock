@@ -22,7 +22,7 @@ EDUCATIONAL OVERVIEW & LIVESTOCK CONCEPTS:
    Running with `--clean` deletes ONLY records containing this exact marker.
 """
 
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 import numpy as np
 
@@ -168,50 +168,66 @@ class Command(BaseCommand):
             is_pending = (today - record_date).days < 3
             status = SlaughterRecord.StatusType.PENDING if is_pending else SlaughterRecord.StatusType.APPROVED
             reviewer = None if is_pending else mao_user
-            reviewed_time = None if is_pending else timezone.now()
+            aware_created = timezone.make_aware(datetime.combine(record_date, time(8, 0)))
+            aware_reviewed = None if is_pending else timezone.make_aware(datetime.combine(record_date, time(17, 0)))
 
             # 1. Cattle throughput
             cattle_heads = max(1, int(round(float(rng.uniform(8, 22)) * holiday_multiplier)))
             cattle_avg_kg = float(rng.uniform(220.0, 260.0))
             cattle_total_kg = round(cattle_heads * cattle_avg_kg, 2)
-            records_to_create.append(SlaughterRecord(
+            cattle_rec = SlaughterRecord(
                 livestock=None, batch=None, barangay=rec_barangay,
                 livestock_type=cattle_type, quantity=cattle_heads,
                 carcass_weight=Decimal(str(cattle_total_kg)), record_date=record_date,
-                status=status, reviewed_by=reviewer, reviewed_at=reviewed_time,
+                status=status, reviewed_by=reviewer, reviewed_at=aware_reviewed,
                 review_remarks=f"{SEED_MARKER_SLAUGHTER} Daily cattle abattoir total for {record_date}.",
                 created_by=staff_user,
-            ))
+            )
+            cattle_rec._demo_created_at = aware_created
+            cattle_rec._demo_reviewed_at = aware_reviewed
+            records_to_create.append(cattle_rec)
 
             # 2. Carabao throughput (if type exists)
             if carabao_type:
                 carabao_heads = max(1, int(round(float(rng.uniform(4, 12)) * holiday_multiplier)))
                 carabao_avg_kg = float(rng.uniform(210.0, 250.0))
                 carabao_total_kg = round(carabao_heads * carabao_avg_kg, 2)
-                records_to_create.append(SlaughterRecord(
+                carabao_rec = SlaughterRecord(
                     livestock=None, batch=None, barangay=rec_barangay,
                     livestock_type=carabao_type, quantity=carabao_heads,
                     carcass_weight=Decimal(str(carabao_total_kg)), record_date=record_date,
-                    status=status, reviewed_by=reviewer, reviewed_at=reviewed_time,
+                    status=status, reviewed_by=reviewer, reviewed_at=aware_reviewed,
                     review_remarks=f"{SEED_MARKER_SLAUGHTER} Daily carabao abattoir total for {record_date}.",
                     created_by=staff_user,
-                ))
+                )
+                carabao_rec._demo_created_at = aware_created
+                carabao_rec._demo_reviewed_at = aware_reviewed
+                records_to_create.append(carabao_rec)
 
             # 3. Swine / Hogs throughput (if type exists)
             if swine_type:
                 swine_heads = max(5, int(round(float(rng.uniform(35, 85)) * holiday_multiplier)))
                 swine_avg_kg = float(rng.uniform(65.0, 85.0))
                 swine_total_kg = round(swine_heads * swine_avg_kg, 2)
-                records_to_create.append(SlaughterRecord(
+                swine_rec = SlaughterRecord(
                     livestock=None, batch=None, barangay=rec_barangay,
                     livestock_type=swine_type, quantity=swine_heads,
                     carcass_weight=Decimal(str(swine_total_kg)), record_date=record_date,
-                    status=status, reviewed_by=reviewer, reviewed_at=reviewed_time,
+                    status=status, reviewed_by=reviewer, reviewed_at=aware_reviewed,
                     review_remarks=f"{SEED_MARKER_SLAUGHTER} Daily swine abattoir total for {record_date}.",
                     created_by=staff_user,
-                ))
+                )
+                swine_rec._demo_created_at = aware_created
+                swine_rec._demo_reviewed_at = aware_reviewed
+                records_to_create.append(swine_rec)
 
-        SlaughterRecord.objects.bulk_create(records_to_create)
+        SlaughterRecord.objects.bulk_create(records_to_create, batch_size=500)
+        # auto_now_add on created_at replaces the historical date during INSERT.
+        # Restore historical created_at and reviewed_at so backtesting cutoffs can validate.
+        for r in records_to_create:
+            r.created_at = r._demo_created_at
+            r.reviewed_at = r._demo_reviewed_at
+        SlaughterRecord.objects.bulk_update(records_to_create, ["created_at", "reviewed_at"], batch_size=500)
         self.stdout.write(
             self.style.SUCCESS(
                 f"Successfully seeded {len(records_to_create)} daily synthetic slaughter records "

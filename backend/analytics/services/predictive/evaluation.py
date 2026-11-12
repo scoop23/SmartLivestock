@@ -94,7 +94,7 @@ def evaluate_rolling_origins(
     horizon = min(max(1, int(requested_horizon)), 12)
     # Reserve enough history to fit the models while allowing short datasets to
     # receive a shorter, clearly reported evaluation horizon.
-    min_train = min(24, max(8, observation_count - max(1, min(horizon, observation_count // 3))))
+    min_train = 8 if exact_horizon else min(24, max(8, observation_count - max(1, min(horizon, observation_count // 3))))
     if exact_horizon:
         if observation_count - horizon < min_train:
             return {"horizon": horizon, "windows": 0, "requested_windows": 0,

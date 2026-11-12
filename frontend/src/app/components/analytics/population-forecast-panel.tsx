@@ -75,8 +75,8 @@ export function PopulationForecastPanel({horizon = 6}: {horizon?: number}) {
           </div>
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
             <span>Method: <strong className="font-mono text-emerald-800">{data?.model ?? "Awaiting history"}</strong></span>
-            <span aria-hidden>?</span><span>Unit: <strong className="text-slate-700">animals</strong></span>
-            <span aria-hidden>?</span><span>Interval: <strong className="text-slate-700">Monthly</strong></span>
+            <span aria-hidden>•</span><span>Unit: <strong className="text-slate-700">animals</strong></span>
+            <span aria-hidden>•</span><span>Interval: <strong className="text-slate-700">Monthly</strong></span>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 self-end sm:self-center">
@@ -117,7 +117,7 @@ export function PopulationForecastPanel({horizon = 6}: {horizon?: number}) {
             <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
               <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-800"><Users className="size-3.5" />Current registered population</p>
               <p className="mt-2 text-3xl font-bold tracking-tight text-emerald-950">{data.current_heads.toLocaleString()} <span className="text-sm font-medium text-emerald-800">heads</span></p>
-              <p className="mt-1 text-[11px] text-slate-500">Approved and active ? as of {data.as_of}</p>
+              <p className="mt-1 text-[11px] text-slate-500">Approved and active • as of {data.as_of}</p>
             </div>
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
               <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500"><CalendarDays className="size-3.5" />Recorded monthly history</p>
@@ -143,7 +143,7 @@ export function PopulationForecastPanel({horizon = 6}: {horizon?: number}) {
             <p className="text-[11px] text-slate-500">Estimates begin {data.as_of} and advance one month at a time.{data.training_through ? ` Completed history ends ${data.training_through}.` : ""} {data.history_note}</p>
             <details className="group rounded-xl border border-slate-200 bg-white">
               <summary className="flex cursor-pointer list-none items-center justify-between p-4 text-xs font-semibold text-slate-700">How the population changes each month<ChevronDown className="size-4 transition-transform group-open:rotate-180" /></summary>
-              <div className="overflow-x-auto border-t border-slate-100"><table className="w-full text-xs"><thead className="bg-slate-50"><tr className="text-left"><th className="p-3">Through</th><th className="p-3">Opening</th>{components.map(k => <th className="p-3" key={k}>{k === "births" || k === "registrations" ? "+ " : "? "}{labels[k]}</th>)}<th className="p-3">Closing heads</th></tr></thead><tbody>{data.forecast.map(row => <tr className="border-t border-slate-100" key={row.date}><td className="p-3">{row.date}</td><td className="p-3">{row.opening.toLocaleString()}</td>{components.map(k => <td className="p-3" key={k}>{row[k].toLocaleString()}</td>)}<td className="p-3 font-bold text-emerald-800">{row.heads.toLocaleString()}</td></tr>)}</tbody></table></div>
+              <div className="overflow-x-auto border-t border-slate-100"><table className="w-full text-xs"><thead className="bg-slate-50"><tr className="text-left"><th className="p-3">Through</th><th className="p-3">Opening</th>{components.map(k => <th className="p-3" key={k}>{k === "births" || k === "registrations" ? "+ " : "− "}{labels[k]}</th>)}<th className="p-3">Closing heads</th></tr></thead><tbody>{data.forecast.map(row => <tr className="border-t border-slate-100" key={row.date}><td className="p-3">{row.date}</td><td className="p-3">{row.opening.toLocaleString()}</td>{components.map(k => <td className="p-3" key={k}>{row[k].toLocaleString()}</td>)}<td className="p-3 font-bold text-emerald-800">{row.heads.toLocaleString()}</td></tr>)}</tbody></table></div>
             </details>
           </>}
 
@@ -166,7 +166,7 @@ export function PopulationForecastPanel({horizon = 6}: {horizon?: number}) {
           <details className="group rounded-xl border border-slate-200 bg-white">
             <summary className="flex cursor-pointer list-none items-center justify-between p-4 text-xs font-semibold text-slate-700"><span className="flex items-center gap-2"><Info className="size-4 text-slate-400" />Data and forecast details</span><ChevronDown className="size-4 transition-transform group-open:rotate-180" /></summary>
             <div className="space-y-3 border-t border-slate-100 p-4 text-xs leading-relaxed text-slate-500">
-              <p className="font-mono text-[11px] text-emerald-800">Current heads + registrations + births ? sales ? deaths ? other removals</p>
+              <p className="font-mono text-[11px] text-emerald-800">Current heads + registrations + births − sales − deaths − other removals</p>
               <p>{data.method_note}</p><p>Change tracking began {data.tracking_started_at}.</p>
               {data.evaluation.models.length > 0 && <p>Average error per monthly component: {data.evaluation.models.map(model => `${model.name}: ${model.component_mae_heads} heads`).join("; ")}. These measure component errors, not closing-population accuracy.</p>}
               {data.forecast_available && <p>{data.evaluation.status === "USER_ASSUMPTIONS" ? "The scenario uses your assumptions." : data.evaluation.status === "BACKTESTED" ? `Compared over ${data.evaluation.valid_origins} historical forecast windows.` : "The estimate has not yet been validated against enough historical windows."}</p>}

@@ -670,11 +670,24 @@ export function FuturisticPredictiveDashboard({ selectedDomainProp }: { selected
             <Button
               variant="outline"
               size="sm"
-              onClick={() => void refetch()}
-              disabled={isFetching}
+              onClick={() => {
+                if (populationDomain || populationSelected) {
+                  void populationQuery.refetch();
+                }
+                if (!populationDomain) {
+                  void refetch();
+                }
+              }}
+              disabled={isFetching || ((populationDomain || populationSelected) && populationQuery.isFetching)}
               className="border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 shadow-2xs cursor-pointer"
             >
-              <RefreshCw className={`size-3.5 mr-1.5 ${isFetching ? "animate-spin text-emerald-600" : "text-slate-500"}`} />
+              <RefreshCw
+                className={`size-3.5 mr-1.5 ${
+                  isFetching || ((populationDomain || populationSelected) && populationQuery.isFetching)
+                    ? "animate-spin text-emerald-600"
+                    : "text-slate-500"
+                }`}
+              />
               Refresh
             </Button>
           </div>
@@ -684,17 +697,60 @@ export function FuturisticPredictiveDashboard({ selectedDomainProp }: { selected
       {/* ----------------------------------------------------------------- */}
       {/* B. FORECAST TARGET SELECTOR (Light Emerald Segmented Cards)       */}
       {/* ----------------------------------------------------------------- */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" onClickCapture={(event) => { if (!(event.target as HTMLElement).closest("[data-population-card]")) setPopulationSelected(false); }}>
-        {(!selectedDomainProp || populationDomain) && (user?.role === "MAO" || user?.role === "ADMIN") && <button type="button" data-population-card aria-pressed={populationSelected} onClick={() => setPopulationSelected(true)} className={`rounded-2xl border p-4 text-left transition-colors ${populationSelected ? "border-2 border-emerald-600 bg-emerald-50" : "border-slate-200 bg-white hover:bg-slate-50"}`}>
-          <div className="mb-4 flex justify-between gap-3"><span className="rounded-xl bg-emerald-50 p-2 text-emerald-700"><TrendingUp className="size-5" /></span><span className="text-xs text-slate-500">{populationQuery.isError ? "Could not load" : populationQuery.isPending ? "Loading?" : populationQuery.data?.forecast_available ? "Balance estimate available" : "Current count available"}</span></div>
-          <p className="text-xs uppercase tracking-wide text-slate-500">Population ? Registered records</p><p className="mt-1 font-bold">Active Registered Livestock Population</p>
-          <p className="mt-2 text-sm text-emerald-800">{populationQuery.data ? `${populationQuery.data.current_heads.toLocaleString()} active heads` : "Approved, active individual animals"}</p><p className="mt-2 text-xs text-slate-500">Registrations + births ? sales ? deaths ? other removals</p>
-        </button>}
-        {isPending
-          ? Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-24 rounded-2xl bg-white border border-slate-200" />
-            ))
-          : displaySummaryCards.map((card) => {
+      {!populationDomain && (
+        <div
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
+          onClickCapture={(event) => {
+            if (!(event.target as HTMLElement).closest("[data-population-card]")) {
+              setPopulationSelected(false);
+            }
+          }}
+        >
+          {!selectedDomainProp && (user?.role === "MAO" || user?.role === "ADMIN") && (
+            <button
+              type="button"
+              data-population-card
+              aria-pressed={populationSelected}
+              onClick={() => setPopulationSelected(true)}
+              className={`rounded-2xl border p-4 text-left transition-colors ${
+                populationSelected
+                  ? "border-2 border-emerald-600 bg-emerald-50"
+                  : "border-slate-200 bg-white hover:bg-slate-50"
+              }`}
+            >
+              <div className="mb-4 flex justify-between gap-3">
+                <span className="rounded-xl bg-emerald-50 p-2 text-emerald-700">
+                  <TrendingUp className="size-5" />
+                </span>
+                <span className="text-xs text-slate-500">
+                  {populationQuery.isError
+                    ? "Could not load"
+                    : populationQuery.isPending
+                    ? "Loading..."
+                    : populationQuery.data?.forecast_available
+                    ? "Balance estimate available"
+                    : "Current count available"}
+                </span>
+              </div>
+              <p className="text-xs uppercase tracking-wide text-slate-500">
+                Population • Registered records
+              </p>
+              <p className="mt-1 font-bold">Active Registered Livestock Population</p>
+              <p className="mt-2 text-sm text-emerald-800">
+                {populationQuery.data
+                  ? `${populationQuery.data.current_heads.toLocaleString()} active heads`
+                  : "Approved, active individual animals"}
+              </p>
+              <p className="mt-2 text-xs text-slate-500">
+                Registrations + births − sales − deaths − other removals
+              </p>
+            </button>
+          )}
+          {isPending
+            ? Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-24 rounded-2xl bg-white border border-slate-200" />
+              ))
+            : displaySummaryCards.map((card) => {
               if (card.id === "registered_cattle_price" && externalCattlePriceCard) {
                 const selectedPriceCard = activeTargetId === "external_cattle_price"
                   ? externalCattlePriceCard
@@ -868,7 +924,8 @@ export function FuturisticPredictiveDashboard({ selectedDomainProp }: { selected
                 </button>
               );
             })}
-      </div>
+        </div>
+      )}
 
       {populationSelected && <PopulationForecastPanel horizon={horizonMonths} />}
       <div className={populationSelected ? "hidden" : "space-y-6"}>
