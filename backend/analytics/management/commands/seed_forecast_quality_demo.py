@@ -663,11 +663,11 @@ class Command(BaseCommand):
         """
         if species_code == "CAR":
             breeds = ("Philippine Carabao (Native)", "Murrah Buffalo", "Bulgarian Murrah", "Crossbred Dairy Carabao")
-            combinations = ((24, 350), (36, 450), (36, 550), (84, 700))
+            combinations = ((18, 250), (24, 350), (36, 450), (36, 550), (84, 700))
         else:
             breeds = ("Brahman", "Holstein-Friesian", "Jersey", "Black Angus", "Simmental",
                       "Philippine Native (Batangas)", "Crossbred Dairy")
-            combinations = ((24, 300), (36, 400), (36, 550), (84, 700))
+            combinations = ((18, 250), (24, 300), (36, 400), (36, 550), (84, 700))
         current_week = timezone.localdate() - timedelta(days=timezone.localdate().weekday())
         first_week = current_week - timedelta(weeks=weeks)
         price_rng = Random(19 if species_code == "CAR" else 9)

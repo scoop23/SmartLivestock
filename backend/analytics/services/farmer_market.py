@@ -97,10 +97,10 @@ def market_prices(*, breed="ALL", weight_band="ALL", data_mode="AUTO", include_f
     demo_available = qs.filter(synthetic).exists()
     requested_mode = data_mode
     if data_mode == "AUTO":
-        # Match the existing cattle-price tool: samples can fill an empty local
-        # development source only. One real sale takes precedence, even if too
-        # sparse to publish. Production never automatically displays samples.
-        data_mode = "DEMO" if settings.DEBUG and demo_available and not qs.exclude(synthetic).exists() else "REAL"
+        # Automatic mode uses real sales if enough priced sales exist to publish an average;
+        # otherwise falls back to demonstration data if available.
+        real_has_enough = qs.exclude(synthetic).filter(purchase_price__gt=0).count() >= MIN_SALES
+        data_mode = "REAL" if real_has_enough else ("DEMO" if demo_available else "REAL")
     qs = qs.filter(synthetic) if data_mode == "DEMO" else qs.exclude(synthetic)
     breed_counts = defaultdict(int)
     buckets = defaultdict(lambda: {"prices": [], "weighted_sales": [], "missing": 0, "available": None})
