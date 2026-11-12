@@ -126,6 +126,37 @@ class Command(BaseCommand):
         except Exception as e:
             self.stdout.write(self.style.WARNING(f"  -> Could not precompute prescriptive: {e}"))
 
+        self.stdout.write("Evaluating default cattle profile price forecasts...")
+        try:
+            from analytics.services.cattle_price import estimate_price
+            for src in ("REGISTERED", "EXTERNAL"):
+                prof_payload = {
+                    "source": src,
+                    "species": "Cattle",
+                    "sex": "MALE",
+                    "breed": "Brahman",
+                    "age_min_months": 24,
+                    "age_max_months": 47,
+                    "weight_min_kg": 350.0,
+                    "weight_max_kg": 499.99,
+                    "horizon_weeks": 6,
+                    "data_mode": "AUTO",
+                }
+                prof_res = estimate_price(staff_user, prof_payload)
+                sanitized_prof = json.loads(json.dumps(prof_res, cls=DjangoJSONEncoder))
+                ForecastReadinessReport.objects.update_or_create(
+                    horizon_months=0,
+                    category=f"profile_price:{src.lower()}:default",
+                    defaults={"payload": sanitized_prof},
+                )
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f"  -> Successfully precomputed default profile price for {src} Cattle ({prof_res.get('status')})!"
+                    )
+                )
+        except Exception as e:
+            self.stdout.write(self.style.WARNING(f"  -> Could not precompute default profile price: {e}"))
+
         self.stdout.write(
             self.style.SUCCESS("All requested forecast diagnostics have been precomputed successfully!")
         )

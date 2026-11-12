@@ -1290,7 +1290,30 @@ def cattle_profile_price(request):
             return attrs
     payload = ProfileSerializer(data=request.data)
     payload.is_valid(raise_exception=True)
-    return Response(estimate_price(request.user, payload.validated_data))
+    data = payload.validated_data
+
+    # Check if a precomputed default profile snapshot exists for instant load
+    source = data.get("source", "REGISTERED").lower()
+    is_default = (
+        data.get("species", "").lower() == "cattle"
+        and data.get("sex") == "MALE"
+        and data.get("breed", "").strip().lower() == "brahman"
+        and data.get("age_min_months") == 24
+        and data.get("age_max_months") == 47
+        and float(data.get("weight_min_kg", 0)) == 350.0
+        and abs(float(data.get("weight_max_kg", 0)) - 499.99) < 0.01
+        and data.get("horizon_weeks") == 6
+        and data.get("data_mode") == "AUTO"
+    )
+    if is_default:
+        from .models import ForecastReadinessReport
+        report = ForecastReadinessReport.objects.filter(
+            category=f"profile_price:{source}:default"
+        ).order_by("-computed_at").first()
+        if report and report.payload:
+            return Response(report.payload)
+
+    return Response(estimate_price(request.user, data))
 
 
 @api_view(["GET"])
