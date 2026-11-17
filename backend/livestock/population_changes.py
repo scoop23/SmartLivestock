@@ -5,7 +5,8 @@ def snapshot(animal):
     if animal is None:
         return None
     return {
-        "counted": animal.entry_type == "INDIVIDUAL" and animal.quantity == 1
+        "counted": animal.inventory_scope == "LOCAL"
+        and animal.entry_type == "INDIVIDUAL" and animal.quantity == 1
         and animal.status == "APPROVED" and animal.operational_status == "ACTIVE",
         "barangay_id": animal.farmer.barangay_id,
         "livestock_type_id": animal.livestock_type_id,

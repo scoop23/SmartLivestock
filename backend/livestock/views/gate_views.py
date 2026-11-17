@@ -1,5 +1,6 @@
 from django.db import IntegrityError, transaction
-from django.db.models import Q
+from django.db.models import Count, Q
+from datetime import datetime, time, timedelta
 from django.utils import timezone
 from rest_framework import serializers, status
 from rest_framework.decorators import api_view, permission_classes
@@ -34,6 +35,7 @@ def get_or_create_outside_farmer():
             "address": "Outside Padre Garcia / External Auction Sellers",
             "farm_size": 0,
             "rsbsa_number": "EXTERNAL-NON-RESIDENT",
+            "is_external": True,
         },
     )
     return farmer
@@ -41,7 +43,7 @@ def get_or_create_outside_farmer():
 
 class GateRegistrationSerializer(serializers.Serializer):
     is_outside_farmer = serializers.BooleanField(required=False, default=False)
-    farmer = serializers.PrimaryKeyRelatedField(queryset=Farmer.objects.all(), required=False, allow_null=True)
+    farmer = serializers.PrimaryKeyRelatedField(queryset=Farmer.objects.filter(is_external=False), required=False, allow_null=True)
     external_farmer_name = serializers.CharField(max_length=255, required=False, allow_blank=True, default="")
     external_farmer_address = serializers.CharField(max_length=255, required=False, allow_blank=True, default="")
     livestock_type = serializers.PrimaryKeyRelatedField(queryset=LivestockType.objects.all())
@@ -107,6 +109,8 @@ class GateRegistrationSerializer(serializers.Serializer):
             quantity=1,
             status=LivestockInventory.StatusType.APPROVED,
             operational_status=LivestockInventory.OperationalStatus.ACTIVE,
+            inventory_scope=(LivestockInventory.InventoryScope.EXTERNAL if is_outside
+                             else LivestockInventory.InventoryScope.LOCAL),
             certificate_verification=cert_verification,
             review_remarks=review_remarks,
             created_by=request.user,
@@ -132,6 +136,7 @@ def gate_registration_list_create(request):
         if len(search) < 2:
             return Response([])
         farmers = Farmer.objects.select_related("user", "barangay").filter(
+            is_external=False,
             user__account_status=User.AccountStatus.APPROVED,
             user__role__role_name="FARMER",
         ).filter(
@@ -237,6 +242,23 @@ def gate_verification_list_create(request):
     if role_name(request.user) != AUCTION:
         raise PermissionDenied("Only Auction Office staff can verify gate entries.")
     if request.method == "GET":
+        if request.query_params.get("summary") == "true":
+            class DateRange(serializers.Serializer):
+                start = serializers.DateField()
+                end = serializers.DateField()
+            dates = DateRange(data=request.query_params)
+            dates.is_valid(raise_exception=True)
+            start, end = dates.validated_data["start"], dates.validated_data["end"]
+            if start > end:
+                raise serializers.ValidationError({"end": "End date must be on or after start date."})
+            rows = LivestockGateVerification.objects.filter(
+                verified_at__gte=timezone.make_aware(datetime.combine(start, time.min)),
+                verified_at__lt=timezone.make_aware(datetime.combine(end + timedelta(days=1), time.min)),
+            ).aggregate(
+                local=Count("livestock_id", distinct=True, filter=Q(livestock__inventory_scope="LOCAL")),
+                outside=Count("livestock_id", distinct=True, filter=Q(livestock__inventory_scope="EXTERNAL")),
+            )
+            return Response({**rows, "total": rows["local"] + rows["outside"]})
         session_param = request.query_params.get("session")
         qs = LivestockGateVerification.objects.select_related(
             "livestock__farmer__user", "livestock__livestock_type"
@@ -263,7 +285,7 @@ def gate_verification_list_create(request):
             "tag": row.livestock.tag_number or str(row.livestock_id),
             "species": row.livestock.livestock_type.name,
             "owner": _get_owner_name(row),
-            "is_outside": bool((getattr(row.livestock, "certificate_verification", {}) or {}).get("is_outside_farmer")),
+            "is_outside": row.livestock.inventory_scope == LivestockInventory.InventoryScope.EXTERNAL,
             "origin": (getattr(row.livestock, "certificate_verification", {}) or {}).get("origin", ""),
             "certificate": row.certificate_number_checked or "Not recorded",
             "sex": row.livestock.sex or "Unspecified",
@@ -296,5 +318,7 @@ def gate_verification_list_create(request):
         "tag": animal.tag_number or str(animal.pk),
         "species": animal.livestock_type.name,
         "owner": animal.farmer.user.get_full_name().strip() or animal.farmer.user.username,
+        "is_outside": animal.inventory_scope == LivestockInventory.InventoryScope.EXTERNAL,
+        "origin": (animal.certificate_verification or {}).get("origin", ""),
         "certificate": record.certificate_number_checked or "Not recorded",
     }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)

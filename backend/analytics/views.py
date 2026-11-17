@@ -477,6 +477,7 @@ def barangay_current_farmers(request, barangay_id):
     barangay = get_object_or_404(Barangay, pk=barangay_id)
     registered_farmers = list(
         Farmer.objects.filter(
+            is_external=False,
             barangay_id=barangay.pk,
             user__role__role_name="FARMER",
             user__account_status="APPROVED",

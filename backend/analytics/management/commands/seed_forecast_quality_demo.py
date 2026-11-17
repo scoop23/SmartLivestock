@@ -17,6 +17,7 @@ from decimal import Decimal
 from hashlib import sha256
 from math import sin, pi
 from random import Random
+from uuid import uuid5, NAMESPACE_URL
 
 from django.core.management.base import BaseCommand, CommandError
 from django.core.management import call_command
@@ -33,7 +34,7 @@ from analytics.seed_markers import (
     SEED_MARKER_PRODUCTION_V2,
     SEED_MARKER_SLAUGHTER,
 )
-from livestock.models import Farmer, LivestockInventory, LivestockOwnershipTransfer, LivestockType
+from livestock.models import Farmer, LivestockGateVerification, LivestockInventory, LivestockOwnershipTransfer, LivestockType
 from production.models import AnimalDisposition, ProductionRecord, SlaughterRecord
 from smartlivestock.seed_tags import next_seed_colc_number, next_seed_livestock_tag
 from smartlivestock.seed_safety import assert_safe_seed_database
@@ -145,6 +146,7 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--scenario", choices=("ideal", "poor"), required=True)
+        parser.add_argument("--gate-only", action="store_true", help="Backfill historical gate checks for existing owned sales without reseeding forecasts.")
         parser.add_argument("--clean", action="store_true", help="Remove only the selected scenario's owned records.")
         parser.add_argument("--dry-run", action="store_true", help="Preview cleanup counts without changing records; requires --clean.")
         parser.add_argument("--carabao-only", action="store_true", help="Append only marked carabao price-profile sales to the selected scenario; preserves existing cattle records.")
@@ -172,6 +174,13 @@ class Command(BaseCommand):
         if options["prices_only"]:
             marker = SEED_MARKER_CATTLE_PRICE_DEMO
         assert_safe_seed_database(clean=options["clean"], dry_run=options["dry_run"])
+
+        if options["gate_only"]:
+            if options["clean"] or options["carabao_only"] or options["prices_only"] or options["dry_run"]:
+                raise CommandError("Use --gate-only with --scenario alone.")
+            with transaction.atomic():
+                self._seed_gate_history(marker)
+            return
 
         if options["clean"]:
             self._clean(marker, dry_run=options["dry_run"])
@@ -229,6 +238,7 @@ class Command(BaseCommand):
         if isinstance(farmer_emails, str):
             farmer_emails = [farmer_emails]
         farmer_queryset = Farmer.objects.select_related("user").filter(
+            is_external=False,
             user__role__role_name="FARMER",
         )
         if farmer_emails:
@@ -291,6 +301,8 @@ class Command(BaseCommand):
                     mao_email=mao_user.email,
                     stdout=self.stdout,
                 )
+        with transaction.atomic():
+            self._seed_gate_history(marker)
         self.stdout.write(self.style.SUCCESS(
             f"Seeded the synthetic '{scenario}' forecast-quality scenario: "
             f"{created['farmer_meat']} farmer meat events, "
@@ -360,7 +372,15 @@ class Command(BaseCommand):
             synthetic_animals = LivestockInventory.objects.filter(animal_filter)
             removable_animals = synthetic_animals.filter(treatment_records__isnull=True)
             retained_animals = synthetic_animals.filter(treatment_records__isnull=False).distinct().count()
+            owned_gate_sessions = [uuid5(NAMESPACE_URL, f"{owned_marker}:gate:{day}")
+                for owned_marker in markers
+                for day in LivestockOwnershipTransfer.objects.filter(
+                    review_remarks__contains=owned_marker,
+                ).values_list("transfer_date", flat=True).distinct()]
             groups = {
+                "gate_verifications": LivestockGateVerification.objects.filter(
+                    livestock__in=synthetic_animals, gate_session_id__in=owned_gate_sessions,
+                ),
                 "dispositions": AnimalDisposition.objects.filter(production_filter),
                 "production": ProductionRecord.objects.filter(production_filter),
                 "slaughter": SlaughterRecord.objects.filter(review_filter),
@@ -406,6 +426,68 @@ class Command(BaseCommand):
             f"{action} only forecast demo rows owned by {', '.join(markers)}: {totals}. "
             "The reused Farmer, their account, and unrelated livestock or transfer records are preserved."
         ))
+
+    def _seed_gate_history(self, marker):
+        """Bulk backfill synthetic arrivals before the owned sale timestamps."""
+        from livestock.views.gate_views import get_or_create_outside_farmer
+        transfers = list(LivestockOwnershipTransfer.objects.filter(
+            review_remarks__contains=marker,
+        ).select_related("livestock", "created_by").order_by("pk"))
+        if not transfers:
+            self.stdout.write("No owned sales found for historical gate checks.")
+            return
+        existing = set(LivestockGateVerification.objects.filter(
+            livestock__review_remarks__contains=marker,
+        ).values_list("livestock_id", flat=True))
+        external = {a.certificate_verification.get("seed_transfer_id"): a
+                    for a in LivestockInventory.objects.filter(
+                        inventory_scope="EXTERNAL", review_remarks__contains=marker,
+                    )}
+        species = {s.name.casefold(): s for s in LivestockType.objects.all()}
+        outside_farmer = None
+        new_animals = []
+        pairs = []
+        for sale in transfers:
+            animal = sale.livestock
+            if animal is None:
+                animal = external.get(sale.pk)
+                if animal is None:
+                    kind = species.get(sale.external_livestock_type.casefold())
+                    if kind is None:
+                        continue
+                    outside_farmer = outside_farmer or get_or_create_outside_farmer()
+                    animal = LivestockInventory(
+                        farmer=outside_farmer, livestock_type=kind,
+                        inventory_scope="EXTERNAL", status="APPROVED",
+                        operational_status="SOLD" if sale.status == "APPROVED" else "ACTIVE", quantity=1,
+                        operational_status_changed_at=sale.reviewed_at,
+                        tag_number=sale.external_livestock_tag_number,
+                        certificate_verification={"is_outside_farmer": True,
+                            "external_farmer_name": sale.external_seller_name,
+                            "origin": sale.external_seller_address, "seed_transfer_id": sale.pk},
+                        review_remarks=f"{marker} Synthetic historical auction gate identity.",
+                        created_by=sale.created_by,
+                    )
+                    animal._demo_created_at = aware_at(sale.transfer_date, 6)
+                    new_animals.append(animal)
+            if animal.pk not in existing:
+                pairs.append((sale, animal))
+        self._create_rows(LivestockInventory, new_animals)
+        checks = []
+        for sale, animal in pairs:
+            check = LivestockGateVerification(
+                livestock=animal,
+                gate_session_id=uuid5(NAMESPACE_URL, f"{marker}:gate:{sale.transfer_date}"),
+                certificate_number_checked=sale.original_certificate_number,
+                verified_by=sale.created_by,
+            )
+            check._historical_verified_at = aware_at(sale.transfer_date, 7)
+            checks.append(check)
+        LivestockGateVerification.objects.bulk_create(checks, batch_size=1000)
+        for check in checks:
+            check.verified_at = check._historical_verified_at
+        LivestockGateVerification.objects.bulk_update(checks, ["verified_at"], batch_size=1000)
+        self.stdout.write(self.style.SUCCESS(f"Added {len(checks)} synthetic historical gate verifications (bulk inserts); {len(new_animals)} external identities."))
 
     @staticmethod
     def _create_rows(model, rows):

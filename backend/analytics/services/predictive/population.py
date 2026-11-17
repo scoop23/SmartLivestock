@@ -6,7 +6,7 @@ from django.db import transaction
 from django.db.models import Sum
 from django.utils import timezone
 from analytics.services.population import official_inventory
-from livestock.models import Barangay, LivestockType, PopulationTracking, RegisteredPopulationChange
+from livestock.models import Barangay, LivestockInventory, LivestockType, PopulationTracking, RegisteredPopulationChange
 from smartlivestock.workflows import scope_reviewer_queryset
 
 KINDS = ("registrations", "births", "sales", "deaths", "removals")
@@ -24,7 +24,14 @@ def population_forecast(*, user, barangay_id=None, species_id=None, horizon=6, *
     barangays = list(scope_reviewer_queryset(Barangay.objects.all(), user).order_by("barangay_name"))
     ids = [b.pk for b in barangays if barangay_id is None or b.pk == barangay_id]
     inventory = official_inventory(user).filter(farmer__barangay_id__in=ids)
-    events = RegisteredPopulationChange.objects.filter(barangay_id__in=ids, recorded_at__lte=timezone.now())
+    # Preserve legacy events for audit, but do not reconstruct local population
+    # from animals that were actually external auction arrivals.
+    external_animals = LivestockInventory.objects.filter(
+        inventory_scope=LivestockInventory.InventoryScope.EXTERNAL,
+    ).values("pk")
+    events = RegisteredPopulationChange.objects.filter(
+        barangay_id__in=ids, recorded_at__lte=timezone.now(),
+    ).exclude(animal_id_reference__in=external_animals)
     if species_id is not None:
         inventory = inventory.filter(livestock_type_id=species_id)
         events = events.filter(livestock_type_id=species_id)

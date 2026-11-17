@@ -9,6 +9,7 @@ from smartlivestock.workflows import scope_reviewer_queryset
 
 def official_inventory(user=None, as_of_date=None):
     qs = scope_reviewer_queryset(LivestockInventory.objects.all(), user).filter(
+        inventory_scope=LivestockInventory.InventoryScope.LOCAL,
         entry_type=LivestockInventory.EntryType.INDIVIDUAL,
         status="APPROVED", quantity__gt=0)
     if as_of_date:
@@ -36,6 +37,7 @@ def population_summary(*, user=None, today=None):
     ))).order_by("farmer__barangay_id", "livestock_type_id"))
 
     farmers = dict(scope_reviewer_queryset(Farmer.objects.all(), user).filter(
+        is_external=False,
         user__role__role_name="FARMER", user__account_status="APPROVED"
     ).values("barangay_id").annotate(count=Count("pk")).values_list("barangay_id", "count"))
     herds = dict(scope_reviewer_queryset(LivestockBatch.objects.all(), user).filter(
@@ -58,6 +60,7 @@ def population_summary(*, user=None, today=None):
     # This section reports individual-animal workflow counts. Aggregate legacy
     # BATCH rows are still preserved, but are not additional animals or reviews.
     inventory = scope_reviewer_queryset(LivestockInventory.objects.all(), user).filter(
+        inventory_scope=LivestockInventory.InventoryScope.LOCAL,
         entry_type=LivestockInventory.EntryType.INDIVIDUAL,
     )
     operational = inventory.aggregate(

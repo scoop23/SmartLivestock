@@ -146,7 +146,7 @@ def inventory_list_create(request):
         "herd_membership_history__acted_by",
     ).only(
         "id", "tag_number", "ownership_certificate_number", "breed", "sex", "birth_date", "weight", "entry_type", "quantity",
-        "is_post_approval_addition",
+        "is_post_approval_addition", "inventory_scope",
         "last_vaccination_date", "status", "operational_status", "operational_status_changed_at",
         "review_remarks", "reviewed_at", "created_at", "photo", "avatar_key",
         "certificate_verification", "certificate_photo", "purchase_transfer_id",

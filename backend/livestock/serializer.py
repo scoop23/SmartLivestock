@@ -287,6 +287,7 @@ class LivestockInventorySerializer(serializers.Serializer):
     )
     purchase_transfer_id = serializers.IntegerField(required=False, write_only=True, min_value=1)
     certificate_verification = serializers.JSONField(read_only=True)
+    inventory_scope = serializers.CharField(read_only=True)
     certificate_photo = LivestockPhotoField(required=False, allow_null=True)
     purchase_transfer = serializers.IntegerField(source="purchase_transfer_id", read_only=True, allow_null=True)
     breed = serializers.CharField(max_length=50, required=False, allow_blank=True, default="")

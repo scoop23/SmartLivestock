@@ -494,7 +494,7 @@ def get_gis_aggregated_data(user=None, report_as_of=None) -> Dict[str, Any]:
 
     # 5. Count registered farmers & active herds per barangay
     farmers_by_b = (
-        scope_reviewer_queryset(Farmer.objects.all(), user)
+        scope_reviewer_queryset(Farmer.objects.filter(is_external=False), user)
         .values("barangay_id")
         .annotate(cnt=Count("id"))
     )

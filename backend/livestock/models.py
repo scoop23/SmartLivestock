@@ -21,6 +21,7 @@ class Barangay(models.Model):
 
 
 class Farmer(models.Model):
+    is_external = models.BooleanField(default=False)
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -148,6 +149,14 @@ class LivestockBatchPhoto(models.Model):
 # which then gets stored into LivestockInventory.
 # If part of a herd/group, batch points to LivestockBatch.
 class LivestockInventory(models.Model):
+    class InventoryScope(models.TextChoices):
+        LOCAL = "LOCAL", "Local livestock"
+        EXTERNAL = "EXTERNAL", "Outside auction livestock"
+
+    inventory_scope = models.CharField(
+        max_length=10, choices=InventoryScope.choices, default=InventoryScope.LOCAL,
+    )
+
     class EntryType(models.TextChoices):
         INDIVIDUAL = "INDIVIDUAL", "Individual"
         BATCH = "BATCH", "Batch"
@@ -362,7 +371,7 @@ class LivestockGateVerification(models.Model):
     gate_session_id = models.UUIDField()
     certificate_number_checked = models.CharField(max_length=100, blank=True, default="")
     verified_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="livestock_gate_verifications")
-    verified_at = models.DateTimeField(auto_now_add=True)
+    verified_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:
         ordering = ["verified_at", "pk"]
