@@ -30,11 +30,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import api from "@/lib/axios";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
   Check,
   CheckCircle2,
+  ChevronDown,
   Clock,
   FileCheck,
   FileText,
@@ -56,6 +57,7 @@ import {
   RegisteredLivestockLookup,
 } from "../auction-inspections/auction-analytics";
 import { MovementLivestockQrDialog } from "../auction-inspections/movement-livestock-qr-dialog";
+import arrivalsStyles from "./arrivals.module.css";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -116,6 +118,25 @@ export default function AuctionGatePage() {
 
   // Session & Livestock Data
   const [records, setRecords] = useState<GateRecordItem[]>([]);
+  const [arrivalsExpanded, setArrivalsExpanded] = useState(true);
+  const today = new Date().toLocaleDateString("en-CA");
+  const [startDate, setStartDate] = useState(today);
+  const [endDate, setEndDate] = useState(today);
+  const [summaryVersion, setSummaryVersion] = useState(0);
+  const { data: summary = { local: 0, outside: 0, total: 0 }, isPending: summaryLoading, isError: summaryError } = useQuery({
+    queryKey: ["auction-gate-summary", startDate, endDate, summaryVersion],
+    queryFn: async () => {
+      const { data } = await api.get<{ local: number; outside: number; total: number }>("livestock/gate-verifications/", {
+        params: { summary: "true", start: startDate, end: endDate },
+      });
+      return data;
+    },
+  });
+  const outsideCount = summary.outside;
+  const localCount = summary.local;
+  const localPercentage = summary.total ? (localCount / summary.total) * 100 : 0;
+  const outsidePercentage = summary.total ? 100 - localPercentage : 0;
+
 
   // Form States for "Record Gate Certificate"
   const [types, setTypes] = useState<TypeOption[]>([
@@ -243,7 +264,7 @@ export default function AuctionGatePage() {
     if (!session) return "The gate session is still loading. Try again.";
 
     try {
-      await api.post("livestock/gate-verifications/", {
+      const verification = await api.post<{ is_outside: boolean; origin: string }>("livestock/gate-verifications/", {
         livestock: animal.id,
         gate_session_id: session,
         certificate_number_checked: animal.ownership_certificate_number,
@@ -262,6 +283,8 @@ export default function AuctionGatePage() {
         id: animal.id,
         certificateNo: animal.ownership_certificate_number || `PG-2026-${String(animal.id).padStart(4, "0")}`,
         farmerName: animal.owner_name || "Registered Farmer",
+        isOutside: verification.data.is_outside,
+        origin: verification.data.origin,
         livestockType: animal.livestock_type_name || "Cattle",
         tagNo: animal.tag_number || String(animal.id),
         sex: animal.sex || "Male",
@@ -270,8 +293,9 @@ export default function AuctionGatePage() {
         status: "Cleared",
       };
 
-      setRecords((prev) => [newRecord, ...prev]);
+      setRecords((prev) => [newRecord, ...prev.filter((record) => record.id !== newRecord.id)]);
       toast.success(`Animal tag #${animal.tag_number || animal.id} verified and recorded at gate!`);
+      setSummaryVersion((version) => version + 1);
     } catch {
       return "The gate scan could not be saved. Recheck the paper certificate and try again.";
     }
@@ -399,7 +423,8 @@ export default function AuctionGatePage() {
         status: "Cleared",
       };
 
-      setRecords((prev) => [newRecord, ...prev]);
+      setRecords((prev) => [newRecord, ...prev.filter((record) => record.id !== newRecord.id)]);
+      setSummaryVersion((version) => version + 1);
 
       // Reset form
       setCertificateInput("");
@@ -443,6 +468,95 @@ export default function AuctionGatePage() {
 
       {/* ── Main Workspace ── */}
       <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6 pb-16 sm:pb-8">
+
+        <Card className={`${arrivalsStyles.panel} overflow-hidden rounded-3xl border-emerald-100 bg-white p-0 shadow-sm`}>
+          <CardContent className="p-0">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-emerald-100/70 bg-gradient-to-r from-emerald-50 via-white to-amber-50/50 px-5 py-5 sm:px-7">
+              <div className="flex items-center gap-3">
+                <div className="flex size-11 items-center justify-center rounded-2xl border border-emerald-200 bg-white text-emerald-700 shadow-sm"><Truck className="size-5" /></div>
+                <div>
+                  <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-700">Market arrivals</p>
+                  <h3 className="text-lg font-bold tracking-tight text-slate-900 sm:text-xl">Local &amp; Outside Arrivals</h3>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="hidden rounded-full border border-slate-200 bg-white/90 px-3 py-1.5 text-xs font-medium text-slate-600 sm:inline-flex">All gate sessions</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="gap-2 rounded-xl text-emerald-800 hover:bg-white/80"
+                  aria-expanded={arrivalsExpanded}
+                  aria-controls="auction-arrivals-content"
+                  onClick={() => setArrivalsExpanded((expanded) => !expanded)}
+                >
+                  {arrivalsExpanded ? "Collapse" : "Expand"}
+                  <ChevronDown className={`size-4 motion-safe:transition-transform motion-safe:duration-300 ${arrivalsExpanded ? "rotate-180" : ""}`} />
+                </Button>
+              </div>
+            </div>
+            <div id="auction-arrivals-content" hidden={!arrivalsExpanded}>
+            {arrivalsExpanded && <div className={`${arrivalsStyles.panel} px-5 py-5 sm:px-7`}>
+            <div className="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
+              <p className="max-w-sm text-sm leading-relaxed text-slate-500">See where incoming animals come from. Each animal is counted once within your selected dates.</p>
+              <div className="flex flex-wrap items-end gap-2.5">
+                <div className="min-w-0 flex-1 space-y-1.5 sm:flex-none"><Label className="text-xs text-slate-500" htmlFor="gate-start">From</Label><Input className="h-10 rounded-xl border-slate-200 bg-slate-50/70 sm:w-40" id="gate-start" type="date" value={startDate} max={endDate} onChange={(event) => { if (event.target.value) setStartDate(event.target.value); }} /></div>
+                <div className="min-w-0 flex-1 space-y-1.5 sm:flex-none"><Label className="text-xs text-slate-500" htmlFor="gate-end">To</Label><Input className="h-10 rounded-xl border-slate-200 bg-slate-50/70 sm:w-40" id="gate-end" type="date" value={endDate} min={startDate} onChange={(event) => { if (event.target.value) setEndDate(event.target.value); }} /></div>
+                <div className="flex h-10 items-center gap-1 rounded-xl bg-slate-100 p-1">
+                  <Button size="sm" variant="ghost" aria-pressed={startDate === today && endDate === today} className={`h-8 rounded-lg px-3 text-xs transition-all ${startDate === today && endDate === today ? "bg-white text-emerald-800 shadow-sm" : "text-slate-500"}`} onClick={() => { setStartDate(today); setEndDate(today); }}>Today</Button>
+                  <Button size="sm" variant="ghost" className="h-8 rounded-lg px-3 text-xs text-slate-600 transition-all hover:bg-white hover:text-emerald-800" onClick={() => { const date = new Date(); date.setFullYear(date.getFullYear() - 2); setStartDate(date.toLocaleDateString("en-CA")); setEndDate(today); }}>Last 2 years</Button>
+                </div>
+              </div>
+            </div>
+            {summaryLoading ? (
+              <div className="mt-6 flex min-h-64 items-center justify-center gap-3 rounded-2xl bg-slate-50 text-sm text-slate-500" role="status"><RefreshCw className="size-4 motion-safe:animate-spin" />Loading arrivals...</div>
+            ) : summaryError ? (
+              <p className="py-8 text-sm text-rose-700" role="alert">Arrivals could not be loaded. Check the selected dates and refresh to try again.</p>
+            ) : summary.total === 0 ? (
+              <div className="mt-6 flex min-h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-5 text-center">
+                <div className="mb-3 flex size-12 items-center justify-center rounded-2xl bg-white text-emerald-600 shadow-sm"><Truck className="size-5" /></div>
+                <p className="font-semibold text-slate-800">No arrivals in this date range</p>
+                <p className="mt-1 max-w-sm text-sm text-slate-500">Choose earlier dates or select Last 2 years to explore historical gate arrivals.</p>
+              </div>
+            ) : (
+              <div key={`${startDate}-${endDate}-${summary.total}`} className="mt-6 grid items-center gap-6 lg:grid-cols-[minmax(240px,0.8fr)_1.2fr]">
+                <div
+                  role="img"
+                  aria-label={`Local ${localPercentage.toFixed(1)} percent, ${localCount} animals. Outside ${outsidePercentage.toFixed(1)} percent, ${outsideCount} animals.`}
+                  className="relative mx-auto flex size-64 items-center justify-center"
+                >
+                  <svg viewBox="0 0 120 120" className="absolute inset-0 size-full -rotate-90" aria-hidden="true">
+                    <circle cx="60" cy="60" r="49" fill="none" stroke="#f1f5f9" strokeWidth="12" />
+                    <circle className={arrivalsStyles.arc} cx="60" cy="60" r="49" pathLength="100" fill="none" stroke="#059669" strokeWidth="12" strokeDasharray={`${localPercentage} 100`} />
+                    <circle className={arrivalsStyles.arc} cx="60" cy="60" r="49" pathLength="100" fill="none" stroke="#f59e0b" strokeWidth="12" strokeDasharray={`${outsidePercentage} 100`} strokeDashoffset={-localPercentage} />
+                  </svg>
+                  <div className="flex flex-col items-center justify-center text-center">
+                    <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Total arrivals</span>
+                    <span className="mt-1 text-4xl font-bold tracking-tight text-slate-900 tabular-nums">{summary.total.toLocaleString()}</span>
+                    <span className="mt-1 text-xs text-slate-500">distinct animals</span>
+                  </div>
+                </div>
+                <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className={`${arrivalsStyles.stat} rounded-2xl border border-emerald-100 bg-emerald-50/60 p-5 transition duration-200 motion-safe:hover:-translate-y-1 hover:shadow-md`}>
+                    <div className="mb-5 flex items-center justify-between"><span className="size-2.5 rounded-full bg-emerald-500" /><UserCheck className="size-5 text-emerald-600" /></div>
+                    <p className="text-sm font-semibold text-emerald-800">Local · Padre Garcia</p>
+                    <p className="mt-2 text-4xl font-bold tracking-tight text-emerald-900 tabular-nums">{localPercentage.toFixed(1)}<span className="ml-0.5 text-xl text-emerald-600">%</span></p>
+                    <div className="my-4 h-1.5 overflow-hidden rounded-full bg-emerald-100"><div className={`${arrivalsStyles.bar} h-full rounded-full bg-emerald-500`} style={{ width: `${localPercentage}%` }} /></div>
+                    <p className="text-xs text-emerald-700"><strong>{localCount.toLocaleString()}</strong> animals from Padre Garcia</p>
+                  </div>
+                  <div className={`${arrivalsStyles.stat} rounded-2xl border border-amber-100 bg-amber-50/60 p-5 transition duration-200 motion-safe:hover:-translate-y-1 hover:shadow-md`}>
+                    <div className="mb-5 flex items-center justify-between"><span className="size-2.5 rounded-full bg-amber-500" /><Truck className="size-5 text-amber-600" /></div>
+                    <p className="text-sm font-semibold text-amber-800">Outside Padre Garcia</p>
+                    <p className="mt-2 text-4xl font-bold tracking-tight text-amber-900 tabular-nums">{outsidePercentage.toFixed(1)}<span className="ml-0.5 text-xl text-amber-600">%</span></p>
+                    <div className="my-4 h-1.5 overflow-hidden rounded-full bg-amber-100"><div className={`${arrivalsStyles.bar} h-full rounded-full bg-amber-500`} style={{ width: `${outsidePercentage}%` }} /></div>
+                    <p className="text-xs text-amber-700"><strong>{outsideCount.toLocaleString()}</strong> animals from other areas</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            </div>}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* ── TOP SECTION: 2-COLUMN WORKSPACE (Matching Mockup) ── */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
